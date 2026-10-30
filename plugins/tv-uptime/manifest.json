@@ -1,0 +1,11 @@
+{
+  "id": "tv-uptime",
+  "name": "TV uptime",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "author": "andrearicci93",
+  "description": "Shows how long the TV has been on. Reads /proc/uptime through the TV agent (needs the exec permission).",
+  "main": "index.js",
+  "ui": { "label": "Uptime" }
+}
