@@ -18,6 +18,10 @@ Plugins land switched off.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for what is checked before a plugin is merged.
 
+Source-only experiments use `"listed": false` in their manifest: the public build skips them, while
+Vetro's `vetro-plugin.cjs pack` can still make a local test bundle. `country-switch` currently uses this
+mode; its folder being present does not mean it is in the public catalog.
+
 ## Trust
 
 A plugin is code running on the TV with the same access as Vetro. Entries are read by a maintainer
