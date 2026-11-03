@@ -29,6 +29,8 @@ for (const id of fs.readdirSync(path.join(root, 'plugins')).sort()) {
     const dir = path.join(root, 'plugins', id);
     if (!fs.statSync(dir).isDirectory()) continue;
     const { manifest, text } = pack(dir);
+    // Source-only experiments can be packed locally without appearing in the public catalog.
+    if (manifest.listed === false) continue;
     if (manifest.id !== id || !ID.test(id)) throw new Error(id + ': manifest id must equal the folder name');
     if (manifest.apiVersion !== 1) throw new Error(id + ': apiVersion must be 1');
     const name = id + '-' + manifest.version + '.vplugin';

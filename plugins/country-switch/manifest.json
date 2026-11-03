@@ -3,6 +3,7 @@
   "name": "Country switch",
   "version": "0.1.0",
   "apiVersion": 1,
+  "listed": false,
   "permissions": ["exec"],
   "author": "andrearicci93",
   "description": "Changes the service country that Samsung TV Plus and the App Store use, without a VPN or a reset. Local only, no network.",
