@@ -1,21 +1,51 @@
 name: Check plugins
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches-ignore: [main, catalog]
+  workflow_call:
+permissions:
+  contents: read
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: 20, cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run check
+      - if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: refs/remotes/origin/${{ github.base_ref }}
+        run: node scripts/check-changes.cjs "$BASE_REF"
+  runtime:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['4.4.7', '12.4.0', '20']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No signing secret, write token, or real TV commands in these jobs.
+      - run: node scripts/test-runtime.cjs
   check:
+    if: always()
+    needs: [validate, runtime]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      # Manifest limits, README, banned calls, and dist/ + index.json up to date.
-      - run: node scripts/build.cjs --check
-      # A published bundle never changes: a new version gets a new file.
-      - if: github.event_name == 'pull_request'
-        run: |
-          changed=$(git diff --name-only --diff-filter=M "origin/${{ github.base_ref }}...HEAD" -- 'dist/*.vplugin')
-          if [ -n "$changed" ]; then
-            echo "These published bundles changed without a new version (bump \"version\" in the manifest and rebuild):"
-            echo "$changed"
-            exit 1
-          fi
+      - env:
+          VALIDATION: ${{ needs.validate.result }}
+          RUNTIME: ${{ needs.runtime.result }}
+        run: test "$VALIDATION" = success && test "$RUNTIME" = success

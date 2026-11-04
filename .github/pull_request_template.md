@@ -7,6 +7,7 @@
 
 ## Checklist
 
+- [ ] ES5 source and lifecycle smoke tests pass (`npm test`, `npm run test:runtime`)
 - [ ] `node scripts/build.cjs` run; `dist/` and `index.json` committed
 - [ ] README says what it runs (`exec`), where it connects and what it stores
 - [ ] `version` bumped if this changes an existing plugin

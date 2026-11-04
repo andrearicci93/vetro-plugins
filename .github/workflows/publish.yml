@@ -1,0 +1,60 @@
+name: Publish signed Shards
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: shards-publication
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/check.yml
+  publish:
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: shards-catalog
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: 20}
+      - name: Refuse stale runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+      - name: Sign catalog without executing plugin code
+        env:
+          SHARDS_SIGNING_KEY: ${{ secrets.SHARDS_SIGNING_KEY }}
+        run: node scripts/catalog.cjs sign . "$RUNNER_TEMP/signed-catalog"
+      - name: Publish verified files to catalog branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh auth setup-git
+          mkdir "$RUNNER_TEMP/catalog-publish"
+          cd "$RUNNER_TEMP/catalog-publish"
+          git init
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          git ls-remote --heads origin catalog > "$RUNNER_TEMP/catalog-ref"
+          if [ -s "$RUNNER_TEMP/catalog-ref" ]; then
+            git fetch --depth=1 origin catalog
+            git checkout -b catalog FETCH_HEAD
+          else
+            git checkout --orphan catalog
+          fi
+          rm -rf dist
+          cp -R "$RUNNER_TEMP/signed-catalog/". .
+          git add index.json catalog-public.pem dist
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Publish signed catalog from $GITHUB_SHA"
+          git push origin HEAD:refs/heads/catalog
