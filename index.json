@@ -5,15 +5,15 @@
     {
       "id": "tv-uptime",
       "name": "TV uptime",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "andrearicci93",
       "description": "Shows how long the TV has been on. Reads /proc/uptime through the TV agent (needs the exec permission).",
       "permissions": [
         "exec"
       ],
-      "url": "dist/tv-uptime-1.0.0.vplugin",
-      "sha256": "3109f1f3b9b810460f6614bfddffe0bb5f8f3fe8791755e294f6a43c3a0d5355",
-      "size": 2347
+      "url": "dist/tv-uptime-1.0.1.vplugin",
+      "sha256": "246cd51dc9281d63cf75b40803453417608c456fbd439c92daf36d36d54dcecf",
+      "size": 2885
     }
   ]
 }

@@ -5,6 +5,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
+      # Manifest limits, README, banned calls, and dist/ + index.json up to date.
       - run: node scripts/build.cjs --check
+      # A published bundle never changes: a new version gets a new file.
+      - if: github.event_name == 'pull_request'
+        run: |
+          changed=$(git diff --name-only --diff-filter=M "origin/${{ github.base_ref }}...HEAD" -- 'dist/*.vplugin')
+          if [ -n "$changed" ]; then
+            echo "These published bundles changed without a new version (bump \"version\" in the manifest and rebuild):"
+            echo "$changed"
+            exit 1
+          fi
