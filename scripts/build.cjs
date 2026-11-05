@@ -9,13 +9,13 @@
 // A `signature` that the list's maintainer added with `vetro-plugin.cjs sign` is kept for as long as the
 // entry's id, version and SHA-256 are unchanged; any other change drops it and the entry has to be signed again.
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
-const root = path.join(__dirname, '..');
-const check = process.argv.includes('--check');
+const acorn = require('acorn');
 
 // Limits of the TV's installer (Vetro 0.4.0, app/service/plugin-host.js: checkManifest, checkBundle).
 // Copied, not imported: CI does not have the Vetro repo. Re-read them when a new Vetro version changes the API.
 const ID = /^[a-z][a-z0-9-]{1,31}$/, RESERVED = ['install', 'resume', 'developer'];
 const PERMISSIONS = ['exec'];
+const BUNDLED = ['launcher'];
 const FILE = /^[A-Za-z0-9_-][A-Za-z0-9._-]*(\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
 const MAX_FILES = 20, MAX_BYTES = 512 * 1024;
 
@@ -28,6 +28,7 @@ function text(folder, rel) { return fs.readFileSync(path.join(folder, rel), 'utf
 function validate(id, m, files) {
     const e = [];
     if (!ID.test(id) || RESERVED.indexOf(id) >= 0) e.push('the folder name is not a valid id (2-32 chars, a-z 0-9 -, starts with a letter; not ' + RESERVED.join(', ') + ')');
+    if (BUNDLED.includes(id)) e.push(id + ' is bundled with Vetro and cannot be replaced');
     if (m.id !== id) e.push('manifest id "' + m.id + '" must equal the folder name');
     if (m.apiVersion !== 1) e.push('apiVersion must be 1');
     const str = (k, min, max, required) => {
@@ -53,17 +54,23 @@ function validate(id, m, files) {
 
     if (typeof files['README.md'] !== 'string') e.push('README.md is missing (start from template/README.md)');
     else if (perms.indexOf('exec') >= 0 && !/^#{1,6}\s+Commands\b/mi.test(files['README.md'])) e.push('asks for exec, so README.md needs a "Commands it runs" section listing every command and why');
-    names.filter(f => /\.(c|m)?js$/.test(f)).forEach(f => BANNED.forEach(b => { if (b[0].test(files[f])) e.push(f + ' uses ' + b[1] + ', which this list does not accept'); }));
+    names.filter(f => /\.(c|m)?js$/.test(f)).forEach(f => {
+        BANNED.forEach(b => { if (b[0].test(files[f])) e.push(f + ' uses ' + b[1] + ', which this list does not accept'); });
+        try { acorn.parse(files[f], {ecmaVersion: 5, allowReturnOutsideFunction: true}); }
+        catch (error) { e.push(f + ' is not ES5 compatible: ' + error.message); }
+    });
     return e;
 }
 
 function pack(folder, id) {
+    if (fs.lstatSync(folder).isSymbolicLink()) throw Error('Symlink plugin folders are not allowed');
     const manifest = JSON.parse(text(folder, 'manifest.json'));
     const files = {}, errors = [];
     (function walk(dir, prefix) {
         for (const n of fs.readdirSync(dir).sort()) {
             if (n.charAt(0) === '.' || n === 'node_modules' || n === 'config.json') continue;
             const full = path.join(dir, n), rel = prefix + n;
+            if (fs.lstatSync(full).isSymbolicLink()) { errors.push(rel + ' is a symlink'); continue; }
             if (fs.statSync(full).isDirectory()) { walk(full, rel + '/'); continue; }
             if (rel === 'manifest.json') continue;
             const buf = fs.readFileSync(full);
@@ -76,6 +83,7 @@ function pack(folder, id) {
     return { manifest, errors, text: JSON.stringify({ format: 'vetro-plugin', version: 1, manifest, files }) + '\n' };
 }
 
+function build(root, check) {
 let previous = [];
 try { previous = JSON.parse(fs.readFileSync(path.join(root, 'index.json'), 'utf8')).plugins || []; } catch (e) { /* first build */ }
 
@@ -99,7 +107,7 @@ for (const id of fs.readdirSync(path.join(root, 'plugins')).sort()) {
     out['dist/' + name] = r.text;
     index.plugins.push(entry);
 }
-if (problems.length) { console.error('Plugin checks failed:\n  ' + problems.join('\n  ')); process.exit(1); }
+if (problems.length) throw Error('Plugin checks failed:\n  ' + problems.join('\n  '));
 out['index.json'] = JSON.stringify(index, null, 2) + '\n';
 
 const stale = [];
@@ -112,6 +120,10 @@ for (const [file, body] of Object.entries(out)) {
 if (check) {
     const have = fs.existsSync(path.join(root, 'dist')) ? fs.readdirSync(path.join(root, 'dist')).map(n => 'dist/' + n) : [];
     have.filter(f => !out[f]).forEach(f => stale.push(f + ' (no longer built)'));
-    if (stale.length) { console.error('Out of date, run node scripts/build.cjs:\n  ' + stale.join('\n  ')); process.exit(1); }
+    if (stale.length) throw Error('Out of date, run node scripts/build.cjs:\n  ' + stale.join('\n  '));
     console.log('Plugins are valid; dist/ and index.json are up to date');
 } else console.log('Built ' + index.plugins.length + ' plugin(s): ' + index.plugins.map(p => p.id + ' ' + p.version).join(', '));
+
+}
+module.exports = {validate, pack, build};
+if (require.main === module) { try { build(path.join(__dirname, '..'), process.argv.includes('--check')); } catch (e) { console.error(e.message); process.exitCode = 1; } }

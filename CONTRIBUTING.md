@@ -11,7 +11,18 @@ Read [what a plugin can and cannot do](docs/what-a-plugin-can-do.md) and the [gu
 - a new `version` for every change to an existing plugin. The hash in `index.json` must always describe a
   published version, so a changed bundle with the same version is refused (CI compares with `main`).
 
-Only the maintainer signs `index.json`; do not add a `signature` yourself.
+Do not add a signature yourself. The post-merge publisher signs reviewed entries
+into the separate `catalog` branch; `main/index.json` remains a build input.
+
+Run `npm ci --ignore-scripts`, `npm test`, `npm run check` and
+`npm run test:runtime` before submitting. CI repeats the lifecycle checks on
+Node 4.4.7, 12.4.0 and 20; use only ES5 in Shard files. `start()`/`stop()` must release
+timers and sockets across restarts. Fake TV command responses in smoke tests are
+not proof of working on real hardware: include your model and actual test results.
+
+The required `check` must pass and a code owner must approve an ordinary merge.
+Administrators retain their existing explicit bypass; the publishing key must
+never be supplied to PR jobs, a plugin test, or a `pull_request_target` workflow.
 
 ## What the maintainer checks
 
@@ -27,6 +38,7 @@ This is a spot check by one person, not an audit.
 
 ## Removal
 
-A plugin is removed from `index.json` (and its bundle from `dist/`) when it is reported as unsafe, when it stops
-working on current firmware or Vetro, or when its author asks. Removal does not uninstall it from TVs that already
+Remove the source folder from `plugins/` and rebuild `index.json` and `dist/` when a plugin is reported as unsafe,
+stops working on current firmware or Vetro, or its author asks. Merge the removal so the publisher removes the
+entry from the signed `catalog` branch too. Removal does not uninstall it from TVs that already
 have it: tell users to switch it off and remove it from the dashboard.

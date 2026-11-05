@@ -1,0 +1,13 @@
+{
+  "name": "vetro-shards-catalog",
+  "private": true,
+  "scripts": {
+    "check": "node scripts/build.cjs --check",
+    "test": "node --test tests/*.test.cjs",
+    "test:runtime": "node scripts/test-runtime.cjs",
+    "build": "node scripts/build.cjs"
+  },
+  "devDependencies": {
+    "acorn": "8.15.0"
+  }
+}

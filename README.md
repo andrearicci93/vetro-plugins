@@ -1,9 +1,9 @@
-# Vetro plugins
+# Vetro Shards — plugin catalog
 
 The plugin list for [Vetro](https://github.com/andrearicci93/vetro), the dashboard that runs on a Samsung TV.
 
 A plugin adds a small feature to Vetro: a page in the dashboard, a few HTTP routes, a timer that checks something.
-This repository holds the list the dashboard shows under **Plugins → Show available plugins**, the source of every
+This repository holds the list the dashboard shows under **Vetro Shards → Load plugin catalog**, the source of every
 plugin on it, and the tools to write a new one.
 
 | Plugin | What it does | Permissions | Author |
@@ -20,8 +20,8 @@ plugin on it, and the tools to write a new one.
 ```
  this repository                  dashboard (your browser)                 the TV
  ───────────────                  ────────────────────────                 ──────
- index.json  ──── reads list ───▶ Plugins → Show available plugins
- dist/x.vplugin ─ downloads ────▶ sends the bundle ─────────────────────▶ checks the SHA-256 from index.json
+ catalog/index.json ─ reads ──▶ Vetro Shards → Load plugin catalog
+ dist/x.vplugin ─ downloads ────▶ sends the bundle ─────────────────────▶ checks SHA-256 + catalog signature
                                                                           installs it, switched OFF
                                   you switch it on ─────────────────────▶ loads index.js, calls start()
                                   a tab appears (if it has a page) ◀───── serves /plugins/<id>/api/...
@@ -32,7 +32,7 @@ plugin on it, and the tools to write a new one.
 2. **It is packed into a `.vplugin` bundle.** A single JSON file with the manifest and the files inside.
    `scripts/build.cjs` makes it and writes its SHA-256 into `index.json`.
 3. **The dashboard installs it on the TV.** The browser downloads the bundle and sends it to the TV, which checks the
-   SHA-256 before installing anything. A plugin always lands **switched off**: its code is not even read until you
+   SHA-256 and catalog signature before installing anything. A plugin always lands **switched off**: its code is not even read until you
    switch it on.
 4. **Once on, it is plain Node code in Vetro's process.** It gets four things (`ctx.id`, `ctx.dir`, `ctx.config`,
    `ctx.execute`) and can export `start`, `stop`, `status` and `route`. If it fails three times in a row, Vetro
@@ -59,12 +59,13 @@ The full table, including what Vetro enforces and what it merely asks, is in
 ## Write a plugin
 
 ```
+npm ci --ignore-scripts                  # install the pinned catalog tooling
 node scripts/new.cjs my-plugin "My plugin"   # copies template/ to plugins/my-plugin/
 # edit plugins/my-plugin/
 node scripts/build.cjs                       # checks it, packs it into dist/, updates index.json
 ```
 
-You need Node (any recent version) and a TV or dashboard running Vetro 0.4.0 to try it on. Then open a pull
+Use Node 20 for catalog tooling; Shard code remains ES5 for older TVs. Test on a TV running Vetro 0.5.0 before submitting. Then open a pull
 request with the source, `dist/` and `index.json`: CI fails if the plugin breaks a rule or if the generated files are
 out of date.
 
@@ -75,7 +76,7 @@ out of date.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | what a pull request contains and what the maintainer checks |
 | [SECURITY.md](SECURITY.md) | how to report a malicious or unsafe plugin |
 
-The plugin API is part of Vetro 0.4.0 and is experimental (API 1). It may change.
+The plugin API ships with Vetro 0.5.0 and is experimental (API 1). It may change.
 
 ## Repository layout
 
@@ -96,3 +97,23 @@ list, when the list is signed, shows that a file is the one this list published,
 `plugins/<id>/` before installing, and be wary of `exec`.
 
 To report a plugin that is malicious or unsafe, see [SECURITY.md](SECURITY.md).
+
+## Checks and signed publication
+
+Run `npm ci --ignore-scripts`, `npm run build`, `npm test` and `npm run check`.
+PRs require ES5-compatible source, up-to-date generated files, immutable published
+versions and lifecycle smoke tests on Node 4.4.7, 12.4.0 and 20. A required aggregate
+`check` covers all runtimes. Code-owner review is required for ordinary merges;
+repository administrators retain their existing bypass. Smoke tests use fake TV
+commands, do not establish firmware compatibility, and are not a security sandbox.
+
+After a reviewed merge to `main`, the publisher runs those checks again and signs
+only the matching bundle hashes. The private key is an environment secret available
+only to the separate publication job on `main`; PR jobs cannot access it. Only
+`index.json`, `dist/` and `catalog-public.pem` are pushed to the `catalog` branch.
+The dashboard reads
+`https://raw.githubusercontent.com/andrearicci93/vetro-plugins/catalog/index.json`.
+Users install/enable/update Shards themselves; publication never pushes code to TVs.
+
+The source index on `main` is a reproducible build input; contributors do not sign
+it. Details, deployment setup and key rotation are in [publishing](docs/publishing.md).
