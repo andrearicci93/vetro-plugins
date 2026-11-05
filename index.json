@@ -1,0 +1,20 @@
+{
+  "format": "vetro-plugin-index",
+  "version": 1,
+  "plugins": [
+    {
+      "id": "tv-uptime",
+      "name": "TV uptime",
+      "version": "1.0.1",
+      "author": "andrearicci93",
+      "description": "Shows how long the TV has been on. Reads /proc/uptime through the TV agent (needs the exec permission).",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/tv-uptime-1.0.1.vplugin",
+      "sha256": "246cd51dc9281d63cf75b40803453417608c456fbd439c92daf36d36d54dcecf",
+      "size": 2885,
+      "signature": "LXJQOg44GjSl5pHtKHSBnNRu5a4QGHlJR0Jpt71JBaZShBQ4bxuGgFp5k94WKpEPsmodwolrORqatTugnkzqGl9D8efC/4cX8kd6klWN1colYBMFaXxaSNI3ugBH6/fF0HykSHVFy45gyZXnoYcKQ3cU0AgODJHY4XY1dNIbe9WLNTb0JNwPb/NKgZZLYGIWEPn4MckBwiM3bzZyeKJKzbqFJfhpWMoO9WcAyMK3lPXklNjLlC1gkzgAvAIK4vZ4Bm4D+Qew5yW7OJ+zCluxvLPgIqtq/7RJP3jIwsO41Tniq8VjBinc2C3adg5AoooByghUHkST/g7YRN2x9zRgMev7jq+8wYmGL7s844OX7ka4prhAPOGAzriDXRvMX9/OnEl4j/bntFnrpdKhdPMvRprEbNoo7tzRmn8sF7yXr3KXMCRpXkWBPa0jtpNXxt+zmyPZW/tVwoAY2XRjtP5IJLHW0ZbnHSltd7FKqxlD6COKHKj2smOr31IP+N5oVhIy"
+    }
+  ]
+}
