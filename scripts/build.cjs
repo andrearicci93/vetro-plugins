@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
-// Packs every folder in plugins/ into dist/<id>-<version>.vplugin and writes index.json.
-//   node scripts/build.cjs           check every plugin, then rebuild dist/ and index.json
-//   node scripts/build.cjs --check   check every plugin and fail if dist/ or index.json are out of date (CI)
+// Packs every Shard (a plugin: one folder in plugins/) into dist/<id>-<version>.vplugin and writes index.json.
+//   node scripts/build.cjs           check every Shard, then rebuild dist/ and index.json
+//   node scripts/build.cjs --check   check every Shard and fail if dist/ or index.json are out of date (CI)
 //
 // The bundle is byte for byte what `node scripts/vetro-plugin.cjs pack plugins/<id>` in the Vetro repo
 // writes, so a contributor can pack locally and get the same SHA-256 as index.json.
@@ -11,7 +11,9 @@
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const acorn = require('acorn');
 
-// Limits of the TV's installer (Vetro 0.4.0, app/service/plugin-host.js: checkManifest, checkBundle).
+// Limits of the TV's installer (Vetro 0.4.0 and 0.5.0, app/service/plugin-host.js: checkManifest, checkBundle).
+// Vetro Shards is the name of the plugin system since 0.5.0; the technical names (plugins/, .vplugin, index.json
+// format, manifest fields) are unchanged so that every Vetro version reads this list.
 // Copied, not imported: CI does not have the Vetro repo. Re-read them when a new Vetro version changes the API.
 const ID = /^[a-z][a-z0-9-]{1,31}$/, RESERVED = ['install', 'resume', 'developer'];
 const PERMISSIONS = ['exec'];
@@ -43,7 +45,7 @@ function validate(id, m, files) {
     if (!Array.isArray(perms)) e.push('permissions must be a list');
     else perms.forEach(p => { if (PERMISSIONS.indexOf(p) < 0) e.push('unknown permission "' + p + '" (the TV knows: ' + PERMISSIONS.join(', ') + ')'); });
     if (m.ui != null && (typeof m.ui.label !== 'string' || !m.ui.label || m.ui.label.length > 24)) e.push('ui.label must be 1-24 characters');
-    if (m.main != null && (typeof m.main !== 'string' || !FILE.test(m.main))) e.push('main must be a file name inside the plugin folder');
+    if (m.main != null && (typeof m.main !== 'string' || !FILE.test(m.main))) e.push('main must be a file name inside the Shard folder');
     const names = Object.keys(files);
     if (names.length > MAX_FILES) e.push('a bundle holds at most ' + MAX_FILES + ' files (this one has ' + names.length + ')');
     const total = names.reduce((n, f) => n + Buffer.byteLength(files[f]), 0);
@@ -63,7 +65,7 @@ function validate(id, m, files) {
 }
 
 function pack(folder, id) {
-    if (fs.lstatSync(folder).isSymbolicLink()) throw Error('Symlink plugin folders are not allowed');
+    if (fs.lstatSync(folder).isSymbolicLink()) throw Error('Symlink Shard folders are not allowed');
     const manifest = JSON.parse(text(folder, 'manifest.json'));
     const files = {}, errors = [];
     (function walk(dir, prefix) {
@@ -107,7 +109,7 @@ for (const id of fs.readdirSync(path.join(root, 'plugins')).sort()) {
     out['dist/' + name] = r.text;
     index.plugins.push(entry);
 }
-if (problems.length) throw Error('Plugin checks failed:\n  ' + problems.join('\n  '));
+if (problems.length) throw Error('Shard checks failed:\n  ' + problems.join('\n  '));
 out['index.json'] = JSON.stringify(index, null, 2) + '\n';
 
 const stale = [];
@@ -121,8 +123,8 @@ if (check) {
     const have = fs.existsSync(path.join(root, 'dist')) ? fs.readdirSync(path.join(root, 'dist')).map(n => 'dist/' + n) : [];
     have.filter(f => !out[f]).forEach(f => stale.push(f + ' (no longer built)'));
     if (stale.length) throw Error('Out of date, run node scripts/build.cjs:\n  ' + stale.join('\n  '));
-    console.log('Plugins are valid; dist/ and index.json are up to date');
-} else console.log('Built ' + index.plugins.length + ' plugin(s): ' + index.plugins.map(p => p.id + ' ' + p.version).join(', '));
+    console.log('Shards are valid; dist/ and index.json are up to date');
+} else console.log('Built ' + index.plugins.length + ' Shard(s): ' + index.plugins.map(p => p.id + ' ' + p.version).join(', '));
 
 }
 module.exports = {validate, pack, build};
