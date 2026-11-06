@@ -1,4 +1,4 @@
-# My plugin
+# My Shard
 
 One or two sentences: what it does for the person who installs it.
 
@@ -8,7 +8,7 @@ None. <!-- or: `exec`, and fill in "Commands it runs" below -->
 
 ## Commands it runs
 
-<!-- Only for plugins that ask for `exec`: list every command, with the reason. Delete this section otherwise. -->
+<!-- Only for Shards that ask for `exec`: list every command, with the reason. Delete this section otherwise. -->
 
 | Command | Why |
 | --- | --- |

@@ -1,11 +1,11 @@
 {
-  "id": "my-plugin",
-  "name": "My plugin",
+  "id": "my-shard",
+  "name": "My Shard",
   "version": "0.1.0",
   "apiVersion": 1,
   "permissions": [],
   "author": "your-github-login",
   "description": "One line that says what it does and which hosts it talks to, if any.",
   "main": "index.js",
-  "ui": { "label": "My plugin" }
+  "ui": { "label": "My Shard" }
 }

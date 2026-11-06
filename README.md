@@ -1,19 +1,33 @@
-# Vetro Shards — plugin catalog
+# Vetro Shards
 
-The plugin list for [Vetro](https://github.com/andrearicci93/vetro), the dashboard that runs on a Samsung TV.
+The Shard catalog for [Vetro](https://github.com/andrearicci93/vetro), the dashboard that runs on a Samsung TV.
 
-A plugin adds a small feature to Vetro: a page in the dashboard, a few HTTP routes, a timer that checks something.
-This repository holds the list the dashboard shows under **Vetro Shards → Load plugin catalog**, the source of every
-plugin on it, and the tools to write a new one.
+**Vetro Shards** is Vetro's plugin system, and a **Shard** is one plugin: a small feature added to Vetro, such as a
+page in the dashboard, a few HTTP routes or a timer that checks something. This repository holds the list the
+dashboard shows under **Vetro Shards → Load plugin catalog**, the source of every Shard on it, and the tools to write a new one.
 
-| Plugin | What it does | Permissions | Author |
+| Shard | What it does | Permissions | Author |
 | --- | --- | --- | --- |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
 
-> **A plugin is code that runs inside Vetro on the TV, with the same access as Vetro, including running commands as
-> root.** The `permissions` field is a label the author writes; Vetro does not enforce it. Every plugin here is read by
+> **A Shard is code that runs inside Vetro on the TV, with the same access as Vetro, including running commands as
+> root.** The `permissions` field is a label the author writes; Vetro does not enforce it. Every Shard here is read by
 > a maintainer before it is merged, but that is a spot check, not an audit. Read
-> [what a plugin can and cannot do](docs/what-a-plugin-can-do.md) before you install or write one.
+> [what a Shard can and cannot do](docs/what-a-plugin-can-do.md) before you install or write one.
+
+## Names
+
+Vetro 0.5.0 renamed the plugin system to Vetro Shards. Only the name shown to people changed. Everything a program
+reads keeps its old name, so every Vetro version, 0.4.0 included, still works with this catalog and nothing had to move:
+
+| New (what people read) | Unchanged (what programs read) |
+| --- | --- |
+| Vetro Shards, Shard, Shard catalog | this repository's name and URL (`vetro-plugins`) and the catalog URL, `index.json` |
+| | the `plugins/<id>/` folders and `dist/<id>-<version>.vplugin` bundles |
+| | `"format": "vetro-plugin-index"` and `"format": "vetro-plugin"`, and every field of `manifest.json` |
+| | the routes on the TV (`/plugins/...`) and the tools (`vetro-plugin.cjs`) |
+
+When a page of this repository says "plugin", it is talking about a technical name from the right-hand column.
 
 ## How it works
 
@@ -27,76 +41,77 @@ plugin on it, and the tools to write a new one.
                                   a tab appears (if it has a page) ◀───── serves /plugins/<id>/api/...
 ```
 
-1. **A plugin is a folder of text files.** `manifest.json` says who it is, `index.js` is the code, `README.md` says
+1. **A Shard is a folder of text files.** `manifest.json` says who it is, `index.js` is the code, `README.md` says
    what it does. No binaries, no `node_modules`, at most 20 files and 512 KB.
 2. **It is packed into a `.vplugin` bundle.** A single JSON file with the manifest and the files inside.
    `scripts/build.cjs` makes it and writes its SHA-256 into `index.json`.
 3. **The dashboard installs it on the TV.** The browser downloads the bundle and sends it to the TV, which checks the
-   SHA-256 and catalog signature before installing anything. A plugin always lands **switched off**: its code is not even read until you
+   SHA-256 and catalog signature before installing anything. A Shard always lands **switched off**: its code is not even read until you
    switch it on.
 4. **Once on, it is plain Node code in Vetro's process.** It gets four things (`ctx.id`, `ctx.dir`, `ctx.config`,
    `ctx.execute`) and can export `start`, `stop`, `status` and `route`. If it fails three times in a row, Vetro
    switches it off.
 
-## What a plugin can do
+## What a Shard can do
 
-- Show **one page** in the dashboard, as a tab that exists while the plugin is on.
+- Show **one page** in the dashboard, as a tab that exists while the Shard is on.
 - Serve its **own HTTP routes**, under `/plugins/<id>/api/...`.
 - **Save its own settings** in one `config.json` that survives updates.
 - Run **timers and sockets** while it is on, for example to poll something.
 - Run **shell commands on the TV as root**, if it declares the `exec` permission.
 
-## What a plugin cannot do
+## What a Shard cannot do
 
-Through the API, a plugin cannot listen to the remote control, react to "TV turned on" or "app opened", add a launcher
+Through the API, a Shard cannot listen to the remote control, react to "TV turned on" or "app opened", add a launcher
 tile, read or change Vetro's settings, use the MQTT / Home Assistant link, add a second page, or run while it is switched
-off. It also cannot extend Vetro's own features (Remapper, Launcher, Home Assistant, Quick settings): they are not
-plugins and the host hands them nothing.
+off. It also cannot extend Vetro's own features (Remapper, Home Assistant, Quick settings): they are not Shards and the
+host hands them nothing. The Launcher is the one feature that is a Shard (since 0.5.0), but it ships inside Vetro,
+cannot be replaced or removed, and gets private services that no catalog Shard receives.
 
 The full table, including what Vetro enforces and what it merely asks, is in
-**[what a plugin can and cannot do](docs/what-a-plugin-can-do.md)**.
+**[what a Shard can and cannot do](docs/what-a-plugin-can-do.md)**.
 
-## Write a plugin
+## Write a Shard
 
 ```
 npm ci --ignore-scripts                  # install the pinned catalog tooling
-node scripts/new.cjs my-plugin "My plugin"   # copies template/ to plugins/my-plugin/
-# edit plugins/my-plugin/
+node scripts/new.cjs my-shard "My Shard"     # copies template/ to plugins/my-shard/
+# edit plugins/my-shard/
 node scripts/build.cjs                       # checks it, packs it into dist/, updates index.json
 ```
 
 Use Node 20 for catalog tooling; Shard code remains ES5 for older TVs. Test on a TV running Vetro 0.5.0 before submitting. Then open a pull
-request with the source, `dist/` and `index.json`: CI fails if the plugin breaks a rule or if the generated files are
+request with the source, `dist/` and `index.json`: CI fails if the Shard breaks a rule or if the generated files are
 out of date.
 
 | Read | When |
 | --- | --- |
-| [Writing a plugin](docs/writing-a-plugin.md) | step by step: template, manifest, code, build, test on a TV, publish |
-| [What a plugin can and cannot do](docs/what-a-plugin-can-do.md) | the API, its limits, what Vetro enforces, what the list asks |
+| [Writing a Shard](docs/writing-a-plugin.md) | step by step: template, manifest, code, build, test on a TV, publish |
+| [What a Shard can and cannot do](docs/what-a-plugin-can-do.md) | the API, its limits, what Vetro enforces, what the catalog asks |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | what a pull request contains and what the maintainer checks |
-| [SECURITY.md](SECURITY.md) | how to report a malicious or unsafe plugin |
+| [SECURITY.md](SECURITY.md) | how to report a malicious or unsafe Shard |
 
-The plugin API ships with Vetro 0.5.0 and is experimental (API 1). It may change.
+The Shard API (called plugin API 1 in the code) is the same in Vetro 0.4.0 and 0.5.0, and is experimental. It may change.
 
 ## Repository layout
 
 ```
 index.json                  what the dashboard reads (generated, do not edit)
-dist/<id>-<version>.vplugin the bundle of each plugin (generated, do not edit)
-plugins/<id>/               the source of each plugin: manifest.json, index.js, README.md
-template/                   the starting point for a new plugin
+dist/<id>-<version>.vplugin the bundle of each Shard (generated, do not edit)
+plugins/<id>/               the source of each Shard: manifest.json, index.js, README.md
+template/                   the starting point for a new Shard
 scripts/new.cjs             creates plugins/<id>/ from template/
-scripts/build.cjs           checks every plugin, packs dist/, writes index.json (--check is the CI test)
+scripts/build.cjs           checks every Shard, packs dist/, writes index.json (--check is the CI test)
 docs/                       the two guides above
 ```
 
 ## Trust
 
 The SHA-256 in `index.json` catches a corrupted download. It is not proof of who wrote the code. A signature from the
-list, when the list is signed, shows that a file is the one this list published, not that it is safe. Read the source in
-`plugins/<id>/` before installing, and be wary of `exec`.
+catalog, when the catalog is signed, shows that a file is the one this catalog published, not that it is safe. Read the
+source in `plugins/<id>/` before installing, and be wary of `exec`.
 
-To report a plugin that is malicious or unsafe, see [SECURITY.md](SECURITY.md).
+To report a Shard that is malicious or unsafe, see [SECURITY.md](SECURITY.md).
 
 ## Checks and signed publication
 
