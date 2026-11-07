@@ -12,8 +12,8 @@
         "exec"
       ],
       "url": "dist/shell-1.0.0.vplugin",
-      "sha256": "5cdcc96cb56d31b669cb9845d86e04e1bbf28c936204c6e50f127196afc67096",
-      "size": 15874
+      "sha256": "201c63b9f00c49b1b48b6f194253316c916782a6a21b33af4ba3b3f98f911644",
+      "size": 19626
     },
     {
       "id": "tv-uptime",
