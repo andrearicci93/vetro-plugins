@@ -3,6 +3,19 @@
   "version": 1,
   "plugins": [
     {
+      "id": "shell",
+      "name": "Shell",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "A root shell on the TV from the dashboard, one command at a time; cd is remembered.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/shell-1.0.0.vplugin",
+      "sha256": "201c63b9f00c49b1b48b6f194253316c916782a6a21b33af4ba3b3f98f911644",
+      "size": 19626
+    },
+    {
       "id": "tv-uptime",
       "name": "TV uptime",
       "version": "1.0.1",

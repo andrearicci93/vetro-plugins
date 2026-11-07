@@ -8,6 +8,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 
 | Shard | What it does | Permissions | Author |
 | --- | --- | --- | --- |
+| [`shell`](plugins/shell) | A root shell on the TV, laid out like a terminal; one command at a time, `cd` remembered | `exec` | piecifra |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
 
 > **A Shard is code that runs inside Vetro on the TV, with the same access as Vetro, including running commands as
