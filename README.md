@@ -10,6 +10,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | --- | --- | --- | --- |
 | [`shell`](plugins/shell) | A root shell on the TV, laid out like a terminal; one command at a time, `cd` remembered | `exec` | piecifra |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
+| [`youtube`](plugins/youtube) | **Ad-free YouTube**: Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube + SponsorBlock), nothing installed on the TV | `exec` | andrearicci93 |
 
 > **A Shard is code that runs inside Vetro on the TV, with the same access as Vetro, including running commands as
 > root.** The `permissions` field is a label the author writes; Vetro does not enforce it. Every Shard here is read by

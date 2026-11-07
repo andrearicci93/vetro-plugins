@@ -27,6 +27,19 @@
       "url": "dist/tv-uptime-1.0.1.vplugin",
       "sha256": "246cd51dc9281d63cf75b40803453417608c456fbd439c92daf36d36d54dcecf",
       "size": 2885
+    },
+    {
+      "id": "youtube",
+      "name": "Ad-free YouTube",
+      "version": "0.3.0",
+      "author": "andrearicci93",
+      "description": "Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube). Local proxy; fetches one pinned script from cdn.jsdelivr.net.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/youtube-0.3.0.vplugin",
+      "sha256": "bd4c115418ffd02e16f29f94e9e256f043fb7efac2503e88af9e565638c0397a",
+      "size": 71825
     }
   ]
 }
