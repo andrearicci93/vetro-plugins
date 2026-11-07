@@ -3,6 +3,20 @@
   "version": 1,
   "plugins": [
     {
+      "id": "shell",
+      "name": "Shell",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "A root shell on the TV from the dashboard, one command at a time; cd is remembered.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/shell-1.0.0.vplugin",
+      "sha256": "201c63b9f00c49b1b48b6f194253316c916782a6a21b33af4ba3b3f98f911644",
+      "size": 19626,
+      "signature": "FG28FC19Yulavemm5Vx+1f18cs/a1Vh7T3xtLvMj+B9OoJb+hHEq/TYRSVELgbUerd7H6Ojltq2wEsixc5kWNCEpxrxl8g/6+Ps1L/WScGa7zi48ldZIAl7ovd99BUdUnkUEVbaBLvJSvKoz1xrWQy58ZOhHnjOddTEsEq/pUzRoq4/1olY776GpX8GDX1/Gep/V1dCJfppTmmREh40pnGQkpStBNRfEPji+04f56YRVR2bwQKgVzey2IGFISkr56Urxkcp7XHFm3b+reE/yVCZLFmkLzZkvY4mlcYSmpAcSiG5CckAZwNiAo0WpMisi9mPDLT+k3nGrJNKWbE0D7PWaUDAW1JxnfKk9YDSpdTDXd6DHQIi3Rv/mYpf1FNvBFiDVunnhkq6aUeDyqlnwDENDKpZuaQAXqANgohCb8r7jvV9qeUpOeaiWyOj+VE92D4ZQ4kHxarzZD6ZPQ2PIeICJV+H59mtaBdk1uoxR26+5o6kXPUmiOWGzI1L8lwvr"
+    },
+    {
       "id": "tv-uptime",
       "name": "TV uptime",
       "version": "1.0.1",
