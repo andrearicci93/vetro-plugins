@@ -71,9 +71,23 @@ function launchScript(proxyHost, proxyPort) {
     return 'app_launcher -t ' + APP + ' -u ' + USER + ' >/dev/null 2>&1; sleep 1; app_launcher -s ' + APP + ' -u ' + USER + " USERDATA '" + args + "' 2>&1";
 }
 
+// Prints "relaunch" when Samsung's YouTube is running without our proxy flags (started by the remote key or a voice command
+// while the TV's own entry for it is missing or not patched yet, which is the case after every boot), "ok" when it is
+// running patched, and nothing when it is not running. The app's command line carries its flags as one base64 text.
+function checkScript() {
+    return [
+        'R=',
+        'for p in $(pgrep -f "^/usr/apps/com.samsung.tv.cobalt/bin/cobalt_launcher"); do',
+        '  D=$(tr "\\0" "\\n" < /proc/$p/cmdline | sed -n 4p | base64 -d 2>/dev/null | tr -c "[:print:]" " ")',
+        '  case "$D" in *dial_name=YouTube*) case "$D" in *share/vyt*) R=ok;; *) R=relaunch; break;; esac;; esac',
+        'done',
+        'echo $R'
+    ].join('\n');
+}
+
 function closeScript() { return 'app_launcher -t ' + APP + ' -u ' + USER + ' 2>&1'; }
 
 // Everything this plugin put on the TV outside its own folder.
 function cleanupScript() { return closeScript() + '; rm -rf "' + DIR + '" "' + CONTENT + '"; echo removed'; }
 
-module.exports = { DIR: DIR, CACHE: CACHE, CONTENT: CONTENT, APP: APP, SAMSUNG_ARGS: SAMSUNG_ARGS, proxyArgs: proxyArgs, wrap: wrap, setupScript: setupScript, launchScript: launchScript, closeScript: closeScript, cleanupScript: cleanupScript };
+module.exports = { DIR: DIR, CACHE: CACHE, CONTENT: CONTENT, APP: APP, SAMSUNG_ARGS: SAMSUNG_ARGS, proxyArgs: proxyArgs, wrap: wrap, setupScript: setupScript, launchScript: launchScript, checkScript: checkScript, closeScript: closeScript, cleanupScript: cleanupScript };
