@@ -31,15 +31,15 @@
     {
       "id": "youtube",
       "name": "Ad-free YouTube",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": "andrearicci93",
       "description": "Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube). Local proxy; fetches one pinned script from cdn.jsdelivr.net.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/youtube-0.3.0.vplugin",
-      "sha256": "bd4c115418ffd02e16f29f94e9e256f043fb7efac2503e88af9e565638c0397a",
-      "size": 71825
+      "url": "dist/youtube-0.3.1.vplugin",
+      "sha256": "4702274112d51e35e4a35494959cdcd2fe1b32ffc5a09dc15068767aed0f5e6d",
+      "size": 75484
     }
   ]
 }

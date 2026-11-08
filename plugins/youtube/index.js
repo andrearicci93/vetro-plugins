@@ -16,7 +16,7 @@ var tile = require('./tile.js');
 var scriptLib = require('./userscript.js');
 
 var PROXY_HOST = '127.0.0.2', DEFAULT_PORT = 8101;
-var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000;
+var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000, WATCH_MS = 6000;
 
 var PAGE = '<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -57,7 +57,7 @@ module.exports = function (ctx) {
     var cfg = ctx.config.get();
     var PORT = typeof cfg.port === 'number' && cfg.port % 1 === 0 && cfg.port >= 1024 && cfg.port < 65536 ? cfg.port : DEFAULT_PORT;
     var script = new scriptLib.UserScript(setup.CACHE);
-    var logLines = [], preparing = null, alive = false, timer = null;
+    var logLines = [], preparing = null, alive = false, timer = null, watchTimer = null;
     var tileOn = cfg.tile === true;
     var lastSetup = 0, nextScriptTry = 0;
     var st = { setup: 'idle', error: null, script: 'idle', scriptError: null, proxyError: null, pages: 0, lastPage: null, tileState: 'off', tileNote: '' };
@@ -145,7 +145,14 @@ module.exports = function (ctx) {
 
     // Makes the row match what is wanted: patched when tile is on and everything is up, original otherwise. Idempotent.
     // The decision is taken when the job runs, not when it is asked for; calls made while one is waiting share it.
-    var waiting = null, restoreTries = 0, retryTimer = null;
+    var waiting = null, restoreTries = 0, retryTimer = null, bootTries = 0;
+    // The plugin starts before Vetro's root agent has connected (every boot), so the first jobs fail with "no root agent
+    // connected". Try again every few seconds instead of waiting for the next minute tick.
+    function retrySoon() {
+        if (!alive || retryTimer || bootTries++ >= 60) return;
+        retryTimer = setTimeout(function () { retryTimer = null; if (alive) reconcile(); }, 3000);
+        if (retryTimer.unref) retryTimer.unref();
+    }
     function reconcile() {
         if (waiting) return waiting;
         waiting = serial(function () {
@@ -169,9 +176,10 @@ module.exports = function (ctx) {
                 if (state === 'patched') { if (st.tileState !== 'on') log('Samsung’s YouTube button now opens the patched app'); st.tileState = 'on'; st.tileNote = ''; }
                 else if (state === 'absent') { st.tileState = 'unsupported'; st.tileNote = 'This TV has no entry for Samsung’s YouTube app that can be changed.'; }
                 else if (state === 'foreign') { st.tileState = 'unsupported'; st.tileNote = 'Samsung’s YouTube settings are not in the expected form: left as they are.'; }
-                else { st.tileState = 'error'; st.tileNote = 'The TV’s app list could not be updated (' + state + '); trying again.'; log('row: ' + state); }
+                else { st.tileState = 'error'; st.tileNote = 'The TV’s app list could not be updated (' + state + '); trying again.'; log('row: ' + state); retrySoon(); }
+                if (st.tileState === 'on') bootTries = 0;
                 return state;
-            }, function (e) { st.tileState = 'error'; st.tileNote = 'Could not reach the TV’s app list: ' + e.message; log('row: ' + e.message); return 'error'; });
+            }, function (e) { st.tileState = 'error'; st.tileNote = 'Could not reach the TV’s app list: ' + e.message; log('row: ' + e.message); retrySoon(); return 'error'; });
         });
         return waiting;
     }
@@ -185,6 +193,27 @@ module.exports = function (ctx) {
         if (!script.load() && Date.now() > nextScriptTry && contentThere()) chain = chain.then(function () { return runScript().catch(noop); });
         chain.then(function () { if (!proxy.listening() && readLeaf() && script.load()) return listen().catch(function (e) { log('proxy: ' + e.message); }); })
             .then(function () { return reconcile(); }).catch(function (e) { log('tick: ' + e.message); });
+    }
+
+    // Samsung's YouTube started by the remote key, the Home tile or voice, without our flags (the TV's entry for it is missing after
+    // a boot, or Samsung rewrote it): close it and start it again through the proxy. At most 3 times in 2 minutes.
+    var watchBusy = false, relaunches = [], lastWhy = '', lastOut = null;
+    function watch() {
+        if (!alive || !tileOn || watchBusy) return;
+        var why = blocker();
+        if (why) { if (why !== lastWhy) log('watch idle: ' + why); lastWhy = why; return; }
+        lastWhy = '';
+        var now = Date.now();
+        relaunches = relaunches.filter(function (t) { return now - t < 120000; });
+        if (relaunches.length >= 3) return;
+        watchBusy = true;
+        exec(setup.checkScript(), 10000).then(function (r) {
+            var out = String((r && r.stdout) || '');
+            if (!/^relaunch$/m.test(out)) { if (out !== lastOut) log('watch: ' + (out.trim() || 'YouTube not running')); lastOut = out; return null; }
+            relaunches.push(Date.now());
+            log('YouTube was started without the patches: starting it again through the proxy');
+            return ctx.execute(setup.launchScript(PROXY_HOST, PORT), 25000);
+        }).then(function () { watchBusy = false; }, function (e) { watchBusy = false; log('watch: ' + e.message); });
     }
 
     function json(res, code, body) { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); }
@@ -213,6 +242,9 @@ module.exports = function (ctx) {
             if (timer) clearInterval(timer);
             timer = setInterval(function () { try { tick(); } catch (e) { log('tick: ' + e.message); } }, TICK_MS);
             if (timer.unref) timer.unref();
+            if (watchTimer) clearInterval(watchTimer);
+            watchTimer = setInterval(function () { try { watch(); } catch (e) { log('watch: ' + e.message); } }, WATCH_MS);
+            if (watchTimer.unref) watchTimer.unref();
             var ready = readLeaf() && script.load() ? listen().catch(function (e) { log('start: ' + e.message); }) : Promise.resolve();
             ready.then(function () { return tileOn && !(readLeaf() && script.load() && contentThere()) ? prepare().catch(function (e) { log('start: ' + e.message); }) : null; })
                 .then(function () { return reconcile(); }).catch(function (e) { log('start: ' + e.message); });
@@ -222,6 +254,7 @@ module.exports = function (ctx) {
         stop: function () {
             alive = false;
             if (timer) { clearInterval(timer); timer = null; }
+            if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
             // The proxy stays up until the row is back (a YouTube started in between still finds it), then stops listening.
             // Resolves when that is done, so the fallback timer never outlives the stop.
             return new Promise(function (resolve) {

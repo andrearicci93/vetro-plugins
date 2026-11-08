@@ -51,6 +51,13 @@ app_launcher -s com.samsung.tv.cobalt-yt -u 5001 USERDATA ' --base_url=https://w
 
 `<DIR>` is `/opt/usr/home/owner/share/vetro-youtube`.
 
+## After a boot
+
+Samsung removes the wrapper app behind the YouTube key from the TV's app list at every boot, so the tile row cannot be patched
+until Samsung brings it back. While **Samsung's YouTube button opens this** is on, the plugin therefore checks every 6 seconds
+whether YouTube was started without its proxy flags and, if so, closes it and starts it again through the proxy (at most 3 times
+in 2 minutes). At boot it also retries the first jobs every 3 seconds until Vetro's root agent has connected. Nothing is installed.
+
 ## The Home tile (optional, off by default)
 
 Samsung's tile, remote key and voice all start the wrapper app `9Ur5IzDKqV.TizenYouTube`, which reads its flags from one row of
