@@ -18,15 +18,15 @@
     {
       "id": "ssh-server",
       "name": "SSH server",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": "CHANGE-ME-github-login",
-      "description": "A real SSH-2 server in pure JS (no binary). ssh for an owner PTY shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+ on the TV.",
+      "description": "A real SSH-2 server in pure JS (no binary): interactive ssh is a root line-shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/ssh-server-0.1.0.vplugin",
-      "sha256": "a805a461d818fa15334c36f7948bf7b9615e8844f9e34de087f1041ff8f3dcd4",
-      "size": 61435
+      "url": "dist/ssh-server-0.2.0.vplugin",
+      "sha256": "a1d92958a7f7c2c6c05100c6bbaa22ba3863c67b9f6ad48deeca1197c178bb25",
+      "size": 66553
     },
     {
       "id": "tv-uptime",

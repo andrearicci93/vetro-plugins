@@ -99,7 +99,7 @@ function serve(channel, opts) {
             if (len > 256 * 1024 + 64) { channel.close(); return; }      // oversized frame: bail
             if (inbuf.length < 4 + len) return;
             var frame = inbuf.slice(4, 4 + len); inbuf = inbuf.slice(4 + len);
-            handle(frame[0], new Reader(frame.slice(1)));
+            try { handle(frame[0], new Reader(frame.slice(1))); } catch (e) { if (opts.log) opts.log('sftp handler error: ' + (e && e.message || e)); }
         }
     }
 

@@ -177,6 +177,9 @@ Connection.prototype.drain = function () {
 };
 
 Connection.prototype.send = function (payload) {
+    try { this._send(payload); } catch (e) { this.fail(e); }
+};
+Connection.prototype._send = function (payload) {
     var block = this.blockOut;
     // padding: at least 4, to make (4 + 1 + payload + pad) a multiple of block
     var min = 4, lenNoPad = 1 + payload.length, pad = block - ((4 + lenNoPad) % block); if (pad < min) pad += block;
@@ -398,6 +401,7 @@ Channel.prototype._request = function (type, r) {
     var conn = this.conn;
     if (type === 'pty-req') {
         var term = r.string().toString(); var cols = r.u32(), rows = r.u32(); r.u32(); r.u32(); r.string();
+        if (!(conn.server.opts && conn.server.opts.allowPty)) return false;   // refuse: client falls back to line mode
         this.pty = { term: term, cols: cols, rows: rows };
         return true;
     }
@@ -464,11 +468,15 @@ function Server(opts) {
     this.authorizedKeys = Array.isArray(this.opts.authorizedKeys) ? this.opts.authorizedKeys : parseAuthorizedKeys(this.opts.authorizedKeys);
     var self = this;
     this.net = net.createServer(function (socket) {
-        socket.setNoDelay(true);
-        var conn = new Connection(socket, self);
-        conn.startKex();
-        self.emit('connection', conn);
+        // Guard everything: this runs inside Vetro's own process, so an uncaught throw here would crash the service.
+        try {
+            socket.setNoDelay(true);
+            var conn = new Connection(socket, self);
+            conn.startKex();
+            self.emit('connection', conn);
+        } catch (e) { try { socket.destroy(); } catch (x) {} if (self.opts.log) self.opts.log('accept error: ' + (e && e.message || e)); }
     });
+    this.net.on('error', function (e) { if (self.opts.log) self.opts.log('listener error: ' + (e && e.message || e)); });
 }
 Server.prototype = Object.create(EventEmitter.prototype);
 Server.prototype.keyAllowed = function (rawKey) {

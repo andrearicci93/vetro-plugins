@@ -29,11 +29,11 @@ table.hints{border-collapse:collapse;width:100%;font-size:13px}table.hints td{pa
 <div class="card">
 <h3>What you can do</h3>
 <table class="hints">
-<tr><td><code>ssh&nbsp;-p&nbsp;<span class="P">2222</span>&nbsp;owner@<span class="IP">TV-IP</span></code></td><td>interactive shell as the <b>owner</b> (uid 5001) — full PTY, so <code>top</code>/<code>vi</code> work</td></tr>
-<tr><td><code>ssh&nbsp;-p&nbsp;<span class="P">2222</span>&nbsp;root@<span class="IP">TV-IP</span>&nbsp;'id'</code></td><td>runs a single command as <b>root</b> via Vetro's agent</td></tr>
-<tr><td><code>sftp&nbsp;-P&nbsp;<span class="P">2222</span>&nbsp;owner@<span class="IP">TV-IP</span></code></td><td><code>scp</code>/<code>sftp</code> file transfer as the owner (uid 5001)</td></tr>
+<tr><td><code>ssh&nbsp;-p&nbsp;<span class="P">2222</span>&nbsp;root@<span class="IP">TV-IP</span></code></td><td>interactive <b>root</b> line-shell via Vetro's agent — each command runs as root, <code>cd</code> is remembered. <b>No PTY</b>: no <code>top</code>/<code>vi</code>/<code>less</code> (use <code>top&nbsp;-b&nbsp;-n1</code>)</td></tr>
+<tr><td><code>ssh&nbsp;-p&nbsp;<span class="P">2222</span>&nbsp;root@<span class="IP">TV-IP</span>&nbsp;'id'</code></td><td>runs a single command as <b>root</b> via the agent</td></tr>
+<tr><td><code>sftp&nbsp;-P&nbsp;<span class="P">2222</span>&nbsp;x@<span class="IP">TV-IP</span></code></td><td><code>scp</code>/<code>sftp</code> file transfer as the <b>owner</b> (uid 5001) — owner-readable files</td></tr>
 </table>
-<p class="note">The username is ignored (you authenticate with your key); what matters is whether you send a command. Keep this on a trusted LAN — traffic is encrypted, but never expose the port to the Internet.</p>
+<p class="note">The username is ignored (you authenticate with your key). The interactive shell and single commands run as <b>root</b> through Vetro's agent; file transfer runs in-process as the owner (uid 5001), because the TV's sandbox blocks this process from executing binaries. Keep this on a trusted LAN — never expose the port to the Internet.</p>
 </div>
 
 <div class="card">
