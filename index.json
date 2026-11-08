@@ -16,6 +16,19 @@
       "size": 19626
     },
     {
+      "id": "ssh-server",
+      "name": "SSH server",
+      "version": "0.1.0",
+      "author": "CHANGE-ME-github-login",
+      "description": "A real SSH-2 server in pure JS (no binary). ssh for an owner PTY shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+ on the TV.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/ssh-server-0.1.0.vplugin",
+      "sha256": "a805a461d818fa15334c36f7948bf7b9615e8844f9e34de087f1041ff8f3dcd4",
+      "size": 61435
+    },
+    {
       "id": "tv-uptime",
       "name": "TV uptime",
       "version": "1.0.1",
