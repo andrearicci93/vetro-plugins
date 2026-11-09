@@ -48,18 +48,19 @@ module.exports = function (ctx) {
         // would feed sh an empty script.
         var wrapped = '__vscript="$(printf %s ' + b64 + ' | base64 -d)"; if command -v bash >/dev/null 2>&1; then exec bash -c "$__vscript" </dev/null; else exec sh -c "$__vscript" </dev/null; fi';
         var done = false;
-        function finish(out, ncwd) { if (done) return; done = true; try { cb(out, ncwd); } catch (e) { log('shell cb error: ' + e.message); } }
+        function finish(out, ncwd, code) { if (done) return; done = true; try { cb(out, ncwd, code); } catch (e) { log('shell cb error: ' + e.message); } }
         var p;
-        try { p = ctx.execute(wrapped, EXEC_TIMEOUT); } catch (e) { return finish('vetro: ' + e.message + '\n', cwd); }
+        try { p = ctx.execute(wrapped, EXEC_TIMEOUT); } catch (e) { return finish('vetro: ' + e.message + '\n', cwd, 255); }
         p.then(function (r) {
             try {
                 var out = String((r && r.stdout) || ''), mark = '\n' + marker, i = out.lastIndexOf(mark), ncwd = cwd;
                 if (i >= 0) { var rest = out.slice(i + mark.length), nl = rest.indexOf('\n'), found = nl < 0 ? rest : rest.slice(0, nl); if (found.charAt(0) === '/') ncwd = found; out = out.slice(0, i); }
                 if (r && r.stderr) out += String(r.stderr);
-                if (r && r.timed_out) out += '\n[stopped after ' + (EXEC_TIMEOUT / 1000) + ' s: time limit]\n';
-                finish(out, ncwd);
-            } catch (e) { finish('vetro: ' + e.message + '\n', cwd); }
-        }, function (e) { finish('vetro: ' + (e && e.message || e) + '\n', cwd); });
+                var code = (r && typeof r.exit_code === 'number') ? r.exit_code : 0;
+                if (r && r.timed_out) { out += '\n[stopped after ' + (EXEC_TIMEOUT / 1000) + ' s: time limit]\n'; code = 124; }
+                finish(out, ncwd, code);
+            } catch (e) { finish('vetro: ' + e.message + '\n', cwd, 255); }
+        }, function (e) { finish('vetro: ' + (e && e.message || e) + '\n', cwd, 255); });
     }
 
     // Interactive ROOT line-shell on a channel with no PTY (we refuse pty-req, so the client is line-buffered with local
@@ -106,17 +107,18 @@ module.exports = function (ctx) {
         ch.on('close', function () { closed = true; });
     }
 
-    // `ssh ... '<command>'` -> one-shot root command (output returned, then the channel closes).
+    // `ssh ... '<command>'` -> one-shot root command (output returned, then the channel closes). The command's real
+    // exit status is forwarded, so `ssh tv 'cmd' && ...` works in scripts.
     function runExec(ch, cmd) {
-        runAgent('/', cmd, function (out) {
-            try { if (out) ch.write(out); ch.exit(0); } catch (e) {}
+        runAgent('/', cmd, function (out, ncwd, code) {
+            try { if (out) ch.write(out); ch.exit(typeof code === 'number' ? code : 0); } catch (e) {}
         });
     }
 
     function wire(ssh, sftp) {
         server.on('connection', function (conn) { connections++; log('client connected'); conn.on('end', function () { if (connections > 0) connections--; }); });
         server.on('shell', function (ch) { try { rootLineShell(ch); } catch (e) { log('shell error: ' + e.message); try { ch.exit(1); } catch (x) {} } });
-        server.on('exec', function (ch, cmd) { log('root exec: ' + String(cmd).slice(0, 60)); try { runExec(ch, cmd); } catch (e) { try { ch.exit(1); } catch (x) {} } });
+        server.on('exec', function (ch, cmd) { log('root one-shot command (' + String(cmd).length + ' chars)'); try { runExec(ch, cmd); } catch (e) { try { ch.exit(1); } catch (x) {} } });
         server.on('subsystem', function (ch, name) { try { if (name === 'sftp') sftp.serve(ch, { log: log }); else ch.close(); } catch (e) { log('sftp error: ' + e.message); try { ch.close(); } catch (x) {} } });
     }
 
@@ -148,14 +150,14 @@ module.exports = function (ctx) {
         req.on('error', function (e) { if (!done) { done = true; cb(e); } });
     }
     function state() {
-        return { running: !!server, port: port(), fingerprint: fingerprint, unsupported: unsupported, lastError: lastError,
-            connections: connections, keyCount: countKeys(authText()), log: logLines };
+        return { running: !!(server && server.listening), port: port(), fingerprint: fingerprint, unsupported: unsupported,
+            lastError: (server && server.lastError) || lastError, connections: connections, keyCount: countKeys(authText()), log: logLines };
     }
 
     return {
         start: function () { page = loadPage(); unsupported = null; lastError = null; try { startServer(); } catch (e) { log('start error: ' + e.message); } },
         stop: function () { try { stopServer(); } catch (e) {} page = null; },
-        status: function () { return { running: !!server, port: port(), connections: connections, unsupported: unsupported ? true : undefined }; },
+        status: function () { return { running: !!(server && server.listening), port: port(), connections: connections, unsupported: unsupported ? true : undefined }; },
 
         route: function (req, res, sub) {
             if (sub === 'ui' && req.method === 'GET') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); res.end(page || loadPage()); return true; }

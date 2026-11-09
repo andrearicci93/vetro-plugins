@@ -18,15 +18,15 @@
     {
       "id": "ssh-server",
       "name": "SSH server",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "author": "bertrandom",
       "description": "A real SSH-2 server in pure JS (no binary): interactive ssh is a root line-shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/ssh-server-0.2.0.vplugin",
-      "sha256": "838d232a06e6a11faf6c31cb1b85fc09a5ec2940ce420adad1d34bb195db9b7d",
-      "size": 66541
+      "url": "dist/ssh-server-0.3.0.vplugin",
+      "sha256": "d740fb394e286cd7671ad06e11995d4fb9eb41bf63a289e13d0b5ba37e91db8a",
+      "size": 74342
     },
     {
       "id": "tv-uptime",

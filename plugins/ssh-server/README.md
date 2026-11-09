@@ -59,8 +59,8 @@ that is the line-shell working as intended.
 ## Network
 
 It opens no outbound connection and downloads nothing. The only listener is this SSH server, on the port you set
-(default 2222), bound to the LAN. Vetro's traffic is plain HTTP — keep the TV on a trusted network and **never expose
-the SSH port to the Internet**.
+(default 2222), bound to **all interfaces** (`0.0.0.0`) — so it is reachable from anywhere that can route to the TV.
+Vetro's traffic is plain HTTP — keep the TV on a trusted network and **never expose the SSH port to the Internet**.
 
 ## Data it keeps
 
@@ -72,14 +72,28 @@ host key* on the page makes a new one (clients that connected before will warn o
 
 This is a hand-written SSH server guarding a root command path on your TV. It has been exercised against OpenSSH
 `ssh`/`scp`/`sftp` but has **not** had a third-party security review. Every async path is wrapped so a fault cannot
-crash the Vetro service. Run it on a trusted LAN, key auth only (there is no password auth), and read [`ssh.js`](ssh.js)
-before you trust it. Not affiliated with OpenSSH or dropbear.
+crash the Vetro service. Pre-auth abuse is bounded: a 30 s login grace period, at most 8 half-open (unauthenticated)
+connections, and a few auth attempts per connection, so a host on the LAN can't tie up Vetro's memory with half-open
+sessions. Switching the Shard off (or Vetro disabling it) tears down every live connection, including open SFTP
+sessions. Run it on a trusted LAN, key auth only (there is no password auth), and read [`ssh.js`](ssh.js) before you
+trust it. Not affiliated with OpenSSH or dropbear.
 
 ## Tested
 
-_On the TV (Samsung, Tizen with Node 12, Vetro 0.5.0):_ the SSH handshake, Ed25519 host key, ed25519 publickey auth and
-channel setup all succeed over the network. The diagnosis above (Smack label `User::Pkg::vetrotvapp` has no execute
-access to system binaries) is from this TV. Fill in your model and confirm the line-shell / sftp once you have run 0.2.0.
+_On the TV — Samsung The Frame **QN75LS03B** (2022, `22_PONTUSM_FTV`), Tizen 6.5.0, kernel 5.4.77 `armv7l`, Vetro 0.5.0_
+(installed through Vetro's plugin host in Developer mode, trust `file`), with an OpenSSH 10.3 client over the LAN:
 
-_Off-device (OpenSSH 9.x client, server on Node 22):_ key-exchange, ed25519 auth, the line-shell, `ssh root@tv 'cmd'`,
-and `sftp`/`scp` get+put of a 1.2 MB binary (byte-identical), all with clean teardown.
+- `ssh root@tv '<cmd>'` runs as **root** (`id` → `uid=0(root)`); the command's **exit status is forwarded**
+  (`exit 7` → 7, `exit 42` → 42, `true` → 0);
+- the interactive **line-shell** works and remembers `cwd` (`pwd` → `/`, `cd /tmp`, `pwd` → `/tmp`), no PTY as designed;
+- **`sftp` get + put of a 3 MB file is byte-identical** (same SHA-256) — this exercises the `CHANNEL_WINDOW_ADJUST`
+  fix, since an upload past the initial ~2 MB window used to stall;
+- the plugin stayed healthy throughout (host reports `errors: 0`, `lastError: null`); installing and exercising it did
+  **not** crash the Vetro service.
+
+The diagnosis above (Smack label `User::Pkg::vetrotvapp` has no execute access to system binaries) is from this TV.
+
+_Off-device (OpenSSH 10.3 client, server on Node 22):_ key-exchange, ed25519 auth, the line-shell, `ssh root@tv 'cmd'`,
+`sftp`/`scp` get+put of a 6 MB binary (byte-identical, upload past the old window stall), the pre-auth limits (login
+grace, half-open cap, auth-attempt cap), a re-key request answered with a clean disconnect, and `stop()` tearing down a
+live session — all with clean teardown.

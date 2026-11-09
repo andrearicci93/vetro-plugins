@@ -111,6 +111,20 @@ function Connection(socket, server) {
     this.authed = false; this.authUser = null;
     this.channels = {};
     this.nextChannelId = 0;
+    this.authTries = 0;
+    this.counted = true;                             // contributes to the server's half-open cap until authed or closed
+    server.pending = (server.pending || 0) + 1;
+
+    // Login grace timer: drop a connection that hasn't authenticated in time, so a peer can't sit half-open holding a
+    // packet buffer inside Vetro's process. Cleared on auth success and on cleanup.
+    var graceMs = (server.opts.loginGraceMs != null) ? server.opts.loginGraceMs : 30000;
+    if (graceMs > 0) this.graceTimer = setTimeout(function () {
+        if (self.authed || self._gone) return;
+        self.log('login grace time expired');
+        try { self.disconnect(2, 'login grace time expired'); } catch (e) {}
+        try { self.socket.destroy(); } catch (e) {}
+        self.cleanup();
+    }, graceMs);
 
     socket.on('data', function (d) { try { self.onData(d); } catch (e) { self.fail(e); } });
     socket.on('error', function (e) { self.log('socket error: ' + e.message); self.cleanup(); });
@@ -123,9 +137,13 @@ Connection.prototype = Object.create(EventEmitter.prototype);
 Connection.prototype.fail = function (e) { this.log('connection error: ' + (e && e.message || e)); try { this.socket.destroy(); } catch (x) {} this.cleanup(); };
 Connection.prototype.cleanup = function () {
     if (this._gone) return; this._gone = true;
+    if (this.graceTimer) { clearTimeout(this.graceTimer); this.graceTimer = null; }
+    this._uncount();
     for (var id in this.channels) if (this.channels[id]) this.channels[id]._shutdown();
     this.emit('end');
 };
+// Release this connection's half-open slot exactly once (on auth success, or on close if never authed).
+Connection.prototype._uncount = function () { if (this.counted) { this.counted = false; if (this.server.pending > 0) this.server.pending--; } };
 
 Connection.prototype.onData = function (chunk) {
     this.inbuf = Buffer.concat([this.inbuf, chunk]);
@@ -250,6 +268,10 @@ Connection.prototype.buildKexInit = function () {
 };
 Connection.prototype.startKex = function () { this.myKexInit = this.buildKexInit(); this.send(this.myKexInit); this.kexSent = true; };
 Connection.prototype.onKexInit = function (payload, r) {
+    // A KEXINIT after the first exchange has completed is a re-key request. We do a single initial exchange only;
+    // rather than leave the client hanging (we would never answer), disconnect cleanly so it reports a clear error.
+    // Stock OpenSSH only re-keys after ~1 GiB / 1 hour, so this is rare; `RekeyLimit default none` avoids it entirely.
+    if (this.kexDone) { this.log('re-key requested (unsupported); disconnecting'); return this.disconnect(2, 'key re-exchange not supported'); }
     this.peerKexInit = payload;
     if (!this.kexSent) this.startKex();
     // We negotiate nothing fancy: we only offer one of each, and a stock client includes all of them.
@@ -306,6 +328,7 @@ Connection.prototype.onNewKeys = function () {
     this.decipher = crypto.createDecipheriv('aes-256-ctr', k.keyC2S, k.ivC2S);
     this.macInKey = k.macC2S; this.macInLen = 32; this.blockIn = 16;
     this.pending = null;
+    this.kexDone = true;             // first key exchange finished; a later client KEXINIT is a re-key request
 };
 
 // ---- auth ----
@@ -314,7 +337,20 @@ Connection.prototype.onServiceRequest = function (r) {
     if (name === 'ssh-userauth') this.send(new Writer().byte(MSG.SERVICE_ACCEPT).string(name).done());
     else this.disconnect(7, 'service not available');
 };
-Connection.prototype.authFailure = function () {
+// Send USERAUTH_FAILURE. `attempt` marks a genuine authentication try (not the cheap publickey probe); after a few of
+// those we disconnect, so a peer can't brute-force signatures. The probe phase never counts, so a client offering
+// several agent keys isn't locked out.
+Connection.prototype.authReject = function (attempt) {
+    if (attempt) {
+        this.authTries++;
+        var max = (this.server.opts.maxAuthAttempts != null) ? this.server.opts.maxAuthAttempts : 6;
+        if (this.authTries >= max) {
+            this.log('too many authentication failures');
+            try { this.disconnect(2, 'too many authentication failures'); } catch (e) {}
+            try { this.socket.destroy(); } catch (e) {}
+            return this.cleanup();
+        }
+    }
     this.send(new Writer().byte(MSG.USERAUTH_FAILURE).nameList(['publickey']).bool(false).done());
 };
 Connection.prototype.onUserauthRequest = function (payload, r) {
@@ -322,15 +358,15 @@ Connection.prototype.onUserauthRequest = function (payload, r) {
     var user = r.string().toString('utf8');
     var service = r.string().toString();
     var method = r.string().toString();
-    if (method !== 'publickey' || service !== 'ssh-connection') return this.authFailure();
+    if (method !== 'publickey' || service !== 'ssh-connection') return this.authReject(true);
     var signed = r.bool();
     var alg = r.string().toString();
     var keyBlob = r.string();
-    if (alg !== 'ssh-ed25519') return this.authFailure();
+    if (alg !== 'ssh-ed25519') return this.authReject(false);
 
     // the key must be in authorized_keys
     var kr = new Reader(keyBlob); kr.string(); var rawKey = kr.string();
-    if (!this.server.keyAllowed(rawKey)) return this.authFailure();
+    if (!this.server.keyAllowed(rawKey)) return this.authReject(signed);   // count only a real (signed) attempt
 
     if (!signed) {
         // query phase: tell the client this key would be acceptable
@@ -346,9 +382,11 @@ Connection.prototype.onUserauthRequest = function (payload, r) {
     ]);
     var ok = false;
     try { ok = crypto.verify(null, data, ed25519PublicFromRaw(rawKey), sig); } catch (e) { ok = false; }
-    if (!ok) return this.authFailure();
+    if (!ok) return this.authReject(true);
 
     this.authed = true; this.authUser = user;
+    if (this.graceTimer) { clearTimeout(this.graceTimer); this.graceTimer = null; }
+    this._uncount();
     this.send(new Writer().byte(MSG.USERAUTH_SUCCESS).done());
     this.log('auth ok: ' + user);
 };
@@ -361,14 +399,14 @@ Connection.prototype.onGlobalRequest = function (r) {
 Connection.prototype.onChannelOpen = function (r) {
     var type = r.string().toString();
     var peerId = r.u32(), peerWin = r.u32(), peerMax = r.u32();
-    if (!this.authed || type !== 'session') {
+    if (!this.authed || type !== 'session' || this.server.stopped) {
         return this.send(new Writer().byte(MSG.CHANNEL_OPEN_FAILURE).u32(peerId).u32(3).string('only session channels').string('').done());
     }
     var id = this.nextChannelId++;
     var ch = new Channel(this, id, peerId, peerWin, peerMax);
     this.channels[id] = ch;
-    var myWin = 2 * 1024 * 1024, myMax = 32 * 1024;
-    this.send(new Writer().byte(MSG.CHANNEL_OPEN_CONFIRMATION).u32(peerId).u32(id).u32(myWin).u32(myMax).done());
+    var myMax = 32 * 1024;
+    this.send(new Writer().byte(MSG.CHANNEL_OPEN_CONFIRMATION).u32(peerId).u32(id).u32(ch.localWinInit).u32(myMax).done());
 };
 Connection.prototype.chan = function (r) { var id = r.u32(); return { id: id, ch: this.channels[id] }; };
 Connection.prototype.onChannelData = function (r) { var c = this.chan(r); var data = r.string(); if (c.ch) c.ch._incoming(data); };
@@ -392,9 +430,21 @@ function Channel(conn, id, peerId, peerWin, peerMax) {
     this.outPending = 0;         // total bytes queued, for backpressure
     this.wantEof = false;        // eof requested but held until the queue drains
     this.HIGH = 256 * 1024;      // backpressure threshold reported to producers
+    this.localWinInit = 2 * 1024 * 1024;  // our receive window, advertised in CHANNEL_OPEN_CONFIRMATION
+    this.localWin = this.localWinInit;    // bytes of that window the client may still send
 }
 Channel.prototype = Object.create(EventEmitter.prototype);
-Channel.prototype._incoming = function (data) { this.emit('data', data); };
+// Account for data the client sends us against our receive window, and top the window back up with a WINDOW_ADJUST
+// before it runs out — without this an upload stalls once the client has sent one full window (~2 MB).
+Channel.prototype._incoming = function (data) {
+    this.localWin -= data.length;
+    if (!this.sentClose && this.localWin < (this.localWinInit >> 1)) {
+        var add = this.localWinInit - this.localWin;
+        this.localWin += add;
+        try { this.conn.send(new Writer().byte(MSG.CHANNEL_WINDOW_ADJUST).u32(this.peerId).u32(add).done()); } catch (e) {}
+    }
+    this.emit('data', data);
+};
 Channel.prototype._addWindow = function (n) { this.peerWin += n; this._flush(); };
 Channel.prototype._peerClosed = function () { this.close(); };
 Channel.prototype._request = function (type, r) {
@@ -406,6 +456,7 @@ Channel.prototype._request = function (type, r) {
         return true;
     }
     if (type === 'env') { r.string(); r.string(); return true; }
+    if (conn.server.stopped && (type === 'shell' || type === 'exec' || type === 'subsystem')) return false;
     if (type === 'shell') { conn.server.emit('shell', this); return true; }
     if (type === 'exec') { var cmd = r.string().toString('utf8'); conn.server.emit('exec', this, cmd); return true; }
     if (type === 'subsystem') { var name = r.string().toString(); conn.server.emit('subsystem', this, name); return true; }
@@ -466,17 +517,35 @@ function Server(opts) {
     this.opts = opts || {};
     this.hostKey = loadHostKey(this.opts.hostKeyPem);
     this.authorizedKeys = Array.isArray(this.opts.authorizedKeys) ? this.opts.authorizedKeys : parseAuthorizedKeys(this.opts.authorizedKeys);
+    this.connections = [];   // live accepted connections, so stop()/close() can tear them down
+    this.pending = 0;        // connections accepted but not yet authenticated (bounds buffered memory)
+    this.stopped = false;
+    this.listening = false;  // true only while the listener is actually bound
+    this.lastError = null;   // last listener error (e.g. EADDRINUSE), surfaced to the UI
     var self = this;
     this.net = net.createServer(function (socket) {
         // Guard everything: this runs inside Vetro's own process, so an uncaught throw here would crash the service.
         try {
+            if (self.stopped) { try { socket.destroy(); } catch (x) {} return; }
+            var maxPending = (self.opts.maxPending != null) ? self.opts.maxPending : 8;
+            if (self.pending >= maxPending) {                       // too many half-open sessions: shed load
+                try { socket.destroy(); } catch (x) {}
+                if (self.opts.log) self.opts.log('refused connection: too many unauthenticated sessions');
+                return;
+            }
             socket.setNoDelay(true);
             var conn = new Connection(socket, self);
+            self.connections.push(conn);
+            conn.on('end', function () { var i = self.connections.indexOf(conn); if (i >= 0) self.connections.splice(i, 1); });
             conn.startKex();
             self.emit('connection', conn);
         } catch (e) { try { socket.destroy(); } catch (x) {} if (self.opts.log) self.opts.log('accept error: ' + (e && e.message || e)); }
     });
-    this.net.on('error', function (e) { if (self.opts.log) self.opts.log('listener error: ' + (e && e.message || e)); });
+    this.net.on('error', function (e) {
+        self.listening = false;
+        self.lastError = (e && e.message) || String(e);
+        if (self.opts.log) self.opts.log('listener error: ' + self.lastError);
+    });
 }
 Server.prototype = Object.create(EventEmitter.prototype);
 Server.prototype.keyAllowed = function (rawKey) {
@@ -485,8 +554,23 @@ Server.prototype.keyAllowed = function (rawKey) {
 };
 Server.prototype.setAuthorizedKeys = function (keysOrText) { this.authorizedKeys = Array.isArray(keysOrText) ? keysOrText : parseAuthorizedKeys(keysOrText); };
 Server.prototype.hostKeyPem = function () { return this.hostKey.pem; };
-Server.prototype.listen = function (port, host, cb) { return this.net.listen(port, host, cb); };
-Server.prototype.close = function (cb) { return this.net.close(cb); };
+Server.prototype.listen = function (port, host, cb) {
+    var self = this; this.stopped = false; this.lastError = null;
+    return this.net.listen(port, host, function () { self.listening = true; if (cb) cb(); });
+};
+// Stop the listener AND tear down every connection already open. Without destroying live sockets, an interactive
+// session keeps running commands and an open SFTP session keeps its uid-5001 fs access after the Shard is switched off.
+Server.prototype.close = function (cb) {
+    this.stopped = true; this.listening = false;
+    var conns = this.connections.slice();
+    this.connections = [];
+    for (var i = 0; i < conns.length; i++) {
+        try { conns[i].disconnect(11, 'server stopping'); } catch (e) {}   // best-effort polite DISCONNECT
+        try { conns[i].socket.destroy(); } catch (e) {}                    // force the socket shut
+        try { conns[i].cleanup(); } catch (e) {}                           // shut down channels now (fires 'close' -> sftp closes fds)
+    }
+    return this.net.close(cb);
+};
 Server.prototype.address = function () { return this.net.address(); };
 
 module.exports = {

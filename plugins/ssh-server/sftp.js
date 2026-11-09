@@ -81,6 +81,10 @@ function serve(channel, opts) {
     function reply(buf) { channel.write(buf); }
     function status(id, code, msg) { reply(new Pkt(T.STATUS).u32(id).u32(code).str(msg || '').str('').done()); }
     function newHandle(obj) { var h = 'h' + (nextH++); handles[h] = obj; return h; }
+    // Wrap an async fs callback so a throw inside it (e.g. building the reply) is caught and logged instead of
+    // escaping uncaught — an uncaught throw in a callback would take down the whole Vetro process. The sync dispatch
+    // in process() is already guarded, but that try does not cover these callbacks.
+    function safe(fn) { return function () { try { return fn.apply(this, arguments); } catch (e) { if (opts.log) opts.log('sftp cb error: ' + (e && e.message || e)); } }; }
 
     channel.on('data', function (d) { inbuf = Buffer.concat([inbuf, d]); process(); });
     // The sftp client signals it is done by sending CHANNEL_EOF and then waits for the server to close the channel.
@@ -114,11 +118,11 @@ function serve(channel, opts) {
             }
             case T.STAT: case T.LSTAT: {
                 var sp = r.str().toString('utf8'); var fn = type === T.STAT ? fs.stat : fs.lstat;
-                return fn(sp, function (e, st) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.ATTRS).u32(id).raw(attrsBuf(st)).done()); });
+                return fn(sp, safe(function (e, st) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.ATTRS).u32(id).raw(attrsBuf(st)).done()); }));
             }
             case T.FSTAT: {
                 var hd = handles[r.str().toString()]; if (!hd || hd.fd == null) return status(id, FX.FAILURE, 'bad handle');
-                return fs.fstat(hd.fd, function (e, st) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.ATTRS).u32(id).raw(attrsBuf(st)).done()); });
+                return fs.fstat(hd.fd, safe(function (e, st) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.ATTRS).u32(id).raw(attrsBuf(st)).done()); }));
             }
             case T.OPEN: {
                 var fp = r.str().toString('utf8'); var pf = r.u32(); skipAttrs(r);
@@ -128,34 +132,34 @@ function serve(channel, opts) {
                 else if ((pf & F.CREAT) && (pf & F.TRUNC)) flags = 'w';
                 else if ((pf & F.CREAT) && (pf & F.WRITE)) flags = (pf & F.READ) ? 'a+' : 'a';
                 if ((pf & F.WRITE) && (pf & F.TRUNC)) flags = (pf & F.READ) ? 'w+' : 'w';
-                return fs.open(fp, flags, function (e, fd) {
+                return fs.open(fp, flags, safe(function (e, fd) {
                     if (e) return status(id, errStatus(e), e.message);
                     reply(new Pkt(T.HANDLE).u32(id).str(newHandle({ fd: fd, path: fp })).done());
-                });
+                }));
             }
             case T.READ: {
                 var rh = handles[r.str().toString()]; var off = r.u64(), rl = r.u32();
                 if (!rh || rh.fd == null) return status(id, FX.FAILURE, 'bad handle');
                 var buf = Buffer.alloc(Math.min(rl, 256 * 1024));
-                return fs.read(rh.fd, buf, 0, buf.length, off, function (e, n) {
+                return fs.read(rh.fd, buf, 0, buf.length, off, safe(function (e, n) {
                     if (e) return status(id, errStatus(e), e.message);
                     if (n === 0) return status(id, FX.EOF);
                     reply(new Pkt(T.DATA).u32(id).str(buf.slice(0, n)).done());
-                });
+                }));
             }
             case T.WRITE: {
                 var wh = handles[r.str().toString()]; var woff = r.u64(), wdata = r.str();
                 if (!wh || wh.fd == null) return status(id, FX.FAILURE, 'bad handle');
-                return fs.write(wh.fd, wdata, 0, wdata.length, woff, function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); });
+                return fs.write(wh.fd, wdata, 0, wdata.length, woff, safe(function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); }));
             }
             case T.CLOSE: {
                 var hk = r.str().toString(), ch = handles[hk]; delete handles[hk];
-                if (ch && ch.fd != null) return fs.close(ch.fd, function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); });
+                if (ch && ch.fd != null) return fs.close(ch.fd, safe(function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); }));
                 return status(id, FX.OK);
             }
             case T.OPENDIR: {
                 var dp = r.str().toString('utf8');
-                return fs.readdir(dp, function (e, names) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.HANDLE).u32(id).str(newHandle({ dir: dp, names: names, i: 0 })).done()); });
+                return fs.readdir(dp, safe(function (e, names) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.HANDLE).u32(id).str(newHandle({ dir: dp, names: names, i: 0 })).done()); }));
             }
             case T.READDIR: {
                 var dh = handles[r.str().toString()]; if (!dh || !dh.names) return status(id, FX.FAILURE, 'bad handle');
@@ -164,7 +168,7 @@ function serve(channel, opts) {
                 var entries = [], pending = batch.length;
                 if (!pending) return status(id, FX.EOF);
                 batch.forEach(function (nm) {
-                    fs.lstat(path.join(dh.dir, nm), function (e, st) {
+                    fs.lstat(path.join(dh.dir, nm), safe(function (e, st) {
                         entries.push({ name: nm, st: e ? null : st });
                         if (--pending === 0) {
                             var pkt = new Pkt(T.NAME).u32(id).u32(entries.length);
@@ -174,14 +178,14 @@ function serve(channel, opts) {
                             });
                             reply(pkt.done());
                         }
-                    });
+                    }));
                 });
                 return;
             }
-            case T.REMOVE: { var rp = r.str().toString('utf8'); return fs.unlink(rp, function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); }); }
-            case T.MKDIR: { var mp = r.str().toString('utf8'); skipAttrs(r); return fs.mkdir(mp, function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); }); }
-            case T.RMDIR: { var rmp = r.str().toString('utf8'); return fs.rmdir(rmp, function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); }); }
-            case T.RENAME: { var op = r.str().toString('utf8'), np = r.str().toString('utf8'); return fs.rename(op, np, function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); }); }
+            case T.REMOVE: { var rp = r.str().toString('utf8'); return fs.unlink(rp, safe(function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); })); }
+            case T.MKDIR: { var mp = r.str().toString('utf8'); skipAttrs(r); return fs.mkdir(mp, safe(function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); })); }
+            case T.RMDIR: { var rmp = r.str().toString('utf8'); return fs.rmdir(rmp, safe(function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); })); }
+            case T.RENAME: { var op = r.str().toString('utf8'), np = r.str().toString('utf8'); return fs.rename(op, np, safe(function (e) { status(id, e ? errStatus(e) : FX.OK, e ? e.message : ''); })); }
             case T.SETSTAT: case T.FSETSTAT: {
                 var target, isH = type === T.FSETSTAT;
                 if (isH) { var sh = handles[r.str().toString()]; target = sh && sh.path; } else target = r.str().toString('utf8');
@@ -191,10 +195,10 @@ function serve(channel, opts) {
                 if (at.mode != null) steps.push(function (cb) { fs.chmod(target, at.mode & 0xfff, cb); });
                 if (at.size != null) steps.push(function (cb) { fs.truncate(target, at.size, cb); });
                 if (at.atime != null && at.mtime != null) steps.push(function (cb) { fs.utimes(target, at.atime, at.mtime, cb); });
-                (function run(i) { if (i >= steps.length) return status(id, FX.OK); steps[i](function (e) { if (e) return status(id, errStatus(e), e.message); run(i + 1); }); })(0);
+                (function run(i) { if (i >= steps.length) return status(id, FX.OK); steps[i](safe(function (e) { if (e) return status(id, errStatus(e), e.message); run(i + 1); })); })(0);
                 return;
             }
-            case T.READLINK: { var lp = r.str().toString('utf8'); return fs.readlink(lp, function (e, t) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.NAME).u32(id).u32(1).str(t).str(t).raw(Buffer.alloc(4)).done()); }); }
+            case T.READLINK: { var lp = r.str().toString('utf8'); return fs.readlink(lp, safe(function (e, t) { if (e) return status(id, errStatus(e), e.message); reply(new Pkt(T.NAME).u32(id).u32(1).str(t).str(t).raw(Buffer.alloc(4)).done()); })); }
             default: return status(id, FX.OP_UNSUPPORTED, 'unsupported');
         }
     }
