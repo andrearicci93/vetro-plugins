@@ -3,6 +3,20 @@
   "version": 1,
   "plugins": [
     {
+      "id": "nordvpn",
+      "name": "NordVPN",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect. Talks to api.nordvpn.com, NordVPN servers and GitHub (its binary).",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/nordvpn-1.0.0.vplugin",
+      "sha256": "71ebdbc70c9070e0c4c658f43492151903c52f96d927a02b629b6c15654797aa",
+      "size": 62170,
+      "signature": "D4rdozAdMoc+AsEMagxJuBERVRu8Vy7xg3ZJjKFbj9eufabs9XJSm+VUTPjGUBCotcBT+VaiPkhhcSQ2r2sUUp9i2JC8HJzZcLiKr++Ped9fGySMpmj2ThrFfQspNIbN899Bq7OlFM3i+uvKKAPvImLsvD46yqDN+5X6S9H0e+Cc9HdLso6ZoZ8GbS033G9IUaIuoTre50l/7AYY/GdHgumbMBP3g5lnRvBIW4pb6xXM++OYqR+DNQHC9QiukzL47xs90ANrfrfzWHZWLjAnDoAYdzE4uxv64NdEEYRYomELT1sOQCXTyxKDnkcnMc3KlJlDLWgz85pg6oj7+DkZusenmKgJ920xoZT7Hcjpk0p+iHyGVaznyGb95G1J+IcQLj0vFOHtLK8DfP60dVauiIw9oI9c4CpuZUxz85Z7cl3MnmqrYX5/1btL4iTWud04/EL/MjXc8k3RWvnVMulbw64HJhEyAb3wbiLA9RCBxXkTm/6uHavb5fqckJ2nDwC3"
+    },
+    {
       "id": "shell",
       "name": "Shell",
       "version": "1.0.0",
