@@ -556,7 +556,13 @@ Server.prototype.setAuthorizedKeys = function (keysOrText) { this.authorizedKeys
 Server.prototype.hostKeyPem = function () { return this.hostKey.pem; };
 Server.prototype.listen = function (port, host, cb) {
     var self = this; this.stopped = false; this.lastError = null;
-    return this.net.listen(port, host, function () { self.listening = true; if (cb) cb(); });
+    var net = this.net;
+    return net.listen(port, host, function () {
+        // close() can run before the async bind completes (listen with a host does a lookup first). Node 20 drops
+        // that late bind, but older Node (e.g. 12.4) still binds after close() was a no-op: shut it down here.
+        if (self.stopped) { try { net.close(); } catch (e) {} return; }
+        self.listening = true; if (cb) cb();
+    });
 };
 // Stop the listener AND tear down every connection already open. Without destroying live sockets, an interactive
 // session keeps running commands and an open SFTP session keeps its uid-5001 fs access after the Shard is switched off.
