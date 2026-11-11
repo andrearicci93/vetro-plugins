@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>Bedtime</title>
+<style>
+:root{--bg:#080f23;--surface:#101c35;--raised:#192943;--border:#344360;--text:#f5f8ff;--muted:#aab8d1;--action:#123bb5;--ok:#7fcba0;--bad:#ef8a80}
+@media (prefers-color-scheme:light){:root{--bg:#f5f8ff;--surface:#fff;--raised:#eef2fb;--border:#c9d3e6;--text:#0b1430;--muted:#4a5878;--ok:#1e7a4a;--bad:#b3261e}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin:0 0 16px;max-width:760px}
+h2{margin:0 0 8px;font-size:16px}p{margin:0 0 8px}.note{color:var(--muted);font-size:12px}
+button,select,input{height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--raised);color:inherit;font:inherit}
+button{cursor:pointer}button.primary{background:var(--action);border-color:var(--action);color:#f5f8ff;font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.days label{display:inline-flex;align-items:center;gap:4px;margin-right:8px}.days input{height:auto}
+table{width:100%;border-collapse:collapse}td{padding:6px 4px;border-top:1px solid var(--border);vertical-align:middle}
+.ok{color:var(--ok)}.bad{color:var(--bad)}#msg{min-height:1.4em;font-size:12px}
+</style></head><body>
+<div class="panel"><h2>Sleep timer</h2>
+<p id="sleep" class="note">Off.</p>
+<div class="row"><button data-min="15">15 min</button><button data-min="30">30 min</button><button data-min="60">1 h</button><button data-min="90">1 h 30</button><button id="cancel">Cancel</button></div></div>
+
+<div class="panel"><h2>Schedule</h2>
+<table id="rules"></table>
+<p id="empty" class="note">No rules yet.</p>
+<h2 style="margin-top:12px">Add a rule</h2>
+<div class="row days" id="days"></div>
+<div class="row"><input id="time" type="time" value="23:30" aria-label="Time">
+<select id="action"><option value="off">Turn the TV off</option><option value="launch">Open an app</option></select>
+<select id="app" hidden aria-label="App"><option value="">Loading apps…</option></select>
+<button id="add" class="primary">Add</button><button id="test">Test now</button></div>
+<p id="msg" aria-live="polite"></p>
+<p class="note">Times are the TV's local time (<span id="tz"></span>). A rule runs once a day, within two minutes of its time, and only while the TV is on: a time missed while it is off is skipped. Opening an app needs the TV on. Rules run while this Shard is switched on.</p></div>
+
+<div class="panel"><h2>Last actions</h2><table id="log"></table><p id="nolog" class="note">Nothing yet.</p></div>
+
+<div class="panel"><h2>Reset</h2><p class="note">Deletes every rule, cancels the sleep timer and clears the last actions, as after a fresh install.</p>
+<div class="row"><button id="reset">Reset Bedtime</button></div></div>
+<script>
+var data=null,DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],ORDER=[1,2,3,4,5,6,0],appNames={};
+function $(id){return document.getElementById(id)}
+function api(u,b){return fetch(u,b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json().catch(function(){throw new Error('no answer from the Shard: open the Bedtime tab again')}).then(function(d){if(!r.ok||d.ok===false)throw new Error(d.error||'Action failed');return d})},function(){throw new Error('no answer from the Shard: open the Bedtime tab again')})}
+function say(t,bad){$('msg').textContent=t||'';$('msg').className=bad?'bad':''}
+function text(el,t){el.textContent=t;return el}
+function el(tag,t,cls){var e=document.createElement(tag);if(t!=null)e.textContent=t;if(cls)e.className=cls;return e}
+function when(ms){if(!ms)return '—';var d=new Date(ms);return DAYS[d.getDay()]+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)}
+function what(r){return r.action==='off'?'Turn the TV off':'Open '+(r.appName||appNames[r.appId]||r.appId)}
+function daysText(days){if(days.length===7)return 'Every day';if(days.join()==='1,2,3,4,5')return 'Weekdays';if(days.join()==='0,6')return 'Weekends';return ORDER.filter(function(d){return days.indexOf(d)>=0}).map(function(d){return DAYS[d]}).join(' ')}
+function show(d){data=d;var off=-d.tzOffsetMinutes;$('tz').textContent='UTC'+(d.tzOffsetMinutes>=0?'+':'-')+Math.abs(d.tzOffsetMinutes/60);
+ $('sleep').textContent=d.sleepAt?'The TV turns off at '+when(d.sleepAt).slice(4)+' ('+Math.max(1,Math.round((d.sleepAt-d.now)/60000))+' min).':'Off.';
+ var t=$('rules');t.textContent='';$('empty').hidden=d.rules.length>0;
+ d.rules.forEach(function(r,i){var tr=el('tr');
+  var on=document.createElement('input');on.type='checkbox';on.checked=r.enabled;on.title='Enabled';on.onchange=function(){var l=copy();l[i].enabled=this.checked;saveRules(l,this.checked?'Rule on.':'Rule off.')};
+  var td=el('td');td.appendChild(on);tr.appendChild(td);
+  tr.appendChild(el('td',r.time+' · '+daysText(r.days)));tr.appendChild(el('td',what(r)));tr.appendChild(el('td',r.enabled?'next '+when(r.next):'off','note'));
+  var del=el('button','Remove');del.onclick=function(){var l=copy();l.splice(i,1);saveRules(l,'Rule removed.')};td=el('td');td.appendChild(del);tr.appendChild(td);t.appendChild(tr)});
+ var g=$('log');g.textContent='';$('nolog').hidden=d.log.length>0;
+ d.log.forEach(function(x){var tr=el('tr');tr.appendChild(el('td',new Date(x.at).toLocaleString()));tr.appendChild(el('td',x.why));
+  tr.appendChild(el('td',x.action==='off'?'TV off':'Open '+(appNames[x.appId]||x.appId)));tr.appendChild(el('td',x.ok?'done':'failed: '+(x.error||''),x.ok?'ok':'bad'));g.appendChild(tr)})}
+function copy(){return data.rules.map(function(r){var o={id:r.id,enabled:r.enabled,time:r.time,days:r.days.slice(),action:r.action};if(r.appId){o.appId=r.appId;o.appName=r.appName}return o})}
+function saveRules(list,ok){return api('rules',{rules:list}).then(function(d){show(d);say(ok)}).catch(function(e){say(e.message,true);load()})}
+function load(){return api('state').then(show).catch(function(e){say(e.message,true)})}
+function picked(){var r={action:$('action').value};if(r.action==='launch'){r.appId=$('app').value;r.appName=appNames[r.appId]||''}return r}
+ORDER.forEach(function(d){var l=el('label'),c=document.createElement('input');c.type='checkbox';c.value=d;c.checked=d>=0;l.appendChild(c);l.appendChild(document.createTextNode(DAYS[d]));$('days').appendChild(l)});
+$('action').onchange=function(){$('app').hidden=this.value!=='launch';if(this.value==='launch'&&!$('app').options[0].value)loadApps()};
+function loadApps(){api('apps').then(function(d){var s=$('app');s.textContent='';d.apps.forEach(function(a){appNames[a.appId]=a.name;var o=el('option',a.name);o.value=a.appId;s.appendChild(o)});if(data)show(data)}).catch(function(e){$('app').options[0].textContent='Apps unavailable: '+e.message})}
+$('add').onclick=function(){var days=[].slice.call(document.querySelectorAll('#days input')).filter(function(c){return c.checked}).map(function(c){return Number(c.value)});
+ var r=picked();r.time=$('time').value;r.days=days;r.enabled=true;if(r.action==='launch'&&!r.appId){say('Pick an app',true);return}saveRules(copy().concat([r]),'Rule added.')};
+// The page runs in a sandbox without dialogs (confirm() would just return false): a second click confirms instead.
+var armed=null;
+$('test').onclick=function(){var r=picked(),b=this;if(r.action==='launch'&&!r.appId){say('Pick an app',true);return}
+ if(r.action==='off'&&!armed){armed=setTimeout(function(){armed=null;b.textContent='Test now'},5000);b.textContent='Click again: TV off';return}
+ clearTimeout(armed);armed=null;b.textContent='Test now';say('Running…');api('run',r).then(function(d){show(d.state);say('Done.')}).catch(function(e){say(e.message,true);load()})};
+[].forEach.call(document.querySelectorAll('[data-min]'),function(b){b.onclick=function(){api('sleep',{minutes:Number(b.getAttribute('data-min'))}).then(function(d){show(d);say('Sleep timer set.')}).catch(function(e){say(e.message,true)})}});
+$('cancel').onclick=function(){api('sleep',{minutes:null}).then(function(d){show(d);say('Sleep timer cancelled.')}).catch(function(e){say(e.message,true)})};
+var resetArmed=null;
+$('reset').onclick=function(){var b=this;if(!resetArmed){b.textContent='Click again: delete all rules';resetArmed=setTimeout(function(){resetArmed=null;b.textContent='Reset Bedtime'},5000);return}
+ clearTimeout(resetArmed);resetArmed=null;b.textContent='Reset Bedtime';api('reset',{}).then(function(d){show(d);say('Reset done: no rules, no sleep timer.')}).catch(function(e){say(e.message,true)})};
+load();setInterval(load,30000);
+</script></body></html>
