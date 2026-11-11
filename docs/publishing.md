@@ -30,7 +30,7 @@ No signing key or release is needed to validate a contributor PR.
 ## Automatic runs
 
 A push to `main` or manual dispatch on `main` calls the reusable check workflow.
-Validation checks ES5 syntax, manifest limits, README, build consistency and version
+Validation checks ES5 syntax, manifest limits (including `intercepts`, which also goes into `index.json`), README, build consistency and version
 immutability; lifecycle jobs run on three real Node versions. Publication requires
 all checks to pass. Only then does its separate job enter the signing environment.
 It refuses a stale run if `main` has moved, signs without loading plugin code,

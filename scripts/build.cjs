@@ -27,6 +27,21 @@ const BANNED = [[/\beval\s*\(/, 'eval()'], [/\bnew\s+Function\b/, 'new Function'
 
 function text(folder, rel) { return fs.readFileSync(path.join(folder, rel), 'utf8'); }
 
+// The manifest key "intercepts": the apps whose launcher tile the Shard takes over. The same rules as the TV (Vetro's plugin host).
+function intercepts(list) {
+    if (list == null) return [];
+    if (!Array.isArray(list) || !list.length || list.length > 3) return ['intercepts must be a list of 1-3 apps'];
+    const e = [], seen = {};
+    list.forEach((a, i) => {
+        if (!a || typeof a !== 'object' || Array.isArray(a)) { e.push('intercepts[' + i + '] must be an object with appId and label'); return; }
+        if (typeof a.appId !== 'string' || !/^[A-Za-z0-9_.-]{1,120}$/.test(a.appId) || /^\.+$/.test(a.appId)) e.push('intercepts[' + i + '].appId must be a Tizen app id (letters, digits, . _ -)');
+        if (typeof a.label !== 'string' || !a.label.trim() || a.label.length > 24 || /[\u0000-\u001f\u007f<>]/.test(a.label)) e.push('intercepts[' + i + '].label must be 1-24 characters of plain text');
+        if (typeof a.appId === 'string' && seen[a.appId]) e.push('intercepts lists ' + a.appId + ' twice');
+        seen[a.appId] = true;
+    });
+    return e;
+}
+
 function validate(id, m, files) {
     const e = [];
     if (!ID.test(id) || RESERVED.indexOf(id) >= 0) e.push('the folder name is not a valid id (2-32 chars, a-z 0-9 -, starts with a letter; not ' + RESERVED.join(', ') + ')');
@@ -46,6 +61,7 @@ function validate(id, m, files) {
     else perms.forEach(p => { if (PERMISSIONS.indexOf(p) < 0) e.push('unknown permission "' + p + '" (the TV knows: ' + PERMISSIONS.join(', ') + ')'); });
     if (m.ui != null && (typeof m.ui.label !== 'string' || !m.ui.label || m.ui.label.length > 24)) e.push('ui.label must be 1-24 characters');
     if (m.main != null && (typeof m.main !== 'string' || !FILE.test(m.main))) e.push('main must be a file name inside the Shard folder');
+    intercepts(m.intercepts).forEach(msg => e.push(msg));
     const names = Object.keys(files);
     if (names.length > MAX_FILES) e.push('a bundle holds at most ' + MAX_FILES + ' files (this one has ' + names.length + ')');
     const total = names.reduce((n, f) => n + Buffer.byteLength(files[f]), 0);
@@ -53,6 +69,7 @@ function validate(id, m, files) {
     names.forEach(f => { if (!FILE.test(f)) e.push('file name not allowed on the TV: ' + f); });
     if (typeof files[m.main || 'index.js'] !== 'string') e.push('entry file ' + (m.main || 'index.js') + ' is missing');
     if (m.ui && typeof files[m.main || 'index.js'] === 'string' && !/['"]ui['"]/.test(files[m.main || 'index.js'])) e.push('manifest.ui is set but the entry file never mentions the "ui" route');
+    if (m.intercepts != null && typeof files[m.main || 'index.js'] === 'string' && !/\blaunch\s*:\s*function|\blaunch\s*\(/.test(files[m.main || 'index.js'])) e.push('manifest.intercepts is set but the entry file has no launch(appId) method');
 
     if (typeof files['README.md'] !== 'string') e.push('README.md is missing (start from template/README.md)');
     else if (perms.indexOf('exec') >= 0 && !/^#{1,6}\s+Commands\b/mi.test(files['README.md'])) e.push('asks for exec, so README.md needs a "Commands it runs" section listing every command and why');
@@ -104,6 +121,7 @@ for (const id of fs.readdirSync(path.join(root, 'plugins')).sort()) {
         permissions: m.permissions || [], url: 'dist/' + name,
         sha256: crypto.createHash('sha256').update(r.text).digest('hex'), size: Buffer.byteLength(r.text)
     };
+    if (m.intercepts) entry.intercepts = m.intercepts.map(a => ({ appId: a.appId, label: a.label }));
     const old = previous.find(p => p.id === id);
     if (old && old.signature && old.version === entry.version && old.sha256 === entry.sha256) entry.signature = old.signature;
     out['dist/' + name] = r.text;
