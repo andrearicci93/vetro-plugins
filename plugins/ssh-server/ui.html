@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>SSH server</title>
+<style>
+:root{--bg:#0b1020;--card:#121a30;--border:#2b3a5c;--text:#e7ecf7;--muted:#9fb0d0;--accent:#7aa2ff;--ok:#5fd08a;--err:#ff8a7a;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:light){:root{--bg:#f4f7ff;--card:#fff;--border:#d3dcef;--text:#0d1430;--muted:#51618a;--accent:#1f49c9;--ok:#1a8a4e;--err:#b3261e}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:48rem}
+h2{margin:0 0 2px}h3{margin:0 0 8px;font-size:15px}.sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+button{font:inherit;padding:7px 13px;border:1px solid var(--border);border-radius:7px;background:transparent;color:inherit;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#061126}
+input[type=number]{font:inherit;background:var(--bg);color:inherit;border:1px solid var(--border);border-radius:7px;padding:7px;width:7em}
+textarea{width:100%;min-height:84px;font-family:var(--mono);font-size:12.5px;background:var(--bg);color:inherit;border:1px solid var(--border);border-radius:7px;padding:8px}
+code,.mono{font-family:var(--mono)}.mono{word-break:break-all}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
+.pill.on{color:var(--ok);border-color:var(--ok)}
+.msg{min-height:1.3em;font-size:13px;margin:6px 0}.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;overflow:auto;max-height:220px;font-size:12px;white-space:pre-wrap;word-break:break-word}
+.note{color:var(--muted);font-size:12.5px;line-height:1.5}
+table.hints{border-collapse:collapse;width:100%;font-size:13px}table.hints td{padding:3px 8px 3px 0;vertical-align:top}table.hints td:first-child{white-space:nowrap}
+.warn{border-left:3px solid var(--err);padding-left:10px}
+</style></head><body>
+<h2>SSH server</h2>
+<p class="sub">A real SSH endpoint on the TV, in pure JavaScript. Status: <span id="pill" class="pill">…</span></p>
+
+<div id="unsupported" class="card warn" hidden><p class="note" id="unsupported_msg"></p></div>
+
+<div class="card">
+<h3>What you can do</h3>
+<table class="hints">
+<tr><td><code>ssh&nbsp;-p&nbsp;<span class="P">2222</span>&nbsp;root@<span class="IP">TV-IP</span></code></td><td>interactive <b>root</b> line-shell via Vetro's agent — each command runs as root, <code>cd</code> is remembered. <b>No PTY</b>: no <code>top</code>/<code>vi</code>/<code>less</code> (use <code>top&nbsp;-b&nbsp;-n1</code>)</td></tr>
+<tr><td><code>ssh&nbsp;-p&nbsp;<span class="P">2222</span>&nbsp;root@<span class="IP">TV-IP</span>&nbsp;'id'</code></td><td>runs a single command as <b>root</b> via the agent</td></tr>
+<tr><td><code>sftp&nbsp;-P&nbsp;<span class="P">2222</span>&nbsp;x@<span class="IP">TV-IP</span></code></td><td><code>scp</code>/<code>sftp</code> file transfer as the <b>owner</b> (uid 5001) — owner-readable files</td></tr>
+</table>
+<p class="note">The username is ignored (you authenticate with your key). The interactive shell and single commands run as <b>root</b> through Vetro's agent; file transfer runs in-process as the owner (uid 5001), because the TV's sandbox blocks this process from executing binaries. Keep this on a trusted LAN — never expose the port to the Internet.</p>
+</div>
+
+<div class="card">
+<h3>Authorized keys</h3>
+<p class="note">Paste the <b>public</b> ed25519 key(s) allowed to log in (one per line). Generate one with <code>ssh-keygen -t ed25519</code> and paste the <code>.pub</code>. Keys are stored in this Shard, not in <code>~/.ssh</code>. Applies to new connections at once.</p>
+<textarea id="keys" placeholder="ssh-ed25519 AAAA... you@laptop"></textarea>
+<div class="row"><button id="savekeys" class="primary">Save keys</button> <span class="note" id="keycount"></span></div>
+<div id="m_keys" class="msg"></div>
+</div>
+
+<div class="card">
+<h3>Settings</h3>
+<div class="row"><label>Port <input type="number" id="port" min="1" max="65535" value="2222"></label><button id="saveport">Save port</button></div>
+<div id="m_port" class="msg"></div>
+<p class="note">Host key fingerprint (what your client shows on first connect): <span class="mono" id="fp">…</span></p>
+<div class="row"><button id="regen">Regenerate host key</button></div>
+<div id="m_regen" class="msg"></div>
+</div>
+
+<div class="card"><h3>Log</h3><pre id="log">…</pre></div>
+
+<script>
+function $(id){return document.getElementById(id)}
+function say(el,t,c){var m=$(el);m.textContent=t||'';m.className='msg'+(c?' '+c:'')}
+function post(sub,b){return fetch(sub,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}).then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d}})})}
+function setAll(cls,v){var n=document.querySelectorAll('.'+cls);for(var i=0;i<n.length;i++)n[i].textContent=v}
+function show(d){
+ $('pill').textContent=d.unsupported?'unsupported':(d.running?('listening · port '+d.port+(d.connections?' · '+d.connections+' client(s)':'')):'off');
+ $('pill').className='pill'+(d.running&&!d.unsupported?' on':'');
+ if(d.unsupported){$('unsupported').hidden=false;$('unsupported_msg').textContent=d.unsupported}else{$('unsupported').hidden=true}
+ if(d.port){$('port').value=d.port;setAll('P',d.port)}
+ $('fp').textContent=d.fingerprint||'(server off)';
+ $('keycount').textContent=(d.keyCount||0)+' key(s) saved';
+ if(d.log)$('log').textContent=d.log.join('\n')||'(empty)';
+ if(d.lastError)say('m_port',d.lastError,'err');
+}
+function reload(){fetch('state').then(function(r){return r.json()}).then(show).catch(function(){})}
+$('savekeys').onclick=function(){say('m_keys','Saving…');post('authkeys',{keys:$('keys').value}).then(function(r){say('m_keys',r.d.error?r.d.error:'Saved.',r.d.error?'err':'ok');if(!r.d.error)show(r.d)})};
+$('saveport').onclick=function(){say('m_port','Saving…');post('port',{port:Number($('port').value)}).then(function(r){say('m_port',r.d.error?r.d.error:'Saved (sessions restarted).',r.d.error?'err':'ok');if(!r.d.error)show(r.d)})};
+$('regen').onclick=function(){if(!confirm('Regenerate the host key? Clients that connected before will warn about a changed key.'))return;say('m_regen','Working…');post('regen-hostkey',{}).then(function(r){say('m_regen','Done. New fingerprint below.','ok');show(r.d)})};
+reload();setInterval(reload,5000);
+</script></body></html>

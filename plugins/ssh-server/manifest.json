@@ -1,0 +1,13 @@
+{
+  "id": "ssh-server",
+  "name": "SSH server",
+  "version": "0.3.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "author": "bertrandom",
+  "description": "A real SSH-2 server in pure JS (no binary): interactive ssh is a root line-shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+.",
+  "main": "index.js",
+  "ui": {
+    "label": "SSH server"
+  }
+}

@@ -29,6 +29,19 @@
       "size": 19626
     },
     {
+      "id": "ssh-server",
+      "name": "SSH server",
+      "version": "0.3.0",
+      "author": "bertrandom",
+      "description": "A real SSH-2 server in pure JS (no binary): interactive ssh is a root line-shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/ssh-server-0.3.0.vplugin",
+      "sha256": "fa869b8ae63466a577b78b96fc4b11eee9a655c6ec4891ca7ac26db4cadd8da9",
+      "size": 74678
+    },
+    {
       "id": "tv-uptime",
       "name": "TV uptime",
       "version": "1.0.1",
