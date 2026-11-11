@@ -62,6 +62,7 @@ a Shard run, then change it.
 | `permissions` | no | `[]` or `["exec"]`. Ask for `exec` only if you call `ctx.execute`. |
 | `main` | no | The entry file. Default `index.js`. |
 | `ui` | no | `{ "label": "…" }`, 1-24 characters. Adds a tab to the dashboard while the Shard runs. The Shard must answer the `ui` route. |
+| `intercepts` | no | `[{ "appId": "…", "label": "…" }]`, 1-3 apps. Says that the Vetro launcher's tile for each app starts your `launch(appId)` while the Shard runs. The Shard must have a `launch` method. See [Taking over an app's tile](#taking-over-an-apps-launcher-tile). |
 
 **Choosing `permissions`.** There is only one, `exec`: shell commands on the TV, as root. Leave it out unless you need
 it. If you have it, the README has to say which commands you run and why (section 4). Leaving it out does not make a
@@ -78,12 +79,15 @@ module.exports = function (ctx) {
         status: function () { return {}; },   // shown by the dashboard as the Shard's detail
         route:  function (req, res, sub) {    // /plugins/<id>/api/<sub>
             return false;                     // false = not mine
+        },
+        launch: function (appId) {            // only with "intercepts": start that app your way
+            return Promise.resolve(true);
         }
     };
 };
 ```
 
-All four are optional. `ctx` gives you `ctx.id`, `ctx.dir`, `ctx.config` and `ctx.execute`, and nothing else. The
+All five are optional (`launch` only matters with `intercepts`). `ctx` gives you `ctx.id`, `ctx.dir`, `ctx.config` and `ctx.execute`, and nothing else. The
 [reference](what-a-plugin-can-do.md#6-what-the-api-gives-a-shard) lists what each one does.
 
 ### The life of a Shard
@@ -92,6 +96,27 @@ All four are optional. `ctx` gives you `ctx.id`, `ctx.dir`, `ctx.config` and `ct
 2. The dashboard calls `status()` now and then, and requests go to `route()`.
 3. The user switches it off, or removes it, or Vetro switches it off after three errors in a row. Vetro calls `stop()`.
 4. If `start()` throws, Vetro still calls `stop()` so you can release what you had already taken.
+
+### Taking over an app's launcher tile
+
+Some apps have to be started in a particular way: through a proxy, with a flag, with a patch applied first. A Shard can
+say that it does this for an app, and the Vetro launcher then starts the Shard instead of the app when that app's tile is
+pressed. The Ad-free YouTube Shard does this for YouTube; a Twitch Shard could do the same for the Twitch app.
+
+```json
+"intercepts": [{ "appId": "com.samsung.tv.cobalt-yt", "label": "YouTube" }]
+```
+
+- `appId` is the Tizen id, as in `app_launcher -s <id>` (letters, digits, `.` `_` `-`). `label` is the name people read, 1-24 characters of plain text.
+  Up to three apps, no app twice. `build.cjs` checks the same rules as Vetro does, and fails if the entry file has no `launch`.
+- **Vetro tells the user.** The Shard's card in the dashboard shows **Intercepts the YouTube app**, and the install question lists the apps.
+  The catalog entry (`index.json`) carries the same list, and Vetro refuses a download whose manifest lists other apps than the catalog says.
+  Put it in your README too: say what changes for the tile.
+- It is **not a permission**: `permissions` stays `[]` or `["exec"]`. Older Vetro versions ignore the key and the Shard still loads.
+- `launch(appId)` returns a Promise. Resolve `true` when the app is starting; resolve `false` to decline. It may take a while the first time (up to 2 minutes).
+- **The fallback is Vetro's.** If the Shard is off, has no answer, declines, throws, rejects or is too slow, Vetro starts the app the normal way, so the tile
+  never goes dead. Do not start the app yourself *and* resolve `false`: it would start twice.
+- Only while the Shard is on: switching it off or removing it gives the tile back.
 
 ### The page
 
