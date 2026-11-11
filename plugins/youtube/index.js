@@ -226,6 +226,18 @@ module.exports = function (ctx) {
         req.on('error', function () { end({}); });
     }
 
+    // Gets the certificate and script ready (the first time up to a minute) and starts YouTube through the proxy.
+    // Resolves with { warning } and rejects when YouTube did not start. Used by the Open button and by the launcher tile.
+    function openYoutube() {
+        var warning = null;
+        return prepare().then(function (r) { warning = r.warning; return ctx.execute(setup.launchScript(PROXY_HOST, PORT), 25000); }).then(function (r) {
+            var out = String((r && r.stdout) || '');
+            if (!/successfully launched/.test(out)) throw new Error('YouTube did not start: ' + out.replace(/\s+/g, ' ').slice(0, 120));
+            log('YouTube started');
+            return { warning: warning };
+        });
+    }
+
     function snapshot() {
         var have = script.load(), s = proxy.stats();
         return { setup: st.setup, error: st.error, script: have ? 'ready' : st.script, scriptVersion: scriptLib.VERSION, scriptError: st.scriptError,
@@ -234,6 +246,12 @@ module.exports = function (ctx) {
     }
 
     return {
+        // manifest "intercepts": Vetro's launcher calls this when the YouTube tile is pressed, instead of starting the app itself.
+        // Anything but a failure to start (declining, an error) makes Vetro start YouTube the normal way, unpatched.
+        launch: function (appId) {
+            if (appId !== 'com.samsung.tv.cobalt-yt') return Promise.resolve(false);
+            return openYoutube().then(function () { return true; });
+        },
         // Starts the proxy when a certificate and script from an earlier run are there (a YouTube that was left open keeps
         // working after Vetro restarts), and brings the row in line: patched when the button is on, original otherwise.
         // A first run does nothing until the page asks.
@@ -283,12 +301,8 @@ module.exports = function (ctx) {
             if (sub === 'log' && req.method === 'GET') { json(res, 200, { log: logLines }); return true; }
             if (req.method !== 'POST') return false;
             if (sub === 'open') {
-                var warning = null;
-                prepare().then(function (r) { warning = r.warning; return ctx.execute(setup.launchScript(PROXY_HOST, PORT), 25000); }).then(function (r) {
-                    var out = String((r && r.stdout) || '');
-                    if (!/successfully launched/.test(out)) throw new Error('YouTube did not start: ' + out.replace(/\s+/g, ' ').slice(0, 120));
-                    log('YouTube started');
-                    json(res, 200, warning ? { ok: true, warning: warning } : { ok: true });
+                openYoutube().then(function (r) {
+                    json(res, 200, r.warning ? { ok: true, warning: r.warning } : { ok: true });
                 }).catch(function (e) { json(res, 200, { ok: false, error: e.message }); });
                 return true;
             }

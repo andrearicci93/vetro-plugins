@@ -31,3 +31,18 @@ test('published changes require higher versions',()=>{
  assert.throws(()=>changes.check(old,{plugins:[{id:'sample',version:'1.1.9',sha256:'after'}]}),/increase/);
  changes.check(old,{plugins:[{id:'sample',version:'1.3.0',sha256:'after'}]});
 });
+
+test('intercepts: same rules as Vetro, a launch method, and the index carries it',()=>{
+ const ok={...manifest,intercepts:[{appId:'com.example.app',label:'Example'}]};
+ const files={...validFiles,'index.js':'module.exports=function(){return {launch:function(){return Promise.resolve(true);}};};'};
+ assert.deepEqual(build.validate('sample',ok,files),[]);
+ assert.ok(build.validate('sample',ok,validFiles).some(e=>/no launch/.test(e)));
+ const bad=[[],[1],[{appId:'a b',label:'X'}],[{appId:'..',label:'X'}],[{appId:'a.b',label:''}],[{appId:'a.b',label:'x'.repeat(25)}],[{appId:'a.b',label:'<b>'}],
+  [{appId:'a.b',label:'A'},{appId:'a.b',label:'B'}],[1,2,3,4].map(i=>({appId:'a.b'+i,label:'L'+i})),'x'];
+ for(const list of bad)assert.ok(build.validate('sample',{...ok,intercepts:list},files).some(e=>/intercepts/.test(e)),JSON.stringify(list));
+ const dir=fixture('module.exports=function(){return {launch:function(){return Promise.resolve(true);}};};');
+ fs.writeFileSync(path.join(dir,'plugins/sample/manifest.json'),JSON.stringify(ok));
+ build.build(dir,false);
+ const entry=JSON.parse(fs.readFileSync(path.join(dir,'index.json'),'utf8')).plugins.find(p=>p.id==='sample');
+ assert.deepEqual(entry.intercepts,[{appId:'com.example.app',label:'Example'}]);
+});

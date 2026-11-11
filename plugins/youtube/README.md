@@ -10,6 +10,8 @@ optional [DeArrow](https://dearrow.ajay.app) titles. You stay signed in, voice s
 - Ads blocked before and inside videos, as far as the script keeps up with YouTube (see *Limits*).
 - Shorts removed from the menu, SponsorBlock skipping, optional DeArrow titles and thumbnails.
 - Your own account, history and subscriptions: it is the real YouTube app, not a clone.
+- The YouTube tile of the **Vetro launcher** opens the patched app while this Shard is on. The Shard says so in its manifest
+  (`intercepts`), and the dashboard shows **Intercepts the YouTube app** on its card and in the install question.
 - An optional switch so Samsung's own YouTube button (Home tile, remote key, voice) opens the patched app.
 - If anything fails (proxy down, script missing, certificate missing) YouTube still opens, just without the patches.
 
@@ -50,6 +52,18 @@ app_launcher -s com.samsung.tv.cobalt-yt -u 5001 USERDATA ' --base_url=https://w
   segments come from the public [SponsorBlock](https://sponsor.ajay.app) database (CC BY-NC-SA 4.0).
 
 `<DIR>` is `/opt/usr/home/owner/share/vetro-youtube`.
+
+## The Vetro launcher tile
+
+With Vetro UI → Launcher on, the launcher's YouTube tile starts this Shard instead of the app: Vetro asks the Shard's `launch()`, which does what
+**Open YouTube** does (certificate, script and the proxy flags below) and starts `com.samsung.tv.cobalt-yt` as the app's own user. The first press after
+installing can take up to a minute while the certificate and the content folder are made. Nothing else of the launcher changes.
+
+- It needs no switch of its own: **the Shard being on is the switch.** Switch the Shard off and the tile starts YouTube as before.
+- If the Shard cannot start it (proxy down, script missing, anything it throws, or no answer within 2 minutes) **Vetro starts YouTube the normal way**, unpatched,
+  so the tile never goes dead. The launcher's status says why in `lastShardLaunch`.
+- It does not depend on Samsung's wrapper app (`9Ur5IzDKqV.TizenYouTube`): the tile uses the Cobalt app directly, so it keeps working on a TV where the wrapper has been removed.
+- Commands: the same `app_launcher -t` / `app_launcher -s` as **Open YouTube**, see *Commands it runs*.
 
 ## After a boot
 
