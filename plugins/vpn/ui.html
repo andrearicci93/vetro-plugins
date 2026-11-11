@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>VPN</title>
+<style>
+:root{--bg:#080f23;--surface:#101c35;--raised:#192943;--border:#344360;--text:#f5f8ff;--muted:#aab8d1;--accent:#8fbaff;--action:#123bb5;--ok:#7fcba0;--danger:#ef8a80}
+@media (prefers-color-scheme:light){:root{--bg:#f5f8ff;--surface:#fff;--raised:#eef2fb;--border:#c9d3e6;--text:#0b1430;--muted:#4a5878;--accent:#123bb5;--ok:#1e7a4a;--danger:#b3261e}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin:0 0 16px;max-width:720px}
+h2{margin:0 0 8px;font-size:16px}p{margin:0 0 8px}.note{color:var(--muted);font-size:12px}
+#status{font-weight:600}#status.on{color:var(--ok)}#status.bad{color:var(--danger)}
+.switch{display:flex;align-items:center;gap:12px;margin:12px 0 0;cursor:pointer;width:max-content;max-width:100%}
+.switch input{appearance:none;-webkit-appearance:none;width:40px;height:24px;margin:0;border:1px solid var(--border);border-radius:99px;background:var(--raised);position:relative;flex-shrink:0;cursor:pointer}
+.switch input:before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:transform .12s}
+.switch input:checked{background:var(--action);border-color:var(--accent)}.switch input:checked:before{transform:translateX(16px);background:#f5f8ff}
+.switch input:disabled{opacity:.45;cursor:default}
+.field{display:flex;flex-direction:column;gap:4px;margin:12px 0 0;max-width:360px}.field span{color:var(--muted);font-size:12px}.field.wide{max-width:none}
+select,input[type=password],input[type=text],button{height:40px;padding:0 14px;border:1px solid var(--border);border-radius:8px;background:var(--raised);color:inherit;font:inherit}
+textarea{min-height:150px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--raised);color:inherit;font:12px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+button{cursor:pointer}button.primary{background:var(--action);border-color:var(--action);color:#f5f8ff;font-weight:600}button:disabled,select:disabled,input:disabled,textarea:disabled{opacity:.5;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 0}#msg{min-height:1.5em;margin-top:12px;font-size:12px}.bad{color:var(--danger)}
+table{width:100%;border-collapse:collapse;margin-top:8px}td{padding:8px 4px;border-top:1px solid var(--border);vertical-align:middle;overflow-wrap:anywhere}td:last-child{text-align:right;width:1%}
+</style></head><body>
+<div class="panel"><h2>VPN</h2>
+<p id="status" aria-live="polite">Reading state…</p><p id="detail" class="note"></p>
+<label class="switch"><input id="on" type="checkbox" role="switch"><span>VPN on</span></label>
+<label class="field"><span>Provider</span><select id="provider"><option value="nordvpn">NordVPN</option><option value="wireguard">WireGuard (your own config)</option></select></label>
+<label class="field" id="countryField"><span>Country</span><select id="country"><option value="">Fastest server (NordVPN recommends)</option></select></label>
+<label class="field" id="profileField" hidden><span>Profile</span><select id="profile"></select></label>
+<label class="switch"><input id="ks" type="checkbox" role="switch"><span>Kill switch · no internet outside the VPN while it is on</span></label>
+<label class="switch"><input id="auto" type="checkbox" role="switch"><span>Keep connected · reconnect after a restart or a drop</span></label>
+<p class="note" id="about" style="margin-top:12px"></p>
+<div class="row"><button id="refresh">Refresh</button></div><p id="msg" aria-live="polite"></p></div>
+
+<div class="panel" id="tokenPanel"><h2>NordVPN access token</h2><p id="token" class="note"></p>
+<label class="field"><span>Access token</span><input id="tok" type="password" autocomplete="off" placeholder="Paste a new token"></label>
+<div class="row"><button id="saveTok" class="primary">Save and check token</button></div>
+<p class="note" style="margin-top:12px">Create one in Nord Account → NordVPN → Set up NordVPN manually → Generate new token. It is kept on the TV only (/opt/nordtv/token) and never shown again.</p></div>
+
+<div class="panel" id="wgPanel" hidden><h2>WireGuard profiles</h2>
+<p class="note">A profile is a WireGuard config file (.conf) from your provider's website (Mullvad, Proton VPN, Surfshark, IVPN, AirVPN…) or from your own server (wg-easy, a router, a NAS). One server per profile; IPv4 only.</p>
+<table id="profiles"></table><p id="noProfiles" class="note">No profiles yet.</p>
+<h2 style="margin-top:16px">Add a profile</h2>
+<label class="field"><span>Name (letters, digits, - and _)</span><input id="pname" type="text" maxlength="32" autocomplete="off" placeholder="home"></label>
+<label class="field wide"><span>Config</span><textarea id="pconf" spellcheck="false" autocomplete="off" placeholder="[Interface]&#10;PrivateKey = …&#10;Address = 10.0.0.2/32&#10;DNS = 10.0.0.1&#10;&#10;[Peer]&#10;PublicKey = …&#10;AllowedIPs = 0.0.0.0/0&#10;Endpoint = vpn.example.com:51820"></textarea></label>
+<div class="row"><input id="pfile" type="file" accept=".conf,text/plain" hidden><button id="pick">Load a .conf file</button><button id="padd" class="primary">Save profile</button></div>
+<p class="note" style="margin-top:12px"><b>AllowedIPs = 0.0.0.0/0</b>: everything goes through the VPN, DNS included (the config's DNS, or Quad9 if it has none), and the kill switch applies. <b>Narrower AllowedIPs</b> (split): only those addresses go through the VPN, the rest uses your normal connection, and the kill switch is not used. Your home network stays reachable either way. The config, keys included, is kept on the TV only (/opt/nordtv/profiles) and never shown again; saving a name again replaces it.</p></div>
+
+<div class="panel" id="resetPanel"><h2>Reset</h2>
+<p class="note">Turns the VPN off and deletes the NordVPN token, every WireGuard profile, the settings and the log from the TV, as after a fresh install. The VPN program stays.</p>
+<div class="row"><button id="reset">Reset VPN</button></div></div>
+
+<div id="missing" class="panel" hidden><h2>VPN program</h2><p id="missingText" class="note"></p><div class="row"><button id="install" class="primary">Download and install</button></div></div>
+<script>
+var data=null,busy=false,ids=['on','provider','country','profile','ks','auto','tok','saveTok','pname','pconf','pick','padd','reset'];
+function $(id){return document.getElementById(id)}
+function api(u,b){return fetch(u,b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json().then(function(d){if(!r.ok||d.ok===false)throw new Error(d.error||'Action failed');return d})})}
+function say(t,bad){$('msg').textContent=t||'';$('msg').className=bad?'bad':''}
+function el(tag,t,cls){var e=document.createElement(tag);if(t!=null)e.textContent=t;if(cls)e.className=cls;return e}
+function setCountry(c){var s=$('country');if(c&&![].some.call(s.options,function(o){return o.value===c})){var o=document.createElement('option');o.value=c;o.textContent=c;s.appendChild(o)}s.value=c||''}
+function wg(){return $('provider').value==='wireguard'}
+function current(){var d=data||{};return (d.profiles||[]).filter(function(p){return p.name===d.profile})[0]}
+function kind(p){return p.split?'split · '+p.allowedIps.join(', '):'everything'}
+function layout(){var w=wg();$('countryField').hidden=w;$('profileField').hidden=!w;$('tokenPanel').hidden=w;$('wgPanel').hidden=!w;
+ var p=w&&current();
+ $('about').textContent=w?(p&&p.split?'Split profile: only '+p.allowedIps.join(', ')+' goes through the VPN; the kill switch is not used. ':'Everything goes through the VPN; DNS goes to the profile’s DNS server (Quad9 if it has none). ')+'Changing the profile or the kill switch reconnects the VPN when it is on. Your home network, Vetro included, stays reachable and IPv6 is blocked while the VPN is on. Reconnecting needs this Shard switched on.'
+  :'NordLynx (WireGuard) runs on the TV itself. Changing the country or the kill switch reconnects the VPN when it is on. Your home network, Vetro included, stays reachable; DNS goes to NordVPN and IPv6 is blocked while the VPN is on. Reconnecting needs this Shard switched on.'}
+function showProfiles(d){var s=$('profile'),t=$('profiles'),list=d.profiles||[];s.textContent='';t.textContent='';$('noProfiles').hidden=list.length>0;
+ var chosen=list.some(function(p){return p.name===d.profile});
+ if(!chosen){var o=el('option',list.length?'Pick a profile':'Add a profile below');o.value='';s.appendChild(o)}
+ list.forEach(function(p){var o=el('option',p.name+(p.error?' (broken)':''));o.value=p.name;s.appendChild(o);
+  var tr=el('tr');tr.appendChild(el('td',p.name+(p.name===d.profile?' · chosen':'')));
+  tr.appendChild(el('td',p.error?'cannot be used: '+p.error:p.endpoint+' · '+kind(p)+(p.dns.length?' · DNS '+p.dns.join(', '):''),p.error?'bad':'note'));
+  var b=el('button','Remove');b.onclick=function(){removeProfile(p.name,b)};var td=el('td');td.appendChild(b);tr.appendChild(td);t.appendChild(tr)});
+ s.value=chosen?d.profile:''}
+function show(d){data=d;var ok=d.installed!==false;$('missing').hidden=ok;ids.forEach(function(id){$(id).disabled=!ok||busy});
+ if(!ok){$('status').textContent='The VPN program is not installed.';$('status').className='bad';$('detail').textContent='';$('token').textContent='';
+  var li=d.lastInstall&&d.lastInstall.result;$('missingText').textContent=!d.canDownload?'No download is configured in this Shard version. Install nordtv into /opt/nordtv by hand (see the Shard README).':'nordtv is downloaded from the address pinned in this Shard and installed only if its SHA-256 matches.'+(li&&li!=='installed'&&li!=='current'?' Last attempt: '+li+'.':'');$('install').hidden=!d.canDownload;return}
+ $('provider').value=d.provider==='wireguard'?'wireguard':'nordvpn';showProfiles(d);
+ $('on').checked=!!d.running;$('ks').checked=!!d.killswitch;$('auto').checked=!!d.autostart;setCountry(d.country);layout();
+ var nord=$('provider').value==='nordvpn',where=[d.city,d.ipCountry].filter(Boolean).join(', '),ip=d.publicIp?d.publicIp+(where?' · '+where:''):'';
+ var warn=d.running&&nord&&d.protected===false;
+ $('status').textContent=d.running?(warn?'Tunnel up, but NordVPN does not see this IP as protected':'Connected')+(d.server?' · '+d.server:'')+(d.mode&&d.mode.indexOf('split')===0?' · split':''):'Off'+(d.enabled&&d.autostart?' · will reconnect':'');
+ $('status').className=d.running?(warn?'bad':'on'):'';
+ var auto=d.lastAuto&&!d.lastAuto.ok?' · Last automatic start failed: '+d.lastAuto.error:'';
+ $('detail').textContent=(d.running?'Public IP '+(ip||'unavailable')+(d.since?' · connected at '+new Date(d.since*1000).toLocaleTimeString():''):d.lastError?'Last message: '+d.lastError:ip?'Public IP '+ip+' (not through the VPN)':'')+auto;
+ $('token').textContent=d.hasToken?'A token is saved on the TV.':'No token saved: NordVPN cannot start without one.'}
+function load(){return api('state').then(show).catch(function(e){$('status').textContent=e.message;$('status').className='bad'})}
+function loadCountries(){api('countries').then(function(d){var cur=data?data.country:$('country').value;$('country').innerHTML='<option value="">Fastest server (NordVPN recommends)</option>'+d.countries.map(function(c){var o=document.createElement('option');o.value=c.code;o.textContent=c.name;return o.outerHTML}).join('');setCountry(cur)}).catch(function(){})}
+function settings(){var s={provider:$('provider').value,killswitch:$('ks').checked,autostart:$('auto').checked};if(s.provider==='wireguard'){if($('profile').value)s.profile=$('profile').value}else s.country=$('country').value;return s}
+function act(body,check,working){if(busy)return Promise.resolve();busy=true;ids.forEach(function(id){$(id).disabled=true});say(working||'Working…');
+ return api('action',body).then(function(d){show(d);say(check(d))}).catch(function(e){say('Not confirmed: '+e.message,true)}).then(function(){busy=false;return load()})}
+$('on').onchange=function(){var on=this.checked;if(on&&wg()&&!$('profile').value){this.checked=false;say('Add or pick a WireGuard profile first',true);return}
+ act(on?{action:'start',settings:settings()}:{action:'stop'},function(d){if(d.running!==on)throw new Error(on?'VPN did not start':'VPN still running');return on?'VPN on'+(d.publicIp?' · public IP '+d.publicIp:'')+'.':'VPN off. The TV uses your normal connection again.'},on?'Connecting…':'Disconnecting…')};
+function configure(){var w=settings();if(data&&data.running&&w.provider==='wireguard'&&!w.profile){say('Add or pick a WireGuard profile first',true);show(data);return}
+ act({action:'configure',settings:w},function(d){if(d.provider!==w.provider||w.profile&&d.profile!==w.profile||w.country!==undefined&&d.country!==w.country||d.killswitch!==w.killswitch||d.autostart!==w.autostart)throw new Error('Settings not confirmed');return 'Saved'+(d.running?' · VPN reconnected'+(d.server?' to '+d.server:''):'')+'.'})}
+$('provider').onchange=function(){layout();if(!wg())loadCountries();configure()};
+$('country').onchange=configure;$('profile').onchange=configure;$('ks').onchange=configure;$('auto').onchange=configure;
+$('saveTok').onclick=function(){var t=$('tok').value.trim();if(!t){say('Paste a token first',true);return}
+ act({action:'token',token:t},function(d){$('tok').value='';var c=d.tokenCheck||{};if(!c.ok)throw new Error('Token saved, but '+(c.error||'it could not be checked'));return 'Token saved and accepted by NordVPN.'})};
+$('pick').onclick=function(){$('pfile').click()};
+$('pfile').onchange=function(){var f=this.files&&this.files[0];if(!f)return;if(f.size>8192){say('That file is too large for a WireGuard config',true);return}
+ var r=new FileReader();r.onload=function(){$('pconf').value=String(r.result);if(!$('pname').value.trim())$('pname').value=f.name.replace(/\.conf$/i,'').replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+/,'').slice(0,32);say('Loaded '+f.name+'. Check the name, then save.')};r.readAsText(f);this.value=''};
+$('padd').onclick=function(){var name=$('pname').value.trim(),conf=$('pconf').value;if(!/^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/.test(name)){say('Profile name: letters, digits, - and _, up to 32',true);return}if(!conf.trim()){say('Paste or load a config first',true);return}
+ var first=!(data&&data.profiles&&data.profiles.length);
+ act({action:'profile-add',name:name,conf:conf},function(d){$('pconf').value='';$('pname').value='';
+  if(first&&!d.profile&&!d.running){api('action',{action:'configure',settings:{profile:name}}).then(show).catch(function(){})}
+  return 'Profile '+name+' saved.'+(d.running&&d.profile===name&&d.provider==='wireguard'?' Turn the VPN off and on to use the new version.':'')})};
+function removeProfile(name,b){if(b.getAttribute('data-armed')!=='1'){b.setAttribute('data-armed','1');b.textContent='Click again to remove';setTimeout(function(){b.removeAttribute('data-armed');b.textContent='Remove'},5000);return}
+ act({action:'profile-remove',name:name},function(){return 'Profile '+name+' removed.'})}
+// The page has no dialogs (sandbox): a second click within 5 s confirms.
+var resetArmed=null;
+$('reset').onclick=function(){var b=this;if(!resetArmed){b.textContent='Click again: delete token, profiles and settings';resetArmed=setTimeout(function(){resetArmed=null;b.textContent='Reset VPN'},5000);return}
+ clearTimeout(resetArmed);resetArmed=null;b.textContent='Reset VPN';
+ act({action:'reset'},function(d){if(d.running||d.hasToken||(d.profiles||[]).length)throw new Error('something was left');$('tok').value='';$('pconf').value='';$('pname').value='';return 'Reset done: VPN off, token, profiles and settings deleted.'},'Resetting…')};
+$('install').onclick=function(){var b=this;b.disabled=true;say('Downloading…');api('action',{action:'install'}).then(function(d){show(d);say(d.installed!==false?'Installed.':'Not installed.',d.installed===false)}).catch(function(e){say(e.message,true)}).then(function(){b.disabled=false;loadCountries()})};
+$('refresh').onclick=load;
+load().then(function(){if(!wg())loadCountries()});
+</script></body></html>
