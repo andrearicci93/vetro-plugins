@@ -31,6 +31,20 @@
       "signature": "FG28FC19Yulavemm5Vx+1f18cs/a1Vh7T3xtLvMj+B9OoJb+hHEq/TYRSVELgbUerd7H6Ojltq2wEsixc5kWNCEpxrxl8g/6+Ps1L/WScGa7zi48ldZIAl7ovd99BUdUnkUEVbaBLvJSvKoz1xrWQy58ZOhHnjOddTEsEq/pUzRoq4/1olY776GpX8GDX1/Gep/V1dCJfppTmmREh40pnGQkpStBNRfEPji+04f56YRVR2bwQKgVzey2IGFISkr56Urxkcp7XHFm3b+reE/yVCZLFmkLzZkvY4mlcYSmpAcSiG5CckAZwNiAo0WpMisi9mPDLT+k3nGrJNKWbE0D7PWaUDAW1JxnfKk9YDSpdTDXd6DHQIi3Rv/mYpf1FNvBFiDVunnhkq6aUeDyqlnwDENDKpZuaQAXqANgohCb8r7jvV9qeUpOeaiWyOj+VE92D4ZQ4kHxarzZD6ZPQ2PIeICJV+H59mtaBdk1uoxR26+5o6kXPUmiOWGzI1L8lwvr"
     },
     {
+      "id": "ssh-server",
+      "name": "SSH server",
+      "version": "0.3.0",
+      "author": "bertrandom",
+      "description": "A real SSH-2 server in pure JS (no binary): interactive ssh is a root line-shell, ssh root@tv 'cmd' runs as root, plus scp/sftp. Needs Node 10+.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/ssh-server-0.3.0.vplugin",
+      "sha256": "fa869b8ae63466a577b78b96fc4b11eee9a655c6ec4891ca7ac26db4cadd8da9",
+      "size": 74678,
+      "signature": "pKkMa0sRbICbYTuZserJUo6AQI0wKHPaYDs0FZ/miwg571LohA1XfJaXYw5KWpZmMBCk9/9aps/fatolUL6UnlXGJFAz0REAVNPS5YbvU9ycVuK3MhHbzM2AihDru0Qxy+EtlGcd7Dh7bIQntCRkzIAdpO/jBX3IQ+Rk+37TMO6D1F3o4fufUsv/O1AK0nxeXrEoz7gx9ZiyNug/RJQlIEHdDD+ICfLdHeWs+Oj0DtdpSC6WMhNA/sQPqJCuegfcPAxmWzktyaUnzz4i4x1D+xU8VYvpqP1S0I69zKj1jq7FoCo9EPILXdh8JuWCjUORtLiWkEtsN+z3BWXl7OHG2eAZWg7/C6MsEQ4wfutO2jNOoHEy8KGHnAkIi+qhke//Yizt8u1BsqKnQD1T2Bd8DpYvHE0TtEMTRped2BcMGiB4al4U8N/LHedSrdRv1uFXpNmz/i5t7Qq6q5VctsxpwmAPGkTI0HT24DMfgh31Ns3/+iqwLYClbp1SGpLQeQUB"
+    },
+    {
       "id": "tv-uptime",
       "name": "TV uptime",
       "version": "1.0.1",
