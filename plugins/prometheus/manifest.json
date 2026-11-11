@@ -1,0 +1,11 @@
+{
+  "id": "prometheus",
+  "name": "Prometheus exporter",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": [],
+  "main": "index.js",
+  "ui": { "label": "Prometheus" },
+  "description": "Prometheus metrics for the TV: CPU, memory, swap, network, Wi-Fi signal, SoC temperature, uptime. Reads /proc and /sys only; no network.",
+  "author": "piecifra"
+}
