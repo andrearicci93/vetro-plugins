@@ -40,12 +40,23 @@ jobs:
           node-version: ${{ matrix.node }}
       # No signing secret, write token, or real TV commands in these jobs.
       - run: node scripts/test-runtime.cjs
+  # Binaries in helpers/ (too big for a bundle) must rebuild byte for byte from their source in the repo.
+  # The runner's Go only bootstraps: GOTOOLCHAIN in the script fetches the pinned Go, checked against sum.golang.org.
+  helpers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {persist-credentials: false}
+      - run: go version
+      - run: sh scripts/check-helpers.sh
   check:
     if: always()
-    needs: [validate, runtime]
+    needs: [validate, runtime, helpers]
     runs-on: ubuntu-latest
     steps:
       - env:
           VALIDATION: ${{ needs.validate.result }}
           RUNTIME: ${{ needs.runtime.result }}
-        run: test "$VALIDATION" = success && test "$RUNTIME" = success
+          HELPERS: ${{ needs.helpers.result }}
+        run: test "$VALIDATION" = success && test "$RUNTIME" = success && test "$HELPERS" = success

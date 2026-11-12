@@ -10,10 +10,10 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | --- | --- | --- | --- |
 | [`art-sql`](plugins/art-sql) | Read-only SQL API (Datasette-style JSON) over the Art app's database, for other apps on your network | `exec` | bertrandom |
 | [`bedtime`](plugins/bedtime) | Turn the TV off at set times or after a sleep timer, or open an app on a schedule | `exec` | piecifra |
-| [`nordvpn`](plugins/nordvpn) | NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect | `exec` | piecifra |
 | [`prometheus`](plugins/prometheus) | Prometheus metrics for the TV (CPU, memory, network, Wi-Fi signal, SoC temperature), `node_exporter` names | none | piecifra |
 | [`shell`](plugins/shell) | A root shell on the TV, laid out like a terminal; one command at a time, `cd` remembered | `exec` | piecifra |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
+| [`vpn`](plugins/vpn) | WireGuard VPN on the TV: NordVPN or your own configs (any provider or server); kill switch, split tunnel | `exec` | piecifra |
 | [`youtube`](plugins/youtube) | **Ad-free YouTube**: Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube + SponsorBlock), nothing installed on the TV | `exec` | andrearicci93 |
 
 A Shard can also take over the launcher tile of an app (`intercepts` in the manifest, used by `youtube`): the dashboard says so on its card
