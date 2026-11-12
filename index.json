@@ -88,8 +88,8 @@
         "exec"
       ],
       "url": "dist/vpn-1.1.0.vplugin",
-      "sha256": "751c5333e109fafa0667a6c55bbf3611f52ab04d15992b0dd9146ec561fdff85",
-      "size": 101607
+      "sha256": "10724abe8eea0fd578aa79a85db89f0dc9a2bfb86530a9c7ac505e1a0e831846",
+      "size": 102141
     },
     {
       "id": "youtube",
