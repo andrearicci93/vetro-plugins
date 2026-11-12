@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Art SQL API</title>
+<style>
+  :root { --fg: #1d1d1f; --muted: #6e6e73; --bg: #fff; --card: #f5f5f7; --line: #d2d2d7; --accent: #0a66c2; --bad: #c62828; --good: #2e7d32; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #f5f5f7; --muted: #a1a1a6; --bg: #1c1c1e; --card: #2c2c2e; --line: #3a3a3c; --accent: #64a8f0; --bad: #ef7070; --good: #7bc47f; } }
+  body { font: 15px/1.45 system-ui, -apple-system, sans-serif; color: var(--fg); background: var(--bg); margin: 20px; max-width: 980px; }
+  h2 { margin: 0 0 4px; } h3 { margin: 22px 0 8px; font-size: 15px; }
+  .muted { color: var(--muted); } .bad { color: var(--bad); } .good { color: var(--good); }
+  .card { background: var(--card); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+  code, textarea, input, pre { font: 13px ui-monospace, Menlo, Consolas, monospace; }
+  code { background: var(--card); padding: 1px 4px; border-radius: 4px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 90px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+  input { padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+  button { font: inherit; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 6px 0; }
+  .grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; align-items: center; }
+  .scroll { overflow: auto; max-height: 420px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+  th { position: sticky; top: 0; background: var(--card); }
+  pre { white-space: pre-wrap; word-break: break-all; margin: 6px 0; }
+  .tables span { display: inline-block; margin: 2px 6px 2px 0; }
+</style>
+</head>
+<body>
+<h2>Art SQL API</h2>
+<div class="muted">Read-only SQL over the Art app's database, for other apps on your network. JSON follows a subset of Datasette's API.</div>
+
+<div class="card" id="gate">Checking for the database…</div>
+<div id="app" hidden>
+<div class="card" id="status">Loading…</div>
+
+<h3>Connect</h3>
+<div class="card">
+  <div class="grid">
+    <span class="muted">Endpoint</span><code id="endpoint">…</code>
+    <span class="muted">API key</span>
+    <span class="row" style="margin:0"><code id="key">••••••••</code><button id="show">Show</button><button id="copy">Copy</button><button id="regen">New key</button><span id="copied"></span></span>
+  </div>
+  <pre id="example" class="muted"></pre>
+</div>
+
+<h3>Try a query</h3>
+<textarea id="sql" spellcheck="false">select name from sqlite_master where type = 'table' order by name</textarea>
+<div class="row"><button class="primary" id="run">Run</button><span id="qinfo" class="muted"></span></div>
+<div id="result"></div>
+<div id="tables" class="tables muted"></div>
+
+<h3>Settings</h3>
+<div class="card grid">
+  <span class="muted">Port</span><input id="port" type="number" min="1024" max="65535" style="width:90px">
+  <span class="muted">Database</span><input id="dbPath" style="width:100%">
+  <span class="muted">CORS origin</span><input id="cors" placeholder="* or http://host:port, empty for none" style="width:280px">
+  <span class="muted">Time limit (s)</span><input id="timeout" type="number" min="1" max="30" style="width:70px">
+  <span class="muted">Row limit</span><input id="maxRows" type="number" min="1" max="5000" style="width:90px">
+  <span></span><span class="row" style="margin:0"><button id="saveSettings">Save</button><button id="probe">Check sqlite3</button><span id="sinfo" class="muted"></span></span>
+</div>
+</div>
+
+<script>
+var S = null, keyShown = false, timer = null;
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function post(sub, body) {
+  return fetch(sub, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body || {}) })
+    .then(function (r) { return r.json(); });
+}
+function base() { var a = (S.addresses && S.addresses[0]) || 'TV-IP'; return 'http://' + a + ':' + S.port; }
+// Until the Shard has found sqlite3 and the database, the page shows only the gate: "checking", or why it is off.
+function gate(s) {
+  $('app').hidden = true; $('gate').hidden = false;
+  if (s.phase === 'checking') { $('gate').className = 'card'; $('gate').textContent = 'Checking for the database…'; setTimeout(boot, 700); return; }
+  if (timer) { clearInterval(timer); timer = null; }
+  $('gate').className = 'card bad'; $('gate').textContent = s.problem || 'The API is off.';
+}
+function render(s) {
+  if (s && s.phase && s.phase !== 'ready') return gate(s);
+  if (!s || s.ok === false) { $('sinfo').textContent = (s && s.error) || 'Error'; return; }
+  $('gate').hidden = true; $('app').hidden = false;
+  S = s;
+  var bits = [];
+  bits.push(s.running ? '<b class="good">Listening</b> on port ' + s.port : '<b class="bad">Not listening</b>');
+  bits.push(s.sqliteVersion ? 'sqlite3 ' + esc(s.sqliteVersion) : 'sqlite3 not checked yet');
+  if (s.checkedAt) bits.push('checked ' + hhmm(s.checkedAt));
+  bits.push(s.queries + (s.queries === 1 ? ' query' : ' queries') + (s.denied ? ', ' + s.denied + ' refused (wrong key)' : ''));
+  var html = bits.join(' · ');
+  if (s.keyUnsaved) html += '<div class="bad">The API key could not be saved to config.json. It works now, but it will change when the Shard restarts.</div>';
+  if (s.problem) html += '<div class="bad">' + esc(s.problem) + '</div>';
+  else if (s.lastError) html += '<div class="muted">Last error: ' + esc(s.lastError) + '</div>';
+  $('status').innerHTML = html;
+  $('endpoint').textContent = base() + '/' + s.database + '.json';
+  var shown = keyShown ? s.apiKey : '••••••••';
+  if ($('key').textContent !== shown) $('key').textContent = shown;   // leave a selection alone on refresh
+  $('example').textContent =
+    'curl -H "Authorization: Bearer ' + (keyShown ? s.apiKey : '<key>') + '" \\\n  "' + base() + '/' + s.database + '.json?sql=select+name+from+sqlite_master&_shape=array"\n\n' +
+    'Tables: ' + base() + '/' + s.database + '.json\nOne table: ' + base() + '/' + s.database + '/<table>.json?_size=50';
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  $('port').value = s.port; $('dbPath').value = s.dbPath; $('cors').value = s.cors;
+  $('timeout').value = Math.round(s.timeoutMs / 1000); $('maxRows').value = s.maxRows;
+}
+function refresh() { return fetch('state').then(function (r) { return r.json(); }).then(render, function (e) { $('status').textContent = 'Could not reach the Shard: ' + e; }); }
+
+function table(d) {
+  if (!d.rows.length) return '<div class="muted">No rows.</div>';
+  var cols = d.columns, h = '<div class="scroll"><table><tr>' + cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+  d.rows.forEach(function (r) {
+    h += '<tr>' + cols.map(function (c) { var v = r[c]; return '<td title="' + esc(v == null ? 'NULL' : v) + '">' + (v == null ? '<span class="muted">NULL</span>' : esc(v)) + '</td>'; }).join('') + '</tr>';
+  });
+  return h + '</table></div>';
+}
+function run() {
+  $('qinfo').textContent = 'Running…'; $('result').innerHTML = '';
+  post('query', { sql: $('sql').value }).then(function (d) {
+    if (!d.ok) { $('qinfo').textContent = ''; $('result').innerHTML = '<div class="bad">' + esc(d.error) + '</div>'; return; }
+    $('qinfo').textContent = d.rows.length + ' row' + (d.rows.length === 1 ? '' : 's') + (d.truncated ? ' (truncated at the row limit)' : '') + ' · ' + d.query_ms + ' ms';
+    $('result').innerHTML = table(d);
+    refresh();
+  }, function (e) { $('qinfo').textContent = ''; $('result').innerHTML = '<div class="bad">' + esc(e) + '</div>'; });
+}
+function loadTables() {
+  post('query', { sql: "select name from sqlite_master where type in ('table','view') and name not like 'sqlite_%' order by name" }).then(function (d) {
+    if (!d.ok || !d.rows.length) return;
+    $('tables').innerHTML = 'Tables: ' + d.rows.map(function (r) { return '<span><a href="#" data-t="' + esc(r.name) + '">' + esc(r.name) + '</a></span>'; }).join('');
+  });
+}
+$('tables').onclick = function (e) {
+  var t = e.target.getAttribute && e.target.getAttribute('data-t'); if (!t) return;
+  e.preventDefault(); $('sql').value = 'select * from "' + t.replace(/"/g, '""') + '" limit 50'; run();
+};
+$('run').onclick = run;
+$('sql').onkeydown = function (e) { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run(); };
+// The page is a sandboxed frame, often on plain http: navigator.clipboard exists only in a secure context, so fall back
+// to execCommand('copy'), and if that is refused too, show and select the key for the user to copy by hand.
+function copyKey() {
+  var key = S && S.apiKey, note = $('copied');
+  if (!key) return;
+  function done(ok) {
+    note.className = ok ? 'good' : 'bad';
+    note.textContent = ok ? 'Copied' : 'Selected: press ⌘C or Ctrl+C';
+    if (ok) setTimeout(function () { note.textContent = ''; }, 2000);
+  }
+  function byHand() {
+    keyShown = true; $('show').textContent = 'Hide'; render(S);
+    try { var r = document.createRange(); r.selectNodeContents($('key')); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } catch (e) { /* the key is shown anyway */ }
+    done(false);
+  }
+  function legacy() {
+    var t = document.createElement('textarea'), ok = false;
+    t.value = key; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.top = '0'; t.style.opacity = '0';
+    document.body.appendChild(t); t.focus(); t.select();
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(t);
+    if (ok) done(true); else byHand();
+  }
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(key).then(function () { done(true); }, legacy);
+  else legacy();
+}
+$('copy').onclick = copyKey;
+$('show').onclick = function () { keyShown = !keyShown; $('show').textContent = keyShown ? 'Hide' : 'Show'; render(S); };
+$('regen').onclick = function () {
+  if (!confirm('Make a new API key? Apps using the old one stop working until you give them the new key.')) return;
+  post('regen-key').then(function (s) { keyShown = true; $('show').textContent = 'Hide'; render(s); });
+};
+$('saveSettings').onclick = function () {
+  $('sinfo').textContent = 'Saving…';
+  post('settings', { port: +$('port').value, dbPath: $('dbPath').value, cors: $('cors').value, timeoutMs: +$('timeout').value * 1000, maxRows: +$('maxRows').value })
+    .then(function (s) { if (s.ok === false) { $('sinfo').textContent = s.error; return; } $('sinfo').textContent = 'Saved'; document.activeElement.blur(); render(s); setTimeout(refresh, 600); });
+};
+function hhmm(t) { var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2); }
+function check() {
+  var info = $('sinfo'); info.className = 'muted'; info.textContent = 'Checking…';
+  return post('probe').then(function (s) {
+    render(s);
+    if (!s || s.ok === false) return;
+    if (s.problem) { info.className = 'bad'; info.textContent = s.problem; }
+    else { info.className = 'good'; info.textContent = 'sqlite3 ' + s.sqliteVersion + ' · database found · checked ' + hhmm(s.checkedAt); }
+  }, function (e) { info.className = 'bad'; info.textContent = 'Check failed: ' + e; });
+}
+$('probe').onclick = check;
+// Opening the page checks sqlite3 and the file again, so what it shows is current.
+function boot() {
+  fetch('state').then(function (r) { return r.json(); }).then(function (s) {
+    render(s);
+    if (s.phase !== 'ready') return;
+    check().then(loadTables, loadTables);
+    if (!timer) timer = setInterval(refresh, 10000);
+  }, function (e) { $('gate').className = 'card bad'; $('gate').textContent = 'Could not reach the Shard: ' + e; });
+}
+boot();
+</script>
+</body>
+</html>

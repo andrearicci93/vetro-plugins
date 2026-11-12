@@ -3,6 +3,19 @@
   "version": 1,
   "plugins": [
     {
+      "id": "art-sql",
+      "name": "Art SQL API",
+      "version": "0.1.1",
+      "author": "bertrandom",
+      "description": "Read-only SQL over HTTP (Datasette-style JSON) for the Art app's artapp.db, on its own LAN port with an API key. Uses the TV's sqlite3. No outbound connections.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/art-sql-0.1.1.vplugin",
+      "sha256": "5ee3fe9cf3b8412c80023dd7c6357cfa0d4a11d25f5c6fa15d0c9ed15c30f503",
+      "size": 63084
+    },
+    {
       "id": "bedtime",
       "name": "Bedtime",
       "version": "1.0.0",
