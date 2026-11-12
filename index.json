@@ -31,15 +31,15 @@
     {
       "id": "eightbitdo-guide",
       "name": "8BitDo Guide",
-      "version": "1.1.2",
+      "version": "1.1.5",
       "author": "augusto1024",
       "description": "Open the Vetro launcher with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes. No network access.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/eightbitdo-guide-1.1.2.vplugin",
-      "sha256": "82f70f99c9ed3d0234ca8090d0a6d7010557682fd3a2e418d30f6089634af60f",
-      "size": 54139
+      "url": "dist/eightbitdo-guide-1.1.5.vplugin",
+      "sha256": "0508818ff1d6bf9d7b811b9d186821ed78d48fd8dfc915ad3231901e0ae09746",
+      "size": 65608
     },
     {
       "id": "nordvpn",

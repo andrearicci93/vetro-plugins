@@ -11,6 +11,7 @@ internal static class Program
     // Linux ARM32 UAPI constants: input.h/uinput.h. Keep the guard in Main
     // before any evdev grab: this helper encodes 16-byte input_event records.
     const string Name = "8BitDo Ultimate 2 Wireless", Phys = "vetro-8bitdo-guide-proxy";
+    static string selectedName = Name;
     static StateFiles stateFiles;
     const int Guide = 316, NonBlock = 0x800, CloseExec = 0x80000;
     static int physical = -1, output = -1;
@@ -94,6 +95,12 @@ internal static class Program
         return Encoding.UTF8.GetString(b).TrimEnd('\0');
     }
 
+    static bool MatchesController(ushort bus, ushort vendor, ushort product, string name, string physicalName)
+    {
+        return bus == 5 && vendor == 0x2dc8 && product == 0x6012
+            && (name == Name || name == "8BitDo Ultimate") && physicalName != Phys;
+    }
+
     static int Find()
     {
         for (int i = 0; i < 128; i++)
@@ -106,8 +113,10 @@ internal static class Program
             {
                 byte[] id = Query(fd, 2, 8), location = new byte[128];
                 IoBytes(fd, ReadCode(7, 128), location); // many Bluetooth devices have no phys string
-                if (BitConverter.ToUInt16(id, 0) == 5 && BitConverter.ToUInt16(id, 2) == 0x2dc8 && BitConverter.ToUInt16(id, 4) == 0x6012 && Text(Query(fd, 6, 128)) == Name && Text(location) != Phys)
+                string deviceName = Text(Query(fd, 6, 128));
+                if (MatchesController(BitConverter.ToUInt16(id, 0), BitConverter.ToUInt16(id, 2), BitConverter.ToUInt16(id, 4), deviceName, Text(location)))
                 {
+                    selectedName = deviceName;
                     node = path;
                     return fd;
                 }
@@ -209,6 +218,62 @@ internal static class Program
         Save(true);
     }
 
+    // Linux 4.1 uinput_user_dev: name[80], input_id[8], ff_effects_max,
+    // then ABS_CNT=64 arrays: absmax, absmin, absfuzz, absflat.
+    static byte[] LegacySetup(byte[] id, string name, Dictionary<int, byte[]> axes)
+    {
+        byte[] dev = new byte[1116];
+        byte[] title = Encoding.ASCII.GetBytes(name);
+        Array.Copy(title, 0, dev, 0, Math.Min(title.Length, 79));
+        Array.Copy(id, 0, dev, 80, 8);
+        foreach (var axis in axes)
+        {
+            Array.Copy(axis.Value, 8, dev, 92 + axis.Key * 4, 4);
+            Array.Copy(axis.Value, 4, dev, 348 + axis.Key * 4, 4);
+            Array.Copy(axis.Value, 12, dev, 604 + axis.Key * 4, 4);
+            Array.Copy(axis.Value, 16, dev, 860 + axis.Key * 4, 4);
+        }
+        return dev;
+    }
+
+    static void SetLegacyAxes(int ui, Dictionary<int, byte[]> axes)
+    {
+        byte[] name = new byte[128];
+        Require(IoBytes(ui, 0x8080552c, name), "legacy-sysname");
+        string sysname = Text(name);
+        int number;
+        if (!sysname.StartsWith("input") || !int.TryParse(sysname.Substring(5), out number) || number < 0)
+            throw new IOException("legacy-invalid-sysname");
+        int fd = -1;
+        for (int attempt = 0; attempt < 20 && fd < 0; attempt++)
+        {
+            foreach (string child in Directory.GetDirectories("/sys/class/input/" + sysname))
+            {
+                string leaf = Path.GetFileName(child);
+                if (leaf.StartsWith("event") && int.TryParse(leaf.Substring(5), out number) && number >= 0)
+                {
+                    fd = open("/dev/input/" + leaf, 2 | NonBlock | CloseExec, 0);
+                    if (fd >= 0) break;
+                }
+            }
+            if (fd < 0) Thread.Sleep(50);
+        }
+        if (fd < 0) throw new IOException("legacy-evdev-open");
+        try
+        {
+            foreach (var axis in axes)
+            {
+                // Configure only our newly created clone, never the physical pad.
+                Require(IoBytes(fd, 0x401845c0u + (uint)axis.Key, axis.Value), "legacy-axis-calibration");
+                byte[] actual = Query(fd, 0x40 + axis.Key, 24);
+                for (int field = 4; field < 24; field += 4)
+                    if (BitConverter.ToInt32(actual, field) != BitConverter.ToInt32(axis.Value, field))
+                        throw new IOException("legacy-axis-calibration-mismatch");
+            }
+        }
+        finally { close(fd); }
+    }
+
     static int Clone(byte[] keys, byte[] axes)
     {
         byte[] types = Query(physical, 0x20, 8);
@@ -223,6 +288,10 @@ internal static class Program
         bool ok = false;
         try
         {
+            byte[] version = new byte[4];
+            Require(IoBytes(ui, 0x8004552d, version), "uinput-version");
+            bool modern = BitConverter.ToUInt32(version, 0) >= 5;
+            var axisInfo = new Dictionary<int, byte[]>();
             foreach (int type in new[]
             {
                 1,
@@ -248,19 +317,46 @@ internal static class Program
                 if (Bit(axes, i))
                 {
                     Require(IoInt(ui, 0x40045567, i), "axis-capability");
-                    byte[] setup = new byte[28];
-                    setup[0] = (byte)i;
-                    Array.Copy(Query(physical, 0x40 + i, 24), 0, setup, 4, 24);
-                    Require(IoBytes(ui, 0x401c5504, setup), "axis-setup");
+                    byte[] info = Query(physical, 0x40 + i, 24);
+                    axisInfo.Add(i, info);
+                    if (modern)
+                    {
+                        byte[] setup = new byte[28];
+                        setup[0] = (byte)i;
+                        Array.Copy(info, 0, setup, 4, 24);
+                        Require(IoBytes(ui, 0x401c5504, setup), "axis-setup");
+                    }
                 }
 
-            byte[] dev = new byte[92];
-            Array.Copy(Query(physical, 2, 8), dev, 8);
-            byte[] title = Encoding.ASCII.GetBytes(Name);
-            Array.Copy(title, 0, dev, 8, title.Length);
-            Require(IoBytes(ui, 0x405c5503, dev), "device-setup");
+            byte[] id = Query(physical, 2, 8);
+            if (modern)
+            {
+                byte[] dev = new byte[92];
+                Array.Copy(id, dev, 8);
+                byte[] title = Encoding.ASCII.GetBytes(selectedName);
+                Array.Copy(title, 0, dev, 8, title.Length);
+                Require(IoBytes(ui, 0x405c5503, dev), "device-setup");
+            }
+            else
+            {
+                byte[] dev = LegacySetup(id, selectedName, axisInfo);
+                if (write(ui, dev, (UIntPtr)dev.Length).ToInt64() != dev.Length)
+                    throw new IOException("legacy-device-setup");
+            }
             Require(IoString(ui, 0x4004556c, Phys), "device-identity");
             Require(IoInt(ui, 0x5501, 0), "device-create");
+            if (!modern)
+            {
+                SetLegacyAxes(ui, axisInfo);
+                // Seed current axes before consumers enumerate the legacy clone.
+                var initial = new List<Ev>();
+                foreach (var axis in axisInfo)
+                    initial.Add(new Ev(3, axis.Key, BitConverter.ToInt32(axis.Value, 0)));
+                initial.Add(new Ev(0, 0, 0));
+                byte[] packet = Pack(initial);
+                if (write(ui, packet, (UIntPtr)packet.Length).ToInt64() != packet.Length)
+                    throw new IOException("legacy-axis-initial-state");
+            }
             ok = true;
             return ui;
         }
@@ -435,6 +531,31 @@ internal static class Program
 
     static int SelfTest()
     {
+        if (!MatchesController(5, 0x2dc8, 0x6012, Name, "")
+            || !MatchesController(5, 0x2dc8, 0x6012, "8BitDo Ultimate", "")
+            || MatchesController(3, 0x2dc8, 0x6012, Name, "")
+            || MatchesController(5, 0x045e, 0x6012, Name, "")
+            || MatchesController(5, 0x2dc8, 0x6013, Name, "")
+            || MatchesController(5, 0x2dc8, 0x6012, "Xbox Wireless Controller", "")
+            || MatchesController(5, 0x2dc8, 0x6012, Name, Phys))
+            return 7;
+        Console.WriteLine("Both observed Bluetooth names accepted; wrong bus/IDs/name and proxy rejected");
+        byte[] legacyId = { 5, 0, 0xc8, 0x2d, 0x12, 0x60, 0x11, 0 };
+        byte[] info = new byte[24];
+        Array.Copy(BitConverter.GetBytes(-32768), 0, info, 4, 4);
+        Array.Copy(BitConverter.GetBytes(32767), 0, info, 8, 4);
+        Array.Copy(BitConverter.GetBytes(16), 0, info, 12, 4);
+        Array.Copy(BitConverter.GetBytes(128), 0, info, 16, 4);
+        var legacyAxes = new Dictionary<int, byte[]> { { 0, info }, { 63, info } };
+        byte[] legacy = LegacySetup(legacyId, "8BitDo Ultimate", legacyAxes);
+        if (legacy.Length != 1116 || legacy[0] != (byte)'8'
+            || BitConverter.ToUInt16(legacy, 80) != 5 || BitConverter.ToUInt16(legacy, 84) != 0x6012
+            || BitConverter.ToInt32(legacy, 88) != 0
+            || BitConverter.ToInt32(legacy, 92) != 32767 || BitConverter.ToInt32(legacy, 348) != -32768
+            || BitConverter.ToInt32(legacy, 604) != 16 || BitConverter.ToInt32(legacy, 860) != 128
+            || BitConverter.ToInt32(legacy, 1112) != 128)
+            return 8;
+        Console.WriteLine("Legacy uinput layout, signed axis ranges and fuzz/flat checks passed");
         bool held = false;
         var f = new List<Ev>();
         Filter(new Ev(4, 4, 0x90001), f, ref held);

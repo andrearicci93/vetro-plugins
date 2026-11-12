@@ -2,7 +2,7 @@
   "id": "eightbitdo-guide",
   "apiVersion": 1,
   "name": "8BitDo Guide",
-  "version": "1.1.2",
+  "version": "1.1.5",
   "description": "Open the Vetro launcher with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes. No network access.",
   "author": "augusto1024",
   "permissions": ["exec"],
