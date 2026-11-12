@@ -1,7 +1,8 @@
 'use strict';
-// A VPN on the TV through nordtv, the WireGuard client from github.com/piecifra/nordtv: NordVPN (NordLynx, through
-// its API) or saved WireGuard configs (profiles) for any other provider or a server of your own.
-// A plugin bundle is text only, so the 2.8 MB binary is not inside it:
+// A VPN on the TV through nordtv, the WireGuard client whose source is in nordtv/ (from github.com/piecifra/nordtv):
+// NordVPN (NordLynx, through its API) or saved WireGuard configs (profiles) for any other provider or a server of
+// your own. A bundle is text only and at most 512 KiB, so the 3 MB binary is not inside it: it sits next to the
+// Shards in the catalog repository (helpers/), whose CI rebuilds it from nordtv/ and checks it byte for byte.
 //  - /opt/nordtv/nordtv is used when it is there (installed by hand, or by an earlier version).
 //  - When it is missing, or was installed by an older plugin version, the plugin downloads BINARY.url, refuses it
 //    unless its SHA-256 is BINARY.sha256, unpacks it and records the checksum in /opt/nordtv/.source. This runs at
@@ -11,7 +12,7 @@
 // The token and the profiles' .conf text are written through base64 and never read back: the binary's state lists
 // a profile's endpoint, address, AllowedIPs and DNS, never its keys. Plain ES5: older TVs run Node 4.4.
 var fs = require('fs'), path = require('path');
-var BINARY = { url: 'https://github.com/piecifra/nordtv/releases/download/v1.1.0/nordtv.gz', sha256: '5e1156501e49bcb6077c056cea404b1c6bc7aeba6a923db0be4291c718189866' };   // written by nordtv build.sh --pin
+var BINARY = { url: 'https://raw.githubusercontent.com/andrearicci93/vetro-plugins/main/helpers/nordtv-1.1.1.gz', sha256: 'd9ce340d9accd43f95f83d7c48e5be5e3ada721c23804a7b5a80e70bf45620b9' };   // helpers/nordtv-1.1.1.gz in the catalog, rebuilt from nordtv/ by its CI
 var DIR = '/opt/nordtv', RUN = '/dev/shm/nordtv';
 var COUNTRY = /^[A-Z]{2}$/, PROFILE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/, PROVIDERS = ['nordvpn', 'wireguard'], MAX_CONF = 8192, TOKEN = /^[A-Za-z0-9_-]{16,256}$/, SHA = /^[0-9a-f]{64}$/, URL_RE = /^https:\/\/[A-Za-z0-9.\/_~%+-]+$/;
 var RETRY_MS = 120000, TICK_MS = 60000, FIRST_TICK_MS = 15000, MAX_BODY = 16384;
@@ -37,6 +38,12 @@ function installScript(bin) {
         'gunzip -c ' + tmp + ' > ' + DIR + '/nordtv.new && chmod 700 ' + DIR + '/nordtv.new && mv -f ' + DIR + '/nordtv.new ' + DIR + '/nordtv && echo ' + bin.sha256 + ' > ' + DIR + '/.source && rm -f ' + tmp + ' && echo __INSTALLED__\n';
 }
 
+// After a crash of nordtv (the process gone, its rules still there) nothing reconnects when "VPN on" or "Keep
+// connected" is off, and a kill switch left behind would keep the TV off the internet. When such rules exist and no
+// `nordtv up` is starting, `nordtv down` removes them. Only the rules nordtv makes: its chains and table 51820.
+var LEFTOVER = 'if iptables -n -L NORDTV >/dev/null 2>&1 || iptables -t nat -n -L NORDTV_DNS >/dev/null 2>&1 || ip6tables -n -L NORDTV >/dev/null 2>&1 || ip rule | grep -q -e "lookup 51820" -e "lookup 0xca6c"; then\n' +
+    '  for p in /proc/[0-9]*; do tr "\\000" " " < $p/cmdline 2>/dev/null | grep -q "^' + RUN + ' up" && { echo __STARTING__; exit 0; }; done\n' +
+    '  ' + RUN + ' down >/dev/null 2>&1; echo __CLEANED__\nfi\n';
 function wrap(s) { return 'echo ' + bytes(s).toString('base64') + ' | base64 -d | sh'; }
 function lastJson(out) {
     var lines = String(out || '').trim().split('\n');
@@ -212,14 +219,26 @@ Vpn.prototype.reset = function () {
     });
 };
 
+// Removes what a crashed nordtv left behind (see LEFTOVER). Resolves true when it did.
+Vpn.prototype.clearLeftovers = function () {
+    var self = this;
+    return this.execute(wrap(STAGE + LEFTOVER), 20000).then(function (r) {
+        var done = /__CLEANED__/.test(r.stdout || '');
+        if (done) self.lastAuto = { at: Date.now(), ok: true, cleaned: true };
+        return done;
+    });
+};
+
 // Starts the tunnel only when it was left on (enabled) with "keep connected" (autostart) and what the provider needs
-// (a token, or a valid chosen profile). Never stops it.
+// (a token, or a valid chosen profile). Never stops a running one. When it will not start it, it removes the rules
+// a crashed nordtv left behind, so a kill switch cannot keep the TV offline (`nordtv up` does the same when it starts).
 Vpn.prototype.supervise = function () {
     var self = this;
     if (this.busy || Date.now() - this.autoFailedAt < RETRY_MS) return Promise.resolve({ started: false });
     return this.read(false).then(function (s) {
         var ready = s.ready !== undefined ? s.ready : s.hasToken;   // binaries before 1.1 report only hasToken
-        if (!s.installed || s.running || !s.enabled || !s.autostart || !ready) return { started: false };
+        if (!s.installed || s.running) return { started: false };
+        if (!s.enabled || !s.autostart || !ready) return self.clearLeftovers().then(function (cleaned) { return { started: false, cleaned: cleaned }; });
         return self.start({}).then(function (after) { self.lastAuto = { at: Date.now(), ok: true }; return { started: true, state: after }; },
             function (e) { self.autoFailedAt = Date.now(); self.lastAuto = { at: Date.now(), ok: false, error: e.message }; throw e; });
     });
@@ -291,3 +310,4 @@ module.exports.installScript = installScript;
 module.exports.STAGE = STAGE;
 module.exports.RESET = RESET;
 module.exports.BINARY = BINARY;
+module.exports.LEFTOVER = LEFTOVER;
