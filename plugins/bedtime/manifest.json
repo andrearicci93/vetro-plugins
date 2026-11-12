@@ -1,0 +1,11 @@
+{
+  "id": "bedtime",
+  "name": "Bedtime",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "main": "index.js",
+  "ui": { "label": "Bedtime" },
+  "description": "Turn the TV off at set times or after a sleep timer, or open an app on a schedule. No network.",
+  "author": "piecifra"
+}

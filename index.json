@@ -3,6 +3,56 @@
   "version": 1,
   "plugins": [
     {
+      "id": "art-sql",
+      "name": "Art SQL API",
+      "version": "0.1.1",
+      "author": "bertrandom",
+      "description": "Read-only SQL over HTTP (Datasette-style JSON) for the Art app's artapp.db, on its own LAN port with an API key. Uses the TV's sqlite3. No outbound connections.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/art-sql-0.1.1.vplugin",
+      "sha256": "5ee3fe9cf3b8412c80023dd7c6357cfa0d4a11d25f5c6fa15d0c9ed15c30f503",
+      "size": 63084
+    },
+    {
+      "id": "bedtime",
+      "name": "Bedtime",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Turn the TV off at set times or after a sleep timer, or open an app on a schedule. No network.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/bedtime-1.0.0.vplugin",
+      "sha256": "d644404f1ee04855c2ece30807cfe26e3bfbedd16292cb90a27162ea07964e8e",
+      "size": 24081
+    },
+    {
+      "id": "nordvpn",
+      "name": "NordVPN",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect. Talks to api.nordvpn.com, NordVPN servers and GitHub (its binary).",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/nordvpn-1.0.0.vplugin",
+      "sha256": "71ebdbc70c9070e0c4c658f43492151903c52f96d927a02b629b6c15654797aa",
+      "size": 62170
+    },
+    {
+      "id": "prometheus",
+      "name": "Prometheus exporter",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Prometheus metrics for the TV: CPU, memory, swap, network, Wi-Fi signal, SoC temperature, uptime. Reads /proc and /sys only; no network.",
+      "permissions": [],
+      "url": "dist/prometheus-1.0.0.vplugin",
+      "sha256": "f97de65ff5dc40815b84a8e053da705b4216bef08f69f75fe88e08a3653dd910",
+      "size": 19201
+    },
+    {
       "id": "shell",
       "name": "Shell",
       "version": "1.0.0",
@@ -40,19 +90,6 @@
       "url": "dist/tv-uptime-1.0.1.vplugin",
       "sha256": "246cd51dc9281d63cf75b40803453417608c456fbd439c92daf36d36d54dcecf",
       "size": 2885
-    },
-    {
-      "id": "vpn",
-      "name": "VPN",
-      "version": "1.1.0",
-      "author": "piecifra",
-      "description": "WireGuard VPN on the TV: NordVPN, or your own configs from any provider or server. Kill switch, split tunnel. Talks to api.nordvpn.com, your VPN and GitHub.",
-      "permissions": [
-        "exec"
-      ],
-      "url": "dist/vpn-1.1.0.vplugin",
-      "sha256": "39d6b8ac1375aa1f3d579cc81d3fbd0fe59099285e53de7c56adec7d8a34224b",
-      "size": 95776
     },
     {
       "id": "youtube",
