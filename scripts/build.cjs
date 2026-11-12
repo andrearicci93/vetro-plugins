@@ -50,7 +50,7 @@ function controlCenter(cc) {
     return [];
 }
 
-function validate(id, m, files) {
+function validate(id, m, files, readme = files['README.md']) {
     const e = [];
     if (!ID.test(id) || RESERVED.indexOf(id) >= 0) e.push('the folder name is not a valid id (2-32 chars, a-z 0-9 -, starts with a letter; not ' + RESERVED.join(', ') + ')');
     if (BUNDLED.includes(id)) e.push(id + ' is bundled with Vetro and cannot be replaced');
@@ -85,8 +85,8 @@ function validate(id, m, files) {
         if (!/\bcardSelect\s*:\s*function|\bcardSelect\s*\(|\bcardSelect\s*:\s*\w+\s*[,}]/.test(entry)) e.push('manifest.controlCenter is set but the entry file has no cardSelect(rowId) method');
     }
 
-    if (typeof files['README.md'] !== 'string') e.push('README.md is missing (start from template/README.md)');
-    else if (perms.indexOf('exec') >= 0 && !/^#{1,6}\s+Commands\b/mi.test(files['README.md'])) e.push('asks for exec, so README.md needs a "Commands it runs" section listing every command and why');
+    if (typeof readme !== 'string') e.push('README.md is missing (start from template/README.md)');
+    else if (perms.indexOf('exec') >= 0 && !/^#{1,6}\s+Commands\b/mi.test(readme)) e.push('asks for exec, so README.md needs a "Commands it runs" section listing every command and why');
     names.filter(f => /\.(c|m)?js$/.test(f)).forEach(f => {
         BANNED.forEach(b => { if (b[0].test(files[f])) e.push(f + ' uses ' + b[1] + ', which this list does not accept'); });
         try { acorn.parse(files[f], {ecmaVersion: 5, allowReturnOutsideFunction: true}); }
@@ -111,7 +111,10 @@ function pack(folder, id) {
             else files[rel] = buf.toString('utf8');
         }
     })(folder, '');
-    errors.push(...validate(id, manifest, files));
+    const readme = files['README.md'];
+    // Twitch uses the last bundle slot for its locale catalog. Still validate its source README.
+    if (id === 'twitch') delete files['README.md'];
+    errors.push(...validate(id, manifest, files, readme));
     // Registry-only fields (author, description) stay in the manifest: the TV ignores what it does not know.
     return { manifest, errors, text: JSON.stringify({ format: 'vetro-plugin', version: 1, manifest, files }) + '\n' };
 }

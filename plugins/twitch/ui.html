@@ -1,0 +1,92 @@
+<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font:16px system-ui;margin:20px;max-width:48rem}p{line-height:1.5}button{font:inherit;padding:8px}section{border:1px solid #8886;border-radius:8px;padding:12px;margin:12px 0}pre{white-space:pre-wrap;font-size:13px}label{display:block;margin:8px 0}input{margin-right:8px}</style>
+<h2>Twitch enhancements</h2>
+<p>Open Twitch with at least one feature enabled. Vetro starts a protected local session and applies the selected features. Opening Twitch from Samsung Home may cause one restart to prepare the session.</p>
+<section><b>Options</b>
+<label><input type="checkbox" id="adFiltering" disabled>Ad filtering</label>
+<label><input type="checkbox" id="emotes7tv" disabled>7TV chat emotes</label>
+<label><input type="checkbox" id="adSkipIndicator" disabled>Show an indicator when an ad is filtered</label>
+<p>The indicator appears briefly in the top-right corner. It requires ad filtering and is off by default.</p>
+<label><input type="checkbox" id="playerControls" aria-describedby="player-controls-help" disabled>Improved remote navigation in live streams</label>
+<p id="player-controls-help">Back can exit a stream with the controls visible, and OK can activate a hidden button. With this option, Back hides visible controls and OK only reveals hidden controls.</p>
+<label><input type="checkbox" id="channelPoints" aria-describedby="channel-points-help" disabled>Automatically claim channel point bonuses</label>
+<p id="channel-points-help">Waits a random 3–12 seconds after detecting a bonus, then checks it is still available before claiming. Leaving the stream cancels the pending claim.</p>
+<label><input type="checkbox" id="channelPointsIndicator" disabled>Show a notification when a bonus is credited</label>
+<label><input type="checkbox" id="accountManager" disabled>Manage multiple Twitch accounts</label>
+<label><input type="checkbox" id="accountChooserOnLaunch" disabled>Choose an account when Twitch opens (two or more saved accounts)</label>
+<p>On the Twitch home screen, select your profile next to Settings to switch accounts. Adding an account uses Twitch’s normal sign-in. Saved sessions are encrypted on this TV. Switching reloads Twitch. Forget saved accounts before uninstalling the plugin if you want to erase them.</p>
+<div id="save-state" role="status" aria-live="polite">Loading settings…</div>
+<p>Changes are saved automatically. Turning all features off closes the inspection session. If Twitch is open, it may restart normally.</p></section>
+<section><b>Session</b><div id="state">Checking…</div><button id="retry" disabled>Retry preparation</button></section>
+<section><b>Accounts</b><p id="accounts-state">Account management is disabled.</p><div id="accounts-list"></div>
+<button id="accounts-manage" disabled>Manage on TV</button> <button id="accounts-add" disabled>Add account</button> <button id="accounts-capture" disabled>Save current account</button> <button id="accounts-cancel" disabled>Cancel sign-in</button> <button id="accounts-forget-all" disabled>Forget all saved accounts</button>
+<p id="accounts-message" role="status" aria-live="polite"></p></section>
+<section><b>Ad filtering</b><pre id="filter">Waiting for Twitch.</pre></section>
+<section><b>7TV chat emotes</b><pre id="emotes">Waiting for Twitch.</pre></section>
+<section><b>Channel point bonuses</b><p id="points-state">Disabled</p><p id="points-last" hidden></p></section>
+<p>Switch this plugin off to stop its features. Saved accounts remain available when you enable it again. Some ads may still play.</p>
+<script>
+var keys=['adFiltering','emotes7tv','adSkipIndicator','accountManager','accountChooserOnLaunch','channelPoints','channelPointsIndicator','playerControls'],settings=null,saving=false,polling=false,revision=0,reloadingSettings=false,accountsBusy=false;
+function el(id){return document.getElementById(id)}
+function request(p,options){return fetch(p,options).then(function(r){return r.json().then(function(v){if(!r.ok)throw new Error(v.error||'Request failed');return v})})}
+function showSettings(){keys.forEach(function(k){el(k).checked=!!(settings&&settings[k]);el(k).disabled=saving||!settings||(k==='channelPointsIndicator'&&!settings.channelPoints)})}
+function detail(path,id,format,expectedRevision){request(path).then(function(d){if(!saving&&revision===expectedRevision)el(id).textContent=format(d)}).catch(function(){})}
+function poll(){
+ if(polling||saving)return;
+ polling=true;var expectedRevision=revision;
+ request('status').then(function(v){
+  if(saving||revision!==expectedRevision)return;
+  settings=v.settings;showSettings();
+  if(reloadingSettings){el('save-state').textContent='Save not confirmed. Showing saved settings.';reloadingSettings=false}
+  if(el('save-state').textContent==='Loading settings…')el('save-state').textContent='';
+  el('retry').disabled=!settings.adFiltering&&!settings.emotes7tv&&!settings.accountManager&&!settings.channelPoints&&!settings.playerControls;
+  renderAccounts(v.accounts);
+  renderPoints(v.points);
+  el('state').textContent=(el('retry').disabled?'All features disabled — ':'')+v.session.phase+(v.error?' — '+v.error:v.session.error?' — '+v.session.error:'');
+  if(!settings.adFiltering)el('filter').textContent='Disabled';
+  else if(v.filter.attached)detail('filter/status','filter',function(d){return JSON.stringify({network:d.network,indicator:d.indicator},null,2)},expectedRevision);
+  else el('filter').textContent=v.filter.error||'Waiting for Twitch.';
+  if(!settings.emotes7tv)el('emotes').textContent='Disabled';
+  else if(v.emotes.attached)detail('emotes/status','emotes',function(d){return JSON.stringify({global:d.globalEmotes,channel:d.channelEmotes,rendering:d.page,error:d.error},null,2)},expectedRevision);
+  else el('emotes').textContent=v.emotes.error||'Waiting for Twitch.';
+ }).catch(function(){if(!saving&&revision===expectedRevision)el('state').textContent='Connection unavailable'}).then(function(){polling=false});
+}
+keys.forEach(function(key){el(key).onchange=function(){
+ if(saving||!settings)return;
+ var patch={};patch[key]=el(key).checked;saving=true;revision++;showSettings();el(key).checked=patch[key];el('retry').disabled=true;el('save-state').textContent='Saving…';
+ request('settings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(patch)})
+  .then(function(v){settings=v;el('save-state').textContent='Saved'})
+  .catch(function(e){el('save-state').textContent='Save not confirmed: '+e.message+'. Reloading saved settings…';settings=null;reloadingSettings=true})
+  .then(function(){saving=false;showSettings();poll()});
+}});
+function renderAccounts(value){
+ value=value||{profiles:[]};var enabled=!!(settings&&settings.accountManager),blocked=!enabled||accountsBusy||!!value.busy;
+ el('accounts-state').textContent=enabled?(value.phase||'Waiting for Twitch')+(value.error?' — '+value.error:''):'Account management is disabled.';
+ var list=el('accounts-list');while(list.firstChild)list.removeChild(list.firstChild);
+ (value.profiles||[]).forEach(function(p){
+  var row=document.createElement('p'),label=document.createElement('span');label.textContent=p.login+(p.active?' (current)':'')+(p.state==='sign-in-required'?' — sign in again':'')+' ';row.appendChild(label);
+  [['Switch','switch'],['Forget','forget']].forEach(function(action){var b=document.createElement('button');b.textContent=action[0];b.disabled=blocked||!!value.adding;b.onclick=function(){if(action[1]==='forget'&&!confirm('Forget '+p.login+' on this TV? This does not sign out of Twitch.'))return;accountAction(action[1],p.id)};row.appendChild(b)});list.appendChild(row);
+ });
+ ['manage','add','capture','cancel','forget-all'].forEach(function(action){el('accounts-'+action).disabled=blocked||((action==='add'||action==='capture'||action==='forget-all')&&!!value.adding)});
+ el('accounts-capture').disabled=blocked||!value.canCapture||!!value.adding;
+ el('accounts-cancel').disabled=blocked||!value.adding;
+ el('accounts-forget-all').disabled=blocked||!!value.adding||!(value.profiles||[]).length;
+}
+function renderPoints(value){
+ value=value||{};
+ var phase={'waiting-for-twitch':'Waiting for Twitch.','waiting-for-signed-in-live':'Waiting for a signed-in live stream.',watching:'Watching for a bonus.'};
+ el('points-state').textContent=settings.channelPoints?(value.error||phase[value.phase]||'Waiting for Twitch.'):'Disabled';
+ var claim=settings.channelPoints&&value.lastClaim;
+ el('points-last').hidden=!claim;
+ el('points-last').textContent=claim?'Last confirmed: +'+claim.points+' points on '+claim.channel+' at '+new Date(claim.at).toLocaleTimeString()+' · '+value.confirmed+' confirmed':'';
+}
+function accountAction(action,id){
+ if(accountsBusy)return;accountsBusy=true;el('accounts-message').textContent='Please wait…';renderAccounts({phase:'Working',profiles:[]});
+ var body={action:action};if(id)body.id=id;
+ request('accounts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)})
+  .then(function(v){el('accounts-message').textContent='Done';accountsBusy=false;renderAccounts(v);poll()})
+  .catch(function(e){accountsBusy=false;el('accounts-message').textContent=e.message;poll()});
+}
+['manage','add','capture','cancel','forget-all'].forEach(function(action){el('accounts-'+action).onclick=function(){if(action==='forget-all'&&!confirm('Forget all saved accounts on this TV? This does not sign out of Twitch.'))return;accountAction(action)}});
+el('retry').onclick=function(){el('retry').disabled=true;request('retry',{method:'POST'}).then(poll).catch(function(e){el('state').textContent=e.message;poll()})};poll();setInterval(poll,3000);
+</script>

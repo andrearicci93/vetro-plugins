@@ -8,6 +8,7 @@
     "build": "node scripts/build.cjs"
   },
   "devDependencies": {
-    "acorn": "8.15.0"
+    "acorn": "8.15.0",
+    "jsdom": "26.1.0"
   }
 }
