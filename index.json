@@ -12,8 +12,8 @@
         "exec"
       ],
       "url": "dist/art-sql-0.1.1.vplugin",
-      "sha256": "8e4b091f58eb19b6150bfbd2dc81e2af2b321eb4b5b5ddc291570ec38395f26b",
-      "size": 62726
+      "sha256": "5ee3fe9cf3b8412c80023dd7c6357cfa0d4a11d25f5c6fa15d0c9ed15c30f503",
+      "size": 63084
     },
     {
       "id": "nordvpn",

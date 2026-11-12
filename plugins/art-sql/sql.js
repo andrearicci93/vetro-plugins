@@ -105,8 +105,10 @@ function prepare(sql, params, maxRows) {
 // 10 MB so a query cannot make sqlite3 (running as root) eat the TV's memory.
 //
 // out: { file, uid, blocks } writes the result to that file instead of stdout, because Vetro's agent keeps only the
-// first 1 MiB of a command's output. The file is created private (root's umask on the TV is 0), handed to Vetro's
-// own uid so the Shard can read and delete it, and capped by ulimit -f (blocks of 512 or 1024 bytes, by shell).
+// first 1 MiB of a command's output. The file is created private (root's umask on the TV is 0) and handed to Vetro's
+// own uid *before* sqlite3 starts, so the shell can still `exec` sqlite3: when the time limit kills the command, it
+// must kill sqlite3 itself, not a shell that would leave sqlite3 running as root. ulimit -f caps the file (blocks of
+// 512 or 1024 bytes, by shell).
 function command(sqlite, dbPath, sql, out) {
     var b64 = bytes(sql).toString('base64');
     var run = shQuote(sqlite) + ' -readonly -batch -bail -cmd ' + shQuote('.timeout 3000') + ' -cmd ' + shQuote('.limit length 10000000') +
@@ -114,8 +116,8 @@ function command(sqlite, dbPath, sql, out) {
     var head = '__q="$(printf %s ' + b64 + ' | base64 -d)"; ';
     if (!out) return head + 'exec ' + run;
     var f = shQuote(out.file);
-    return head + 'umask 077; ulimit -f ' + (out.blocks | 0) + ' 2>/dev/null; ' + run + ' > ' + f + '; __s=$?; chown ' + (out.uid | 0) + ' ' + f +
-        ' 2>/dev/null; exit $__s';
+    return head + 'umask 077; : > ' + f + ' && chown ' + (out.uid | 0) + ' ' + f + ' 2>/dev/null; ulimit -f ' + (out.blocks | 0) +
+        ' 2>/dev/null; exec ' + run + ' > ' + f;
 }
 
 // What Vetro's agent appends when it cut a command's output at 1 MiB.

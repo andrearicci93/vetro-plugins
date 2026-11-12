@@ -95,10 +95,11 @@ All through `ctx.execute`, as root.
 | When | Command | Why |
 | --- | --- | --- |
 | the Shard starts, the tab opens, the database path changes, **Check sqlite3** | `/usr/bin/sqlite3 -version`; `[ -r <database> ]` | find out whether sqlite3 is there and new enough (3.33+, for JSON output), and whether the file exists. At start, and when the path changes, the port opens only if both are there |
-| every query, from the API or the tab | `__q="$(printf %s <base64 SQL> \| base64 -d)"; umask 077; ulimit -f 131072; /usr/bin/sqlite3 -readonly -batch -bail -cmd '.timeout 3000' -cmd '.limit length 10000000' -cmd '.mode json' <database> "$__q" </dev/null > results/<random>.json; chown <Vetro's uid> results/<random>.json` | run the checked query read-only and write the JSON to a private file in the Shard's own folder, which the Shard reads and deletes. `.timeout` waits up to 3 s if the Art app is writing |
+| every query, from the API or the tab | `__q="$(printf %s <base64 SQL> \| base64 -d)"; umask 077; : > results/<random>.json; chown <Vetro's uid> results/<random>.json; ulimit -f 131072; exec /usr/bin/sqlite3 -readonly -batch -bail -cmd '.timeout 3000' -cmd '.limit length 10000000' -cmd '.mode json' <database> "$__q" </dev/null > results/<random>.json` | run the checked query read-only and write the JSON to a private file in the Shard's own folder, which the Shard reads and deletes. `.timeout` waits up to 3 s if the Art app is writing |
 
 The result goes through a file because Vetro's agent returns only the first 1 MiB of a command's output, and one page of
-`Content` is already more than that. The file is created readable by root only, then given to Vetro's own user; `ulimit -f`
+`Content` is already more than that. The file is created readable by root only and given to Vetro's own user before sqlite3 starts, so the shell can `exec`
+sqlite3 and the time limit stops sqlite3 itself (not just a shell around it, which would leave the query running as root); `ulimit -f`
 and a 32 MB check cap it. If the Shard's folder cannot hold a `results/` folder, results come back through the agent
 instead, and anything over 1 MiB is refused with `413`.
 
