@@ -42,12 +42,20 @@ firmware **T-KSU2EBUABC-1720.7**, Vetro **0.5.0**:
 - The bounded preview was stopped and the normal supervised helper was enabled;
   the TV reported exactly one proxy, with the preview stopped.
 
-This 1.1.2 contribution keeps that helper behavior, refuses unsupported 64-bit
-runtime layouts before opening devices, makes its payload rebuildable, adds
-wrapper error/lifecycle checks, and moves runtime files into the Shard's private
-folder. Those changes are checked locally; they have not been installed
-on the test TV. A reboot of the final proxy helper, standby/wake, and a physical
-Bluetooth disconnect/reconnect have not been manually confirmed.
+Version **1.1.2** was installed and enabled on the same TV on **2026-11-12**:
+
+- The owner confirmed Guide opens Vetro and keeps it visible from both YouTube
+  and Moonlight, and the controller's other buttons/sticks work in both apps.
+- The helper became active and connected to the selected controller with no
+  errors or service restarts. Its installed DLL SHA-256 matched the source-rebuilt
+  payload verified by CI.
+- Filter/framing and filesystem regression self-tests passed on the TV,
+  including directory/status/lock symlink refusal and atomic status replacement.
+- The runtime folder was mode `0700`, owned by Vetro's UID `5001`; status and lock
+  files were mode `0600`. Developer mode was restored to Off after installation.
+
+A reboot of the 1.1.2 helper, standby/wake, and a physical Bluetooth
+disconnect/reconnect have not been manually confirmed.
 
 ## How it works
 
