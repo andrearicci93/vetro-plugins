@@ -157,6 +157,25 @@
       "size": 2885
     },
     {
+      "id": "twitch",
+      "name": "Twitch enhancements",
+      "version": "1.0.0",
+      "author": "tomcraft",
+      "description": "Ad filtering, 7TV emotes, remote navigation, channel point bonuses and account switching in Samsung Twitch.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/twitch-1.0.0.vplugin",
+      "sha256": "bccbc130904eafb1a683ef7be20a9a2e877f0dcde12c871a8d317f560e6ac275",
+      "size": 269508,
+      "intercepts": [
+        {
+          "appId": "Jz7aUrV2Q4.Twitch",
+          "label": "Twitch"
+        }
+      ]
+    },
+    {
       "id": "usb-ethernet",
       "name": "USB Ethernet",
       "version": "1.1.0",

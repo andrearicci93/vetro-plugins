@@ -1,0 +1,505 @@
+'use strict';
+
+var inspector = require('./inspector-client.js');
+
+// Helpers used by the scripts injected into the Twitch TV page.
+var AD_TOAST = 'ad';
+var QUIET_GAP_MS = 30000;
+
+// Runs in Twitch's page. Match its settings label before falling back to the document or browser language.
+function pageTranslations(catalog, settingsNames, backNames) {
+    var languages = Object.keys(catalog);
+    var errors = Object.keys(catalog.en).filter(function (key) { return /Error$/.test(key); });
+
+    function normalize(value) { return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+    function language() {
+        var settings = document.querySelector('a[href="/settings"]');
+        var name = normalize(settings && (settings.getAttribute('aria-label') || settings.textContent));
+        for (var i = 0; name && i < languages.length; i++) {
+            var locale = languages[i];
+            if (settingsNames[locale].some(function (label) { return normalize(label) === name; })) return locale;
+        }
+        var tag = document.documentElement && document.documentElement.lang || navigator.language || '';
+        var code = tag.toLowerCase().split(/[-_]/)[0];
+        return languages.indexOf(code) >= 0 ? code : 'en';
+    }
+    function text(key, locale, value) {
+        var message = catalog[locale][key] || catalog.en[key];
+        return value === undefined ? message : message.replace('{value}', function () { return String(value); });
+    }
+    function error(message, locale) {
+        for (var i = 0; i < errors.length; i++) {
+            if (catalog.en[errors[i]] === message) return text(errors[i], locale);
+        }
+        return text('errorGeneric', locale);
+    }
+    function isBack(value) {
+        var name = normalize(value);
+        return backNames.some(function (label) { return normalize(label) === name; });
+    }
+    return { language: language, text: text, error: error, isBack: isBack };
+}
+
+// Pass only the strings needed by the injected surface. The TV page cannot require Shard files.
+function translationSource(surface) {
+    var catalog = {}, settings = {}, back = [];
+    Object.keys(locales).forEach(function (code) {
+        var locale = locales[code];
+        catalog[code] = locale[surface];
+        settings[code] = locale.native.settings;
+        if (surface === 'accounts') back = back.concat(locale.native.loginBack);
+    });
+    return '(' + pageTranslations.toString() + ')(' + JSON.stringify(catalog) + ',' + JSON.stringify(settings) + ',' + JSON.stringify(back) + ')';
+}
+
+function readNativeSession(includeClient) {
+    var root = null;
+    var nodes = document.querySelectorAll('#__next,#__next > *,body > *');
+    var count = 0;
+    for (var i = 0; i < nodes.length && i < 25 && !root; i++) {
+        var names = Object.keys(nodes[i]);
+        for (var j = 0; j < names.length && !root; j++) {
+            if (/^__react(?:Fiber|Container)\$/.test(names[j])) root = nodes[i][names[j]];
+            else if (names[j] === '_reactRootContainer' && nodes[i][names[j]]) root = nodes[i][names[j]]._internalRoot.current;
+        }
+    }
+    if (root) {
+        while (root.return && count++ < 100) root = root.return;
+        if (root.stateNode && root.stateNode.current) root = root.stateNode.current;
+    }
+    var stack = root ? [root] : [];
+    var result = { signedIn: null, clientId: null };
+    while (stack.length && count++ < 18000) {
+        var fiber = stack.pop();
+        var value = fiber.memoizedProps && fiber.memoizedProps.value;
+        if (includeClient && value && typeof value.clientId === 'string' && /^[a-z0-9]{20,40}$/i.test(value.clientId)) result.clientId = value.clientId;
+        if (value && value.authCookieName === 'auth-token' && typeof value.loggedIn === 'boolean' && typeof value.logout === 'function') result.signedIn = value.loggedIn;
+        if (result.signedIn !== null && (!includeClient || result.clientId)) break;
+        if (fiber.child) stack.push(fiber.child);
+        if (fiber.sibling) stack.push(fiber.sibling);
+    }
+    return result;
+}
+
+function showIndicator(kind, points, translations) {
+    var key = kind === 'ad' ? '__vetroTwitchAdIndicator' : '__vetroTwitchPointsIndicator', previous = window[key];
+    if (previous) previous.stop();
+    var element = document.createElement('div'), timer = null, owner = { stop: stop };
+    element.setAttribute('data-vetro-' + kind + '-indicator', '');
+    element.setAttribute('role', 'status'); element.setAttribute('aria-live', 'polite');
+    var textKey = kind === 'ad' ? 'adFiltered' : points === 1 ? 'point' : 'points';
+    element.textContent = translations.text(textKey, translations.language(), points);
+    element.style.cssText = 'all:initial;position:fixed!important;top:24px!important;' + (kind === 'ad' ? 'right' : 'left') +
+        ':24px!important;z-index:2147483647!important;pointer-events:none!important;' +
+        'display:block!important;padding:10px 16px!important;border-radius:8px!important;border:1px solid #bf94ff!important;' +
+        'background:rgba(24,16,36,0.94)!important;color:#fff!important;font:500 22px sans-serif!important;line-height:1.3!important;';
+    function stop() {
+        if (timer !== null) { window.clearTimeout(timer); timer = null; }
+        if (element.parentNode) element.parentNode.removeChild(element);
+        if (window[key] === owner) delete window[key];
+    }
+    window[key] = owner;
+    document.documentElement.appendChild(element);
+    timer = window.setTimeout(stop, 3000);
+}
+function showIndicatorScript(kind, points) {
+    return '(' + showIndicator.toString() + ')(' + JSON.stringify(kind) + ',' + JSON.stringify(points) + ',' + INDICATOR_TRANSLATIONS + ');';
+}
+function hideIndicatorScript(kind) {
+    var key = kind === AD_TOAST ? 'window.__vetroTwitchAdIndicator' : 'window.__vetroTwitchPointsIndicator';
+    return 'if(' + key + ')' + key + '.stop();';
+}
+function createAdSkipIndicator(client) {
+    var enabled = false, stopped = false, generation = 0, lastReplacementAt = null, mayBeVisible = false;
+    var pending = Promise.resolve(), notifications = 0, errors = 0;
+    function enqueue(action) {
+        // Optional UI work never holds up playback or rejects into the interception pipeline.
+        pending = pending.then(action).catch(function () { errors++; });
+        return pending;
+    }
+    function hide() {
+        if (!mayBeVisible) return;
+        mayBeVisible = false;
+        return inspector.evaluate(client, hideIndicatorScript(AD_TOAST));
+    }
+    return {
+        setEnabled: function (value) {
+            value = value === true;
+            if (stopped || value === enabled) return pending;
+            enabled = value;
+            generation++;
+            lastReplacementAt = null;
+            return enabled ? pending : enqueue(hide);
+        },
+        notify: function () {
+            if (!enabled || stopped) return;
+            var now = Date.now();
+            var previous = lastReplacementAt;
+            lastReplacementAt = now;
+            // Repeated HLS refreshes keep the same notification group alive without showing more toasts.
+            if (previous !== null && now >= previous && now - previous < QUIET_GAP_MS) return;
+            var expectedGeneration = generation;
+            enqueue(function () {
+                if (!enabled || stopped || expectedGeneration !== generation) return;
+                mayBeVisible = true;
+                return inspector.evaluate(client, showIndicatorScript(AD_TOAST, null)).then(function () { notifications++; });
+            });
+        },
+        stop: function () {
+            stopped = true;
+            enabled = false;
+            generation++;
+            return enqueue(hide);
+        },
+        status: function () { return { enabled: enabled, notifications: notifications, errors: errors }; }
+    };
+}
+
+var locales = {
+  "en": {
+    "native": {
+      "settings": [
+        "Settings"
+      ],
+      "loginBack": [
+        "Go back"
+      ]
+    },
+    "accounts": {
+      "accounts": "Accounts",
+      "guest": "Guest",
+      "switchAccount": "Switch account · {value}",
+      "cancellingSignIn": "Cancelling sign-in…",
+      "savingAccount": "Saving Twitch account…",
+      "addingAccount": "Adding a Twitch account · Back to cancel",
+      "forgetTitle": "Forget this account?",
+      "manageAccounts": "Manage accounts",
+      "chooseAccount": "Who’s watching?",
+      "wait": "Please wait…",
+      "forgetDescription": "Remove the saved session for {value}.",
+      "finishSignIn": "Finish signing in with Twitch or cancel to restore your previous account.",
+      "cancel": "Cancel",
+      "forgetAccount": "Forget {value}",
+      "continueSignIn": "Continue signing in",
+      "cancelSignIn": "Cancel sign-in",
+      "backToProfiles": "Back to profiles",
+      "signInAgain": "Sign in again",
+      "currentAccount": "Current account",
+      "currentSession": "Current session",
+      "addAccount": "Add account",
+      "saveAccount": "Save current account",
+      "back": "Back",
+      "errorGeneric": "The account action failed. Try again.",
+      "replaceError": "Twitch did not confirm the account change",
+      "validationError": "Twitch account validation is unavailable",
+      "identityError": "Twitch did not confirm this account",
+      "expiredError": "This account needs to sign in again. Select it again to reconnect.",
+      "currentExpiredError": "The current account needs to sign in again",
+      "wrongAccountError": "Sign in to the selected account, or use Add account",
+      "signInError": "Sign in to Twitch before saving an account",
+      "readyError": "Open Twitch on the TV and wait for it to finish loading",
+      "keepOpenError": "Keep Twitch open until the account change finishes",
+      "restoreError": "Previous account recovery is pending; reopen Twitch with account management enabled",
+      "pendingError": "Finish signing in, or cancel the account change",
+      "limitError": "Forget an account before adding another",
+      "reloadError": "Twitch could not reload",
+      "sessionError": "Twitch could not update the account session"
+    },
+    "indicators": {
+      "adFiltered": "Ad filtered",
+      "point": "+{value} channel point",
+      "points": "+{value} channel points"
+    }
+  },
+  "fr": {
+    "native": {
+      "settings": [
+        "Paramètres"
+      ],
+      "loginBack": [
+        "Revenir en arrière"
+      ]
+    },
+    "accounts": {
+      "accounts": "Comptes",
+      "guest": "Invité",
+      "switchAccount": "Changer de compte · {value}",
+      "cancellingSignIn": "Annulation de la connexion…",
+      "savingAccount": "Enregistrement du compte Twitch…",
+      "addingAccount": "Ajout d’un compte Twitch · Retour pour annuler",
+      "forgetTitle": "Oublier ce compte ?",
+      "manageAccounts": "Gérer les comptes",
+      "chooseAccount": "Qui regarde ?",
+      "wait": "Un instant…",
+      "forgetDescription": "Supprimer la session enregistrée de {value}.",
+      "finishSignIn": "Termine la connexion à Twitch ou annule pour retrouver ton compte précédent.",
+      "cancel": "Annuler",
+      "forgetAccount": "Oublier {value}",
+      "continueSignIn": "Continuer la connexion",
+      "cancelSignIn": "Annuler la connexion",
+      "backToProfiles": "Retour aux profils",
+      "signInAgain": "Se reconnecter",
+      "currentAccount": "Compte actif",
+      "currentSession": "Session active",
+      "addAccount": "Ajouter un compte",
+      "saveAccount": "Enregistrer le compte actif",
+      "back": "Retour",
+      "errorGeneric": "L’action sur le compte a échoué. Réessaie.",
+      "replaceError": "Twitch n’a pas confirmé le changement de compte.",
+      "validationError": "La vérification du compte Twitch est indisponible.",
+      "identityError": "Twitch n’a pas confirmé ce compte.",
+      "expiredError": "Sélectionne à nouveau ce compte pour te reconnecter.",
+      "currentExpiredError": "Reconnecte-toi au compte actif.",
+      "wrongAccountError": "Connecte-toi au compte sélectionné ou choisis « Ajouter un compte ».",
+      "signInError": "Connecte-toi à Twitch avant d’enregistrer un compte.",
+      "readyError": "Ouvre Twitch sur la TV et attends la fin du chargement.",
+      "keepOpenError": "Laisse Twitch ouvert jusqu’à la fin du changement de compte.",
+      "restoreError": "Rouvre Twitch avec la gestion des comptes activée pour retrouver ton compte précédent.",
+      "pendingError": "Termine la connexion ou annule le changement de compte.",
+      "limitError": "Oublie un compte avant d’en ajouter un autre.",
+      "reloadError": "Twitch n’a pas pu se recharger.",
+      "sessionError": "Twitch n’a pas pu mettre à jour la session du compte."
+    },
+    "indicators": {
+      "adFiltered": "Pub filtrée",
+      "point": "+{value} point de chaîne",
+      "points": "+{value} points de chaîne"
+    }
+  },
+  "it": {
+    "native": {
+      "settings": [
+        "Impostazioni"
+      ],
+      "loginBack": [
+        "Torna indietro",
+        "Indietro"
+      ]
+    },
+    "accounts": {
+      "accounts": "Account",
+      "guest": "Ospite",
+      "switchAccount": "Cambia account · {value}",
+      "cancellingSignIn": "Annullamento dell’accesso…",
+      "savingAccount": "Salvataggio dell’account Twitch…",
+      "addingAccount": "Aggiunta di un account Twitch · Indietro per annullare",
+      "forgetTitle": "Dimenticare questo account?",
+      "manageAccounts": "Gestisci account",
+      "chooseAccount": "Chi sta guardando?",
+      "wait": "Attendi…",
+      "forgetDescription": "Rimuovi la sessione salvata di {value}.",
+      "finishSignIn": "Completa l’accesso a Twitch o annulla per ripristinare l’account precedente.",
+      "cancel": "Annulla",
+      "forgetAccount": "Dimentica {value}",
+      "continueSignIn": "Continua l’accesso",
+      "cancelSignIn": "Annulla l’accesso",
+      "backToProfiles": "Torna ai profili",
+      "signInAgain": "Accedi di nuovo",
+      "currentAccount": "Account attivo",
+      "currentSession": "Sessione attiva",
+      "addAccount": "Aggiungi account",
+      "saveAccount": "Salva l’account attivo",
+      "back": "Indietro",
+      "errorGeneric": "Operazione sull’account non riuscita. Riprova.",
+      "replaceError": "Twitch non ha confermato il cambio di account.",
+      "validationError": "La verifica dell’account Twitch non è disponibile.",
+      "identityError": "Twitch non ha confermato questo account.",
+      "expiredError": "Seleziona di nuovo questo account per accedere.",
+      "currentExpiredError": "Accedi di nuovo all’account attivo.",
+      "wrongAccountError": "Accedi all’account selezionato o scegli «Aggiungi account».",
+      "signInError": "Accedi a Twitch prima di salvare un account.",
+      "readyError": "Apri Twitch sulla TV e attendi il caricamento.",
+      "keepOpenError": "Lascia Twitch aperto fino al termine del cambio di account.",
+      "restoreError": "Riapri Twitch con la gestione degli account attiva per ripristinare l’account precedente.",
+      "pendingError": "Completa l’accesso o annulla il cambio di account.",
+      "limitError": "Rimuovi un account prima di aggiungerne un altro.",
+      "reloadError": "Impossibile ricaricare Twitch.",
+      "sessionError": "Twitch non ha potuto aggiornare la sessione dell’account."
+    },
+    "indicators": {
+      "adFiltered": "Pubblicità filtrata",
+      "point": "+{value} punto canale",
+      "points": "+{value} punti canale"
+    }
+  },
+  "es": {
+    "native": {
+      "settings": [
+        "Configuración",
+        "Ajustes"
+      ],
+      "loginBack": [
+        "Volver atrás",
+        "Volver"
+      ]
+    },
+    "accounts": {
+      "accounts": "Cuentas",
+      "guest": "Invitado",
+      "switchAccount": "Cambiar de cuenta · {value}",
+      "cancellingSignIn": "Cancelando el inicio de sesión…",
+      "savingAccount": "Guardando la cuenta de Twitch…",
+      "addingAccount": "Añadiendo una cuenta de Twitch · Atrás para cancelar",
+      "forgetTitle": "¿Olvidar esta cuenta?",
+      "manageAccounts": "Gestionar cuentas",
+      "chooseAccount": "¿Quién está viendo?",
+      "wait": "Espera un momento…",
+      "forgetDescription": "Elimina la sesión guardada de {value}.",
+      "finishSignIn": "Termina de iniciar sesión en Twitch o cancela para recuperar tu cuenta anterior.",
+      "cancel": "Cancelar",
+      "forgetAccount": "Olvidar {value}",
+      "continueSignIn": "Continuar el inicio de sesión",
+      "cancelSignIn": "Cancelar el inicio de sesión",
+      "backToProfiles": "Volver a los perfiles",
+      "signInAgain": "Volver a iniciar sesión",
+      "currentAccount": "Cuenta activa",
+      "currentSession": "Sesión activa",
+      "addAccount": "Añadir cuenta",
+      "saveAccount": "Guardar la cuenta activa",
+      "back": "Atrás",
+      "errorGeneric": "La acción de la cuenta ha fallado. Inténtalo de nuevo.",
+      "replaceError": "Twitch no ha confirmado el cambio de cuenta.",
+      "validationError": "No se puede verificar la cuenta de Twitch.",
+      "identityError": "Twitch no ha confirmado esta cuenta.",
+      "expiredError": "Vuelve a seleccionar esta cuenta para iniciar sesión.",
+      "currentExpiredError": "Vuelve a iniciar sesión con la cuenta activa.",
+      "wrongAccountError": "Inicia sesión en la cuenta seleccionada o elige «Añadir cuenta».",
+      "signInError": "Inicia sesión en Twitch antes de guardar una cuenta.",
+      "readyError": "Abre Twitch en la TV y espera a que termine de cargar.",
+      "keepOpenError": "Mantén Twitch abierto hasta que termine el cambio de cuenta.",
+      "restoreError": "Vuelve a abrir Twitch con la gestión de cuentas activada para recuperar tu cuenta anterior.",
+      "pendingError": "Termina de iniciar sesión o cancela el cambio de cuenta.",
+      "limitError": "Olvida una cuenta antes de añadir otra.",
+      "reloadError": "No se ha podido recargar Twitch.",
+      "sessionError": "Twitch no ha podido actualizar la sesión de la cuenta."
+    },
+    "indicators": {
+      "adFiltered": "Anuncio filtrado",
+      "point": "+{value} punto del canal",
+      "points": "+{value} puntos del canal"
+    }
+  },
+  "de": {
+    "native": {
+      "settings": [
+        "Einstellungen"
+      ],
+      "loginBack": [
+        "Zurück",
+        "Zurückgehen"
+      ]
+    },
+    "accounts": {
+      "accounts": "Konten",
+      "guest": "Gast",
+      "switchAccount": "Konto wechseln · {value}",
+      "cancellingSignIn": "Anmeldung wird abgebrochen…",
+      "savingAccount": "Twitch-Konto wird gespeichert…",
+      "addingAccount": "Twitch-Konto hinzufügen · Zurück zum Abbrechen",
+      "forgetTitle": "Dieses Konto entfernen?",
+      "manageAccounts": "Konten verwalten",
+      "chooseAccount": "Wer schaut zu?",
+      "wait": "Bitte warten…",
+      "forgetDescription": "Die gespeicherte Sitzung für {value} entfernen.",
+      "finishSignIn": "Melde dich bei Twitch an oder brich ab, um zum vorherigen Konto zurückzukehren.",
+      "cancel": "Abbrechen",
+      "forgetAccount": "{value} entfernen",
+      "continueSignIn": "Anmeldung fortsetzen",
+      "cancelSignIn": "Anmeldung abbrechen",
+      "backToProfiles": "Zurück zu den Profilen",
+      "signInAgain": "Erneut anmelden",
+      "currentAccount": "Aktives Konto",
+      "currentSession": "Aktive Sitzung",
+      "addAccount": "Konto hinzufügen",
+      "saveAccount": "Aktives Konto speichern",
+      "back": "Zurück",
+      "errorGeneric": "Die Kontoaktion ist fehlgeschlagen. Versuche es erneut.",
+      "replaceError": "Twitch hat den Kontowechsel nicht bestätigt.",
+      "validationError": "Die Prüfung des Twitch-Kontos ist nicht verfügbar.",
+      "identityError": "Twitch hat dieses Konto nicht bestätigt.",
+      "expiredError": "Wähle dieses Konto erneut aus, um dich anzumelden.",
+      "currentExpiredError": "Melde dich erneut beim aktiven Konto an.",
+      "wrongAccountError": "Melde dich beim ausgewählten Konto an oder wähle „Konto hinzufügen“.",
+      "signInError": "Melde dich bei Twitch an, bevor du ein Konto speicherst.",
+      "readyError": "Öffne Twitch auf dem Fernseher und warte, bis es geladen ist.",
+      "keepOpenError": "Lass Twitch geöffnet, bis der Kontowechsel abgeschlossen ist.",
+      "restoreError": "Öffne Twitch mit aktivierter Kontoverwaltung erneut, um das vorherige Konto wiederherzustellen.",
+      "pendingError": "Schließe die Anmeldung ab oder brich den Kontowechsel ab.",
+      "limitError": "Entferne ein Konto, bevor du ein weiteres hinzufügst.",
+      "reloadError": "Twitch konnte nicht neu geladen werden.",
+      "sessionError": "Twitch konnte die Kontositzung nicht aktualisieren."
+    },
+    "indicators": {
+      "adFiltered": "Werbung gefiltert",
+      "point": "+{value} Kanalpunkt",
+      "points": "+{value} Kanalpunkte"
+    }
+  },
+  "pt": {
+    "native": {
+      "settings": [
+        "Definições",
+        "Configurações"
+      ],
+      "loginBack": [
+        "Voltar",
+        "Voltar atrás"
+      ]
+    },
+    "accounts": {
+      "accounts": "Contas",
+      "guest": "Convidado",
+      "switchAccount": "Mudar de conta · {value}",
+      "cancellingSignIn": "A cancelar o início de sessão…",
+      "savingAccount": "A guardar a conta da Twitch…",
+      "addingAccount": "A adicionar uma conta da Twitch · Voltar para cancelar",
+      "forgetTitle": "Esquecer esta conta?",
+      "manageAccounts": "Gerir contas",
+      "chooseAccount": "Quem está a ver?",
+      "wait": "Aguarda um momento…",
+      "forgetDescription": "Remover a sessão guardada de {value}.",
+      "finishSignIn": "Conclui o início de sessão na Twitch ou cancela para recuperar a conta anterior.",
+      "cancel": "Cancelar",
+      "forgetAccount": "Esquecer {value}",
+      "continueSignIn": "Continuar a iniciar sessão",
+      "cancelSignIn": "Cancelar o início de sessão",
+      "backToProfiles": "Voltar aos perfis",
+      "signInAgain": "Iniciar sessão novamente",
+      "currentAccount": "Conta ativa",
+      "currentSession": "Sessão ativa",
+      "addAccount": "Adicionar conta",
+      "saveAccount": "Guardar a conta ativa",
+      "back": "Voltar",
+      "errorGeneric": "A ação da conta falhou. Tenta novamente.",
+      "replaceError": "A Twitch não confirmou a mudança de conta.",
+      "validationError": "A validação da conta da Twitch está indisponível.",
+      "identityError": "A Twitch não confirmou esta conta.",
+      "expiredError": "Seleciona novamente esta conta para iniciar sessão.",
+      "currentExpiredError": "Inicia sessão novamente na conta ativa.",
+      "wrongAccountError": "Inicia sessão na conta selecionada ou escolhe «Adicionar conta».",
+      "signInError": "Inicia sessão na Twitch antes de guardar uma conta.",
+      "readyError": "Abre a Twitch na TV e aguarda até terminar de carregar.",
+      "keepOpenError": "Mantém a Twitch aberta até terminar a mudança de conta.",
+      "restoreError": "Volta a abrir a Twitch com a gestão de contas ativa para recuperar a conta anterior.",
+      "pendingError": "Conclui o início de sessão ou cancela a mudança de conta.",
+      "limitError": "Esquece uma conta antes de adicionar outra.",
+      "reloadError": "Não foi possível recarregar a Twitch.",
+      "sessionError": "A Twitch não conseguiu atualizar a sessão da conta."
+    },
+    "indicators": {
+      "adFiltered": "Anúncio filtrado",
+      "point": "+{value} ponto de canal",
+      "points": "+{value} pontos de canal"
+    }
+  }
+};
+
+var INDICATOR_TRANSLATIONS = translationSource('indicators');
+
+module.exports = {
+    translationSource: translationSource,
+    readNativeSession: readNativeSession,
+    showIndicatorScript: showIndicatorScript,
+    hideIndicatorScript: hideIndicatorScript,
+    createAdSkipIndicator: createAdSkipIndicator
+};
