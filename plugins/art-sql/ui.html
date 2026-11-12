@@ -41,7 +41,7 @@
   <div class="grid">
     <span class="muted">Endpoint</span><code id="endpoint">…</code>
     <span class="muted">API key</span>
-    <span class="row" style="margin:0"><code id="key">••••••••</code><button id="show">Show</button><button id="regen">New key</button></span>
+    <span class="row" style="margin:0"><code id="key">••••••••</code><button id="show">Show</button><button id="copy">Copy</button><button id="regen">New key</button><span id="copied"></span></span>
   </div>
   <pre id="example" class="muted"></pre>
 </div>
@@ -95,7 +95,8 @@ function render(s) {
   else if (s.lastError) html += '<div class="muted">Last error: ' + esc(s.lastError) + '</div>';
   $('status').innerHTML = html;
   $('endpoint').textContent = base() + '/' + s.database + '.json';
-  $('key').textContent = keyShown ? s.apiKey : '••••••••';
+  var shown = keyShown ? s.apiKey : '••••••••';
+  if ($('key').textContent !== shown) $('key').textContent = shown;   // leave a selection alone on refresh
   $('example').textContent =
     'curl -H "Authorization: Bearer ' + (keyShown ? s.apiKey : '<key>') + '" \\\n  "' + base() + '/' + s.database + '.json?sql=select+name+from+sqlite_master&_shape=array"\n\n' +
     'Tables: ' + base() + '/' + s.database + '.json\nOne table: ' + base() + '/' + s.database + '/<table>.json?_size=50';
@@ -134,6 +135,33 @@ $('tables').onclick = function (e) {
 };
 $('run').onclick = run;
 $('sql').onkeydown = function (e) { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run(); };
+// The page is a sandboxed frame, often on plain http: navigator.clipboard exists only in a secure context, so fall back
+// to execCommand('copy'), and if that is refused too, show and select the key for the user to copy by hand.
+function copyKey() {
+  var key = S && S.apiKey, note = $('copied');
+  if (!key) return;
+  function done(ok) {
+    note.className = ok ? 'good' : 'bad';
+    note.textContent = ok ? 'Copied' : 'Selected: press ⌘C or Ctrl+C';
+    if (ok) setTimeout(function () { note.textContent = ''; }, 2000);
+  }
+  function byHand() {
+    keyShown = true; $('show').textContent = 'Hide'; render(S);
+    try { var r = document.createRange(); r.selectNodeContents($('key')); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } catch (e) { /* the key is shown anyway */ }
+    done(false);
+  }
+  function legacy() {
+    var t = document.createElement('textarea'), ok = false;
+    t.value = key; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.top = '0'; t.style.opacity = '0';
+    document.body.appendChild(t); t.focus(); t.select();
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(t);
+    if (ok) done(true); else byHand();
+  }
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(key).then(function () { done(true); }, legacy);
+  else legacy();
+}
+$('copy').onclick = copyKey;
 $('show').onclick = function () { keyShown = !keyShown; $('show').textContent = keyShown ? 'Hide' : 'Show'; render(S); };
 $('regen').onclick = function () {
   if (!confirm('Make a new API key? Apps using the old one stop working until you give them the new key.')) return;

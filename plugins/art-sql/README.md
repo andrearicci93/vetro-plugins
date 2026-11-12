@@ -8,7 +8,7 @@ TV's own `sqlite3`.
 ## Use
 
 1. Install it, switch it on, open the **Art SQL** tab. It shows the endpoint (`http://TV-IP:8642/artapp.json`) and an
-   API key.
+   API key, with **Copy** to put the key on the clipboard (if the browser refuses, it selects the key for ⌘C / Ctrl+C).
    When it starts, the Shard first looks for `/usr/bin/sqlite3` (3.33 or newer) and the database file. If either is
    missing, it opens **no port** and the tab says only that, for example *The database does not exist: …*. Once the
    file is there, switch the Shard off and on again. The tab refuses to save a database path that does not exist, so a
