@@ -45,7 +45,7 @@ This Shard replaces **NordVPN** (id `nordvpn` 1.0.0), which is no longer in the 
   not in the Shard, so VPN finds them and nothing has to be entered again. The first time, VPN replaces the old
   program (nordtv 1.0.0) with 1.1.1 (see below).
 - **The old kill switch and DNS rules are removed:** switching NordVPN off runs `nordtv down`, which deletes them.
-  If something was left anyway (for example the old program had crashed), VPN removes it within a minute of
+  If something was left anyway (for example the old program had crashed), VPN removes it within a minute or two of
   starting, and `nordtv up` removes it before connecting (next section). To check by hand from the Shell Shard,
   with the VPN off: `iptables -n -L NORDTV`, `iptables -t nat -n -L NORDTV_DNS` and `ip6tables -n -L NORDTV` say
   "No chain/target/match by that name", and `ip rule` has no line with `51820` (or `0xca6c`). `/opt/nordtv/nordtv
@@ -57,12 +57,13 @@ The kill switch is a set of firewall rules, so it outlives `nordtv` if the progr
 without internet for long:
 
 - The **home network keeps working** in every case, so the dashboard can always reach Vetro and switch the VPN off.
-- **VPN on and Keep connected:** the Shard notices within a minute and runs `nordtv start`. Since 1.1.1 `nordtv up`
+- **VPN on and Keep connected:** the Shard notices within a minute or two (it checks every 60 s) and runs
+  `nordtv start`. Since 1.1.1 `nordtv up`
   first removes every rule left behind, then connects, so the API call and the server's DNS lookup are not blocked
   by the old kill switch. If connecting fails, nothing of it stays (no kill switch, normal internet), and the Shard
   tries again every 2 minutes.
 - **Keep connected off, or the VPN switched off:** nothing reconnects, so the Shard removes the leftover rules
-  itself (`nordtv down`) within a minute, and the TV is back on its normal connection.
+  itself (`nordtv down`) within a minute or two, and the TV is back on its normal connection.
 - **VPN off** in the tab and **switching the Shard off** both run `nordtv stop` / `down`, which remove every rule
   even when the program is not running.
 - The rules are kept in memory only, never saved: a full restart of the TV clears them too.
@@ -183,6 +184,13 @@ routes:
 - switching profile, and switching back to NordVPN, while connected: reconnected each time;
 - the same server through a dynamic-DNS name did not answer from inside the LAN (the router does no hairpin NAT),
   which is why the note above exists.
+
+**A crash of `nordtv`** (killed with `kill -9`), on the same TV, NordVPN with the kill switch, nordtv 1.1.1:
+
+- Keep connected on: the TV was offline (LAN reachable), and the Shard reconnected 32 s later with the kill switch
+  back, IP protected.
+- Keep connected off: the Shard removed the leftover rules about 85 s later (its check waited behind other commands
+  on the TV), and the TV was back on its normal connection: no `NORDTV` chains, no `ip rule` entries, no `nordtun`.
 
 **Both:**
 
