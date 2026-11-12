@@ -29,6 +29,17 @@
       "size": 62170
     },
     {
+      "id": "prometheus",
+      "name": "Prometheus exporter",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Prometheus metrics for the TV: CPU, memory, swap, network, Wi-Fi signal, SoC temperature, uptime. Reads /proc and /sys only; no network.",
+      "permissions": [],
+      "url": "dist/prometheus-1.0.0.vplugin",
+      "sha256": "f97de65ff5dc40815b84a8e053da705b4216bef08f69f75fe88e08a3653dd910",
+      "size": 19201
+    },
+    {
       "id": "shell",
       "name": "Shell",
       "version": "1.0.0",
