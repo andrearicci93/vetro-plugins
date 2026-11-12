@@ -17,6 +17,18 @@
       "signature": "D4rdozAdMoc+AsEMagxJuBERVRu8Vy7xg3ZJjKFbj9eufabs9XJSm+VUTPjGUBCotcBT+VaiPkhhcSQ2r2sUUp9i2JC8HJzZcLiKr++Ped9fGySMpmj2ThrFfQspNIbN899Bq7OlFM3i+uvKKAPvImLsvD46yqDN+5X6S9H0e+Cc9HdLso6ZoZ8GbS033G9IUaIuoTre50l/7AYY/GdHgumbMBP3g5lnRvBIW4pb6xXM++OYqR+DNQHC9QiukzL47xs90ANrfrfzWHZWLjAnDoAYdzE4uxv64NdEEYRYomELT1sOQCXTyxKDnkcnMc3KlJlDLWgz85pg6oj7+DkZusenmKgJ920xoZT7Hcjpk0p+iHyGVaznyGb95G1J+IcQLj0vFOHtLK8DfP60dVauiIw9oI9c4CpuZUxz85Z7cl3MnmqrYX5/1btL4iTWud04/EL/MjXc8k3RWvnVMulbw64HJhEyAb3wbiLA9RCBxXkTm/6uHavb5fqckJ2nDwC3"
     },
     {
+      "id": "prometheus",
+      "name": "Prometheus exporter",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Prometheus metrics for the TV: CPU, memory, swap, network, Wi-Fi signal, SoC temperature, uptime. Reads /proc and /sys only; no network.",
+      "permissions": [],
+      "url": "dist/prometheus-1.0.0.vplugin",
+      "sha256": "f97de65ff5dc40815b84a8e053da705b4216bef08f69f75fe88e08a3653dd910",
+      "size": 19201,
+      "signature": "k66CL61OEcs3VQQ6BFXTKuHb1Uo5bktYikiiiQ8Kq7HoP4hvmriBQ2zmNV5N9lcTHCYpLgqCRAjKyey6rQq31VTEr2lvnrUSqNK0TVZUJCsnNx6Wo7KwFAAVmdVJE250yn39jfBaQk4LWhVC7GMVS3jHe9G1r9L+YnqfOCaoVcxQSP9BQLoKRQRxhW+ZrDYKQCKVxY6LYbOIzCISWyOAlkp2iXVU1SipqdaomsBqq8gZ8DUGGUirUHrzC2rhn4AiXqPu1wO2Oo7brCAJt3+a6MI3y0vqDvzWey1X4NTQzsCWETxsBfBjyP2B+BPWoRLOidOpaVVZc13Z+9Jhex34IY9v6VHA367saOsYXPWFnQiKYbl1L7jsHylfnA+MkNZNScF0inyYT6I1H9/IM6VMBgnqMESvsyIebBNHSsW/pEoYoOlLCb31AJNP1z4Gsd5coFrg2++1YhgNjPYzpdpjEFGbjJa5a8XN3Az4foBMLk39P6Ui8ZITiHwp7UMouyoW"
+    },
+    {
       "id": "shell",
       "name": "Shell",
       "version": "1.0.0",
