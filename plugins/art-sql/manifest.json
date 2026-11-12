@@ -1,0 +1,11 @@
+{
+  "id": "art-sql",
+  "name": "Art SQL API",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "author": "bertrandom",
+  "description": "Read-only SQL over HTTP (Datasette-style JSON) for the Art app's artapp.db, on its own LAN port with an API key. Uses the TV's sqlite3. No outbound connections.",
+  "main": "index.js",
+  "ui": { "label": "Art SQL" }
+}
