@@ -31,6 +31,20 @@
       "signature": "H41j2f2tBPXZqbtGuxDliJbWDewDEocco9PFm3vxZskvXV3QNAOUk5NFShvoDOFMVwprcMBS8lriljdq04ypCLjixqQfuKud9LoVD0CdIG7PS75by02F+h8J2hWQVfGeM1gwfJ9+GQdjCgoeQq3AkLZ0t+R7MD+MqIbgMUENv0sHHHQriKMojhUcZf+YYHn0lpaSXfWjdg9hrjAPmCXpzT++aLxVkzZR+BCdhha895hycsoav/+b1bA/Jkzp/7eWCbDfxFwb1rqWlKlJK24hXCF/jjNJNq+cmCJFZ51j/TEU/RGpmLZDHqoNgSL826lqn/DHkslRual48j4i1p13uTN4vHXk4e6vODryZymAhWtF1ytziy5lmb+s2qYu5nsM7qVke0gCccPF16yWU8BKDjjCf97cHlahUuUFu7qxk/h2RNWLbTnBhCrfZzTiSFmA8SVAEk3htFkujugqsILyMPtsfCgatycSVk3ej3dMAjzrccOXJ74fv8tSSn11/ekx"
     },
     {
+      "id": "eightbitdo-guide",
+      "name": "8BitDo Guide",
+      "version": "1.1.5",
+      "author": "augusto1024",
+      "description": "Open the Vetro launcher with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes. No network access.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/eightbitdo-guide-1.1.5.vplugin",
+      "sha256": "0508818ff1d6bf9d7b811b9d186821ed78d48fd8dfc915ad3231901e0ae09746",
+      "size": 65608,
+      "signature": "C8w4SGFZFC+LJpKuabx9+GJpzIxVaOuQWT1sihtqE9o0Ec6g0GyG3JIE7v5TiaCsmO/MkoCbsI2/LCTIwUj5yuL7U9R4tUE7CCFTxWJ8H6drSKYvJhMGKIABq8tAHUnvuYvA5VJ496evhJ8cHtAj6wnjdYVNSkCemVzJi7ANXDHBW8q/zL6VSE4uMMA7szz5qnw18jkfg0hLCSbF+s3mFR3TzJE1U1qqe6TqAj4YmLCINy5SLLo+aL66xtliC8ZigZNSJMlHjpd8Tv35xJeTo2rcHGV1E0CjMw7xMXIpAsxc+gmkU6Y8ZlBEvKB/wMGPBroGZ8NCkcQ0LoiMxrxK0kOjFHPHdDjkb+C770D/GLB/XAkLqaKme/EH7xn9PKJ0J3D7iu8W0LJ90s7MmOcYgahBMqlAd974ejUvTOodOUxm9GnjoDA3zNTBu0TRx6XWQWoRhVc6yCawVs/gDcOkbGOiLCY8wdOymy64Xl0Bn34c6ov7yjAnMpl+sEOAQCio"
+    },
+    {
       "id": "nordvpn",
       "name": "NordVPN",
       "version": "1.0.0",
