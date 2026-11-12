@@ -103,12 +103,23 @@ function prepare(sql, params, maxRows) {
 // The shell command. The SQL travels base64-encoded so no character of it is ever seen by the shell; stdin is
 // /dev/null; .timeout waits up to 3 s when the Art app holds a write lock; .limit caps any one string or blob at
 // 10 MB so a query cannot make sqlite3 (running as root) eat the TV's memory.
-function command(sqlite, dbPath, sql) {
+//
+// out: { file, uid, blocks } writes the result to that file instead of stdout, because Vetro's agent keeps only the
+// first 1 MiB of a command's output. The file is created private (root's umask on the TV is 0), handed to Vetro's
+// own uid so the Shard can read and delete it, and capped by ulimit -f (blocks of 512 or 1024 bytes, by shell).
+function command(sqlite, dbPath, sql, out) {
     var b64 = bytes(sql).toString('base64');
-    return '__q="$(printf %s ' + b64 + ' | base64 -d)"; exec ' + shQuote(sqlite) +
-        ' -readonly -batch -bail -cmd ' + shQuote('.timeout 3000') + ' -cmd ' + shQuote('.limit length 10000000') +
+    var run = shQuote(sqlite) + ' -readonly -batch -bail -cmd ' + shQuote('.timeout 3000') + ' -cmd ' + shQuote('.limit length 10000000') +
         ' -cmd ' + shQuote('.mode json') + ' ' + shQuote(dbPath) + ' "$__q" </dev/null';
+    var head = '__q="$(printf %s ' + b64 + ' | base64 -d)"; ';
+    if (!out) return head + 'exec ' + run;
+    var f = shQuote(out.file);
+    return head + 'umask 077; ulimit -f ' + (out.blocks | 0) + ' 2>/dev/null; ' + run + ' > ' + f + '; __s=$?; chown ' + (out.uid | 0) + ' ' + f +
+        ' 2>/dev/null; exit $__s';
 }
+
+// What Vetro's agent appends when it cut a command's output at 1 MiB.
+function capped(stdout) { return /exceeded the 1 MiB capture limit\]\s*$/.test(String(stdout || '')); }
 
 // sqlite3 -json prints one array per statement, nothing at all for no rows. EXPLAIN QUERY PLAN is the exception: the
 // shell always draws it as a text tree, so that comes back as one row per line, { plan: "..." }.
@@ -164,5 +175,5 @@ function schemaOf(rows) {
     return out;
 }
 
-module.exports = { prepare: prepare, scan: scan, command: command, parseOutput: parseOutput, columnsOf: columnsOf,
+module.exports = { prepare: prepare, scan: scan, command: command, capped: capped, parseOutput: parseOutput, columnsOf: columnsOf,
     cleanError: cleanError, tableQuery: tableQuery, SCHEMA_SQL: SCHEMA_SQL, schemaOf: schemaOf, BLOCKED: BLOCKED, shQuote: shQuote };

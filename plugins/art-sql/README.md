@@ -9,6 +9,10 @@ TV's own `sqlite3`.
 
 1. Install it, switch it on, open the **Art SQL** tab. It shows the endpoint (`http://TV-IP:8642/artapp.json`) and an
    API key.
+   When it starts, the Shard first looks for `/usr/bin/sqlite3` (3.33 or newer) and the database file. If either is
+   missing, it opens **no port** and the tab says only that, for example *The database does not exist: …*. Once the
+   file is there, switch the Shard off and on again. The tab refuses to save a database path that does not exist, so a
+   typo cannot leave the Shard stuck like that.
 2. Send the key as `Authorization: Bearer <key>` (or `X-API-Key: <key>`, or `?_key=<key>` for a quick test in a
    browser, though that puts the key in URLs and logs).
 
@@ -44,7 +48,9 @@ The answer to a query is
 `?_shape=array` gives just the rows (`[{…}, {…}]`), `?_shape=array&_nl=on` gives one JSON object per line,
 `?_shape=arrays` gives `{"columns": [...], "rows": [[...], ...]}`, and `?_shape=objects` gives `{"rows": [...]}`.
 Errors are `{"ok": false, "error": "…", "status": 400, "title": "Invalid SQL"}` with that HTTP status; a wrong key is
-`401`, a full queue is `429`.
+`401`, a full queue is `429`. If the database disappears while the Shard runs, queries get `503` *Database unavailable*
+(and the tab shows it until a query works again); while the Art app holds a write lock for more than 3 s, `503`
+*Database busy* with `Retry-After: 2`. A result over 32 MB is `413` *Result too large*.
 
 A query returns at most **1000 rows** (the *Row limit* setting); past that `truncated` is `true`. CORS is open (`*`) by
 default so a web page can call the API with the key; set an origin, or nothing, on the tab.
@@ -72,6 +78,11 @@ shell has functions that reach the file system, and the TV's sqlite3 (3.33.0 on 
 
 Treat the API key like a password: anyone with it can read everything in the Art app's database.
 
+The key is 24 random bytes (`crypto.randomBytes`, 48 hex characters), made the first time the Shard starts and saved in
+`config.json`. It stays the same across restarts and updates, and changes only with **New key** on the tab or when the
+Shard is removed (which deletes `config.json`) and installed again. If `config.json` cannot be written, the key works
+until the next start and the tab says it will change then.
+
 ## Permissions
 
 `exec`: the database is in the Art app's sandbox (`/opt/usr/home/owner/apps_rw/org.tizen.art-app/`, Smack label
@@ -83,8 +94,13 @@ All through `ctx.execute`, as root.
 
 | When | Command | Why |
 | --- | --- | --- |
-| the Shard starts, the database path changes, **Check sqlite3** | `/usr/bin/sqlite3 -version`; `[ -r <database> ]` | find out whether sqlite3 is there and new enough (3.33+, for JSON output), and whether the file exists |
-| every query, from the API or the tab | `__q="$(printf %s <base64 SQL> \| base64 -d)"; exec /usr/bin/sqlite3 -readonly -batch -bail -cmd '.timeout 3000' -cmd '.limit length 10000000' -cmd '.mode json' <database> "$__q" </dev/null` | run the checked query read-only and get JSON. `.timeout` waits up to 3 s if the Art app is writing |
+| the Shard starts, the tab opens, the database path changes, **Check sqlite3** | `/usr/bin/sqlite3 -version`; `[ -r <database> ]` | find out whether sqlite3 is there and new enough (3.33+, for JSON output), and whether the file exists. At start, and when the path changes, the port opens only if both are there |
+| every query, from the API or the tab | `__q="$(printf %s <base64 SQL> \| base64 -d)"; umask 077; ulimit -f 131072; /usr/bin/sqlite3 -readonly -batch -bail -cmd '.timeout 3000' -cmd '.limit length 10000000' -cmd '.mode json' <database> "$__q" </dev/null > results/<random>.json; chown <Vetro's uid> results/<random>.json` | run the checked query read-only and write the JSON to a private file in the Shard's own folder, which the Shard reads and deletes. `.timeout` waits up to 3 s if the Art app is writing |
+
+The result goes through a file because Vetro's agent returns only the first 1 MiB of a command's output, and one page of
+`Content` is already more than that. The file is created readable by root only, then given to Vetro's own user; `ulimit -f`
+and a 32 MB check cap it. If the Shard's folder cannot hold a `results/` folder, results come back through the agent
+instead, and anything over 1 MiB is refused with `413`.
 
 Queries run one at a time, because every Vetro command shares one queue; up to 8 more wait, after that the API answers `429`.
 A long query makes the rest of Vetro wait too, which is why the time limit is capped at 30 s.
@@ -98,7 +114,8 @@ so keep the TV on a trusted network and **never forward this port to the Interne
 ## Data it keeps
 
 Its own `config.json`: the API key, the port, the database path, the CORS origin, the time and row limits. It keeps no
-query results and no log of queries; the tab shows only counters and the last error. Removing the Shard deletes the key.
+log of queries, and no query results: each result file in `results/` is deleted as soon as it has been read, and any left
+over (a switch-off mid-query) are deleted at the next start; the tab shows only counters and the last error. Removing the Shard deletes the key.
 
 ## Effect on the Art app
 

@@ -5,15 +5,15 @@
     {
       "id": "art-sql",
       "name": "Art SQL API",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": "bertrandom",
       "description": "Read-only SQL over HTTP (Datasette-style JSON) for the Art app's artapp.db, on its own LAN port with an API key. Uses the TV's sqlite3. No outbound connections.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/art-sql-0.1.0.vplugin",
-      "sha256": "ebb7f4e7df6c373b5f5c301f0c65a5757c73836a6d8f7cefbc1fc863c1604e61",
-      "size": 50152
+      "url": "dist/art-sql-0.1.1.vplugin",
+      "sha256": "1a4ea893b11c87df48207ffb30904983c1bdbbc703449f54378f5f73da94610d",
+      "size": 61013
     },
     {
       "id": "nordvpn",

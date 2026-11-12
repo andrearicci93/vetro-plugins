@@ -10,10 +10,14 @@
 var http = require('http'), crypto = require('crypto'), fs = require('fs'), path = require('path'), os = require('os');
 var querystring = require('querystring');
 var Q = require('./sql.js');
+var NOT_FOUND = 'Database not found: ';
 
 var DEFAULTS = { port: 8642, dbPath: '/opt/usr/home/owner/apps_rw/org.tizen.art-app/data/db/artapp.db', sqlite: '/usr/bin/sqlite3',
     cors: '*', timeoutMs: 10000, maxRows: 1000 };
-var MAX_TIMEOUT = 30000, MAX_ROWS = 5000, MAX_PENDING = 8, MAX_BODY = 65536, MAX_SOCKETS = 32, VERSION = '0.1.0';
+// A result is written to a file in the Shard's folder and read from there (Vetro's agent returns at most 1 MiB of
+// output); MAX_RESULT caps that file.
+var MAX_RESULT = 32 * 1024 * 1024;
+var MAX_TIMEOUT = 30000, MAX_ROWS = 5000, MAX_PENDING = 8, MAX_BODY = 65536, MAX_SOCKETS = 32, VERSION = '0.1.1';
 
 function validPath(p) { return typeof p === 'string' && p.charAt(0) === '/' && p.length <= 1024 && /^[A-Za-z0-9._\/-]+$/.test(p) && !/(^|\/)\.\.(\/|$)/.test(p); }
 function validOrigin(o) { return o === '*' || o === '' || (typeof o === 'string' && o.length <= 200 && /^https?:\/\/[A-Za-z0-9.:\[\]-]+$/.test(o)); }
@@ -44,7 +48,10 @@ function loadPage(ctx) {
 
 module.exports = function (ctx) {
     var server = null, sockets = [], page = null, running = false, queue = [], busy = false, stopped = true;
-    var sqliteVersion = null, probeError = null, lastError = null, listenError = null, counts = { queries: 0, errors: 0, denied: 0 };
+    // phase: 'checking' while start() looks for sqlite3 and the database, then 'ready' (the API is listening) or
+    // 'blocked' (something is missing: no port is opened and the page shows only why, until the Shard is restarted).
+    var phase = 'checking', blockedBy = null, generation = 0;
+    var sqliteVersion = null, probeError = null, checkedAt = null, lastError = null, listenError = null, counts = { queries: 0, errors: 0, denied: 0 };
 
     function cfg() {
         var c; try { c = ctx.config.get(); } catch (e) { c = {}; }
@@ -66,12 +73,50 @@ module.exports = function (ctx) {
         Object.keys(patch).forEach(function (k) { c[k] = patch[k]; });
         ctx.config.set(c);
     }
-    function apiKey() { var k = cfg().apiKey; if (!k) { k = newKey(); try { save({ apiKey: k }); } catch (e) { /* keep it for this run */ } } return k; }
+    // The key lives in config.json. If that cannot be written, the key made for this run is kept in memory (so it does not
+    // change from one request to the next), saving is retried, and the tab warns that it will change at the next start.
+    var memKey = null, keyUnsaved = false;
+    function apiKey() {
+        var k = cfg().apiKey;
+        if (k) { memKey = k; keyUnsaved = false; return k; }
+        if (!memKey) memKey = newKey();
+        try { save({ apiKey: memKey }); keyUnsaved = false; } catch (e) { keyUnsaved = true; }
+        return memKey;
+    }
+    function replaceKey() { memKey = newKey(); try { save({ apiKey: memKey }); keyUnsaved = false; } catch (e) { keyUnsaved = true; } }
 
     // ---- running queries, one at a time ----
+    // results/ in the Shard's folder: sqlite3 (root) writes each result there and this process reads it. If the
+    // folder cannot be made, results come back over stdout, which the agent cuts at 1 MiB.
+    var resultsDir = null;
+    function setUpResults() {
+        resultsDir = null;
+        if (!ctx.dir) return;
+        var d = path.join(ctx.dir, 'results');
+        try {
+            if (!fs.existsSync(d)) fs.mkdirSync(d, 448);   // 0700
+            fs.readdirSync(d).forEach(function (f) { if (/\.json$/.test(f)) { try { fs.unlinkSync(path.join(d, f)); } catch (e) { /* next */ } } });
+            resultsDir = d;
+        } catch (e) { resultsDir = null; }
+    }
+    function tooLarge(what) { var e = new Error('The result is larger than ' + what + ': select fewer rows or columns'); e.status = 413; e.title = 'Result too large'; return e; }
+    // Run sqlite3 and resolve the agent's answer with .stdout replaced by the result, whichever way it came.
     function exec(sqlText, timeoutMs) {
-        var c = cfg();
-        return Promise.resolve().then(function () { return ctx.execute(Q.command(c.sqlite, c.dbPath, sqlText), timeoutMs || c.timeoutMs); });
+        var c = cfg(), file = resultsDir ? path.join(resultsDir, crypto.randomBytes(8).toString('hex') + '.json') : null;
+        var out = file ? { file: file, uid: process.getuid ? process.getuid() : 5001, blocks: 131072 } : null;
+        function drop() { if (file) { try { fs.unlinkSync(file); } catch (e) { /* not there */ } } }
+        return Promise.resolve().then(function () { return ctx.execute(Q.command(c.sqlite, c.dbPath, sqlText, out), timeoutMs || c.timeoutMs); }).then(function (r) {
+            r = r || {};
+            try {
+                if (!file) { if (Q.capped(r.stdout)) throw tooLarge('1 MiB'); return r; }
+                var size = -1; try { size = fs.statSync(file).size; } catch (e) { /* none */ }
+                if (size > MAX_RESULT || (r.exit_code !== 0 && size >= MAX_RESULT - 65536)) throw tooLarge(MAX_RESULT / 1048576 + ' MB');
+                var res = {}; for (var k in r) if (Object.prototype.hasOwnProperty.call(r, k)) res[k] = r[k];
+                res.stdout = size > 0 ? fs.readFileSync(file, 'utf8') : '';
+                if (size < 0 && r.exit_code === 0 && !r.timed_out) { var me = new Error('sqlite3 wrote no result file'); me.status = 500; throw me; }
+                return res;
+            } finally { drop(); }
+        }, function (e) { drop(); throw e; });
     }
     function enqueue(job) {
         return new Promise(function (resolve, reject) {
@@ -94,17 +139,33 @@ module.exports = function (ctx) {
             return exec(prep.sql).then(function (r) {
                 r = r || {};
                 if (r.timed_out) { var te = new Error('Query took longer than ' + (c.timeoutMs / 1000) + ' s'); te.status = 400; te.title = 'Query timed out'; throw te; }
-                if (r.exit_code !== 0) { var se = new Error(Q.cleanError(r.stderr || r.stdout)); se.status = 400; se.title = 'Invalid SQL'; throw se; }
+                if (r.exit_code !== 0) throw failure(Q.cleanError(r.stderr || r.stdout), c);
                 var rows;
                 try { rows = Q.parseOutput(r.stdout, prep.first); } catch (e) { var pe = new Error('Could not read sqlite3 output: ' + e.message); pe.status = 500; throw pe; }
                 var truncated = prep.wrapped && rows.length > limit; if (truncated) rows = rows.slice(0, limit);
                 counts.queries++;
+                // The file is evidently there now: drop a "not found" left by an earlier check.
+                if (probeError && probeError.indexOf(NOT_FOUND) === 0) { probeError = null; checkedAt = Date.now(); }
                 return { rows: rows, columns: Q.columnsOf(rows), truncated: truncated, sql: sqlText, params: prep.params, ms: Date.now() - t0 };
             });
         });
     }
 
-    // Is sqlite3 there, which version, and can root read the file? Runs at start and from the page.
+    // What a failed sqlite3 run means. A missing file or a lock held by the Art app is not the client's fault: 503, and a
+    // missing file also shows on the page at once, without waiting for the next check.
+    function failure(msg, c) {
+        var e = new Error(msg);
+        if (/unable to open database/i.test(msg)) {
+            probeError = NOT_FOUND + c.dbPath; checkedAt = Date.now();
+            e.message = 'Database not found or not readable: ' + c.dbPath; e.status = 503; e.title = 'Database unavailable';
+        } else if (/database is (locked|busy)/i.test(msg)) {
+            e.status = 503; e.title = 'Database busy'; e.retryAfter = 2;
+        } else { e.status = 400; e.title = 'Invalid SQL'; }
+        return e;
+    }
+
+    // Is sqlite3 there, which version, and can root read the file? Runs at start, when the page opens, on Check sqlite3
+    // and when the database path changes.
     function probe() {
         var c = cfg();
         var cmd = Q.shQuote(c.sqlite) + ' -version 2>&1; [ -r ' + Q.shQuote(c.dbPath) + ' ] && echo __READABLE__ || echo __MISSING__';
@@ -113,9 +174,9 @@ module.exports = function (ctx) {
             sqliteVersion = m ? m[0] : null;
             if (!m) probeError = 'sqlite3 not found at ' + c.sqlite;
             else if (+m[1] < 3 || (+m[1] === 3 && +m[2] < 33)) probeError = 'sqlite3 ' + m[0] + ' is too old (JSON output needs 3.33.0)';
-            else if (out.indexOf('__READABLE__') < 0) probeError = 'Database not found: ' + c.dbPath;
+            else if (out.indexOf('__READABLE__') < 0) probeError = NOT_FOUND + c.dbPath;
             else probeError = null;
-        }, function (e) { probeError = 'Could not run sqlite3: ' + (e && e.message || e); }).then(function () { return state(); });
+        }, function (e) { probeError = 'Could not run sqlite3: ' + (e && e.message || e); }).then(function () { checkedAt = Date.now(); return state(); });
     }
 
     // ---- HTTP ----
@@ -137,6 +198,7 @@ module.exports = function (ctx) {
         var status = e && e.status || 500;
         if (status >= 500) counts.errors++;
         lastError = String(e && e.message || e);
+        if (e && e.retryAfter) res.setHeader('Retry-After', String(e.retryAfter));
         send(res, status, { ok: false, error: lastError, status: status, title: e && e.title || (status === 401 ? 'Unauthorized' : 'Error') });
     }
     // Datasette's _shape: default (objects plus metadata), array, arrays, objects; _nl=on with array for NDJSON.
@@ -223,33 +285,53 @@ module.exports = function (ctx) {
         sockets = [];
     }
 
+    function readable(p) {
+        return Promise.resolve().then(function () { return ctx.execute('[ -r ' + Q.shQuote(p) + ' ] && echo __READABLE__ || echo __MISSING__', 5000); })
+            .then(function (r) { return String((r && r.stdout) || '').indexOf('__READABLE__') >= 0; });
+    }
+
+    // Look for sqlite3 and the database first; open the port only if both are there. A newer start() or a stop() while
+    // the check runs makes this one's result moot (generation).
+    function begin() {
+        var mine = ++generation;
+        close(); phase = 'checking'; blockedBy = null;
+        return probe().then(function () {
+            if (mine !== generation || stopped) return;
+            if (probeError) { phase = 'blocked'; blockedBy = probeError.indexOf(NOT_FOUND) === 0 ? 'The database does not exist: ' + cfg().dbPath : probeError; return; }
+            phase = 'ready'; listen();
+        });
+    }
+
     function state() {
         var c = cfg();
-        return { running: running, port: c.port, addresses: lanAddresses(), database: dbName(c.dbPath), dbPath: c.dbPath, cors: c.cors,
-            timeoutMs: c.timeoutMs, maxRows: c.maxRows, apiKey: apiKey(), sqliteVersion: sqliteVersion, problem: listenError || probeError,
+        if (phase !== 'ready') return { phase: phase, problem: blockedBy, dbPath: c.dbPath };
+        return { phase: phase, running: running, port: c.port, addresses: lanAddresses(), database: dbName(c.dbPath), dbPath: c.dbPath, cors: c.cors,
+            timeoutMs: c.timeoutMs, maxRows: c.maxRows, apiKey: apiKey(), keyUnsaved: keyUnsaved, sqliteVersion: sqliteVersion, problem: listenError || probeError, checkedAt: checkedAt,
             lastError: lastError, queries: counts.queries, denied: counts.denied, pending: queue.length + (busy ? 1 : 0) };
     }
     function json(res, body, code) { res.writeHead(code || 200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); }
 
     return {
-        start: function () {
-            stopped = false; page = loadPage(ctx); apiKey(); listen();
-            probe().then(null, function () { /* recorded in probeError */ });
-        },
+        start: function () { stopped = false; page = loadPage(ctx); apiKey(); setUpResults(); begin(); },
         stop: function () {
-            stopped = true; close(); page = null;
+            stopped = true; generation++; close(); page = null;
             var waiting = queue; queue = [];
             waiting.forEach(function (w) { var e = new Error('The Shard was switched off'); e.status = 503; w.reject(e); });
         },
-        status: function () { var c = cfg(); return { running: running, port: c.port, sqlite: sqliteVersion, queries: counts.queries, problem: listenError || probeError || undefined }; },
+        status: function () {
+            var c = cfg();
+            if (phase !== 'ready') return { phase: phase, running: false, problem: blockedBy || undefined };
+            return { phase: phase, running: running, port: c.port, sqlite: sqliteVersion, queries: counts.queries, problem: listenError || probeError || undefined };
+        },
 
         // The dashboard page and its settings. These routes are Vetro's (paired device or page token), not the API's.
         route: function (req, res, sub) {
             if (sub === 'ui' && req.method === 'GET') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); res.end(page || loadPage(ctx)); return true; }
             if (sub === 'state' && req.method === 'GET') { json(res, state()); return true; }
             if (req.method !== 'POST') return false;
+            if (phase !== 'ready') { json(res, { ok: false, error: blockedBy || 'Still checking for the database' }, 409); return true; }
             if (sub === 'probe') { probe().then(function (s) { json(res, s); }, function (e) { json(res, { ok: false, error: String(e && e.message || e) }, 500); }); return true; }
-            if (sub === 'regen-key') { try { save({ apiKey: newKey() }); json(res, state()); } catch (e) { json(res, { ok: false, error: e.message }, 500); } return true; }
+            if (sub === 'regen-key') { replaceKey(); json(res, state()); return true; }
             if (sub === 'settings' || sub === 'query') {
                 readBody(req, function (err, text) {
                     var b;
@@ -266,10 +348,16 @@ module.exports = function (ctx) {
                     if (b.timeoutMs != null) { if (typeof b.timeoutMs === 'number' && b.timeoutMs >= 1000 && b.timeoutMs <= MAX_TIMEOUT) patch.timeoutMs = b.timeoutMs; else bad = 'Time limit must be 1-30 s'; }
                     if (b.maxRows != null) { if (typeof b.maxRows === 'number' && b.maxRows >= 1 && b.maxRows <= MAX_ROWS) patch.maxRows = b.maxRows; else bad = 'Row limit must be 1-' + MAX_ROWS; }
                     if (bad) return json(res, { ok: false, error: bad }, 400);
-                    try { save(patch); } catch (e) { return json(res, { ok: false, error: 'Settings could not be saved: ' + e.message }, 500); }
-                    if (!stopped && patch.port && patch.port !== before.port) { close(); listen(); }
-                    if (patch.dbPath && patch.dbPath !== before.dbPath) return probe().then(function (s) { json(res, s); });
-                    json(res, state());
+                    // A path that does not exist is refused, not saved: saving it would leave the Shard blocked at every
+                    // start, with a page that offers no way back.
+                    var newPath = patch.dbPath && patch.dbPath !== before.dbPath;
+                    (newPath ? readable(patch.dbPath) : Promise.resolve(true)).then(function (ok) {
+                        if (!ok) return json(res, { ok: false, error: 'That file does not exist: ' + patch.dbPath + '. The database path was not changed.' }, 400);
+                        try { save(patch); } catch (e) { return json(res, { ok: false, error: 'Settings could not be saved: ' + e.message }, 500); }
+                        if (newPath) return begin().then(function () { json(res, state()); });
+                        if (!stopped && patch.port && patch.port !== before.port) { close(); listen(); }
+                        json(res, state());
+                    }, function (e) { json(res, { ok: false, error: 'Could not check the file: ' + (e && e.message || e) }, 500); });
                 });
                 return true;
             }
