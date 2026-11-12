@@ -3,6 +3,19 @@
   "version": 1,
   "plugins": [
     {
+      "id": "bedtime",
+      "name": "Bedtime",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Turn the TV off at set times or after a sleep timer, or open an app on a schedule. No network.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/bedtime-1.0.0.vplugin",
+      "sha256": "d644404f1ee04855c2ece30807cfe26e3bfbedd16292cb90a27162ea07964e8e",
+      "size": 24081
+    },
+    {
       "id": "nordvpn",
       "name": "NordVPN",
       "version": "1.0.0",
