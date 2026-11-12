@@ -26,20 +26,26 @@ module.exports = function (ctx) {
     }
 
     function startCommand() {
+        var runtime = path.join(ctx.dir, 'runtime');
+        // Create as Vetro's own UID so updates/removal can traverse the folder.
+        if (!fs.existsSync(runtime)) fs.mkdirSync(runtime, 448);
+        var info = fs.lstatSync(runtime);
+        if (info.isSymbolicLink() || !info.isDirectory()) throw new Error('Unsafe runtime directory');
         // Assets belong to the installed module; ctx.dir is its writable work area.
         var encoded = fs.readFileSync(path.join(__dirname, 'guide-bridge.dll.gz.b64'), 'utf8').trim();
         var binary = path.join(ctx.dir, 'guide-bridge.dll');
+        var stateArgs = ' --state-dir ' + quote(runtime);
         return shell('set -e\n' +
             'if ! systemctl is-active --quiet ' + unit + '.service; then\n' +
             'echo ' + quote(encoded) + ' | base64 -d | gzip -d > ' + quote(binary + '.new') + '\n' +
             'chmod 600 ' + quote(binary + '.new') + '\n' +
             'mv ' + quote(binary + '.new') + ' ' + quote(binary) + '\n' +
-            '/usr/bin/dotnet ' + quote(binary) + ' --self-test > /tmp/vetro-8bitdo-guide-selftest.log\n' +
+            '/usr/bin/dotnet ' + quote(binary) + ' --self-test >/dev/null\n' +
             '/usr/bin/dotnet ' + quote(binary) + ' --check-platform\n' +
             'systemctl reset-failed ' + unit + '.service >/dev/null 2>&1 || true\n' +
             'systemd-run --unit=' + unit + ' --collect -p Restart=on-failure -p RestartSec=2 ' +
-            '-p StandardOutput=null -p StandardError=null /usr/bin/dotnet ' + quote(binary) + ' >/dev/null 2>&1\n' +
-            'fi\ncat /tmp/vetro-8bitdo-guide-status.json 2>/dev/null || echo "{}"');
+            '-p StandardOutput=null -p StandardError=null /usr/bin/dotnet ' + quote(binary) + stateArgs + ' >/dev/null 2>&1\n' +
+            'fi\n/usr/bin/dotnet ' + quote(binary) + ' --status' + stateArgs);
     }
 
     function failure(error, mine) {

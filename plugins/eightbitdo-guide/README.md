@@ -4,6 +4,10 @@ Open Vetro's launcher by releasing Guide on an **8BitDo Ultimate 2 Wireless,
 connected over Bluetooth**. Other buttons, scan codes and stick/trigger axes
 are forwarded through a virtual copy of the gamepad.
 
+**Private Vetro dependency:** this Shard reads `/home/owner/tvlauncher.pid`
+and writes `/home/owner/tvlauncher.fifo`. These are not public Shard API hooks;
+a Vetro update can break the integration.
+
 ## Compatibility
 
 | Device or feature | Status |
@@ -38,10 +42,10 @@ firmware **T-KSU2EBUABC-1720.7**, Vetro **0.5.0**:
 - The bounded preview was stopped and the normal supervised helper was enabled;
   the TV reported exactly one proxy, with the preview stopped.
 
-This 1.1.1 contribution keeps that helper behavior, refuses unsupported 64-bit
+This 1.1.2 contribution keeps that helper behavior, refuses unsupported 64-bit
 runtime layouts before opening devices, makes its payload rebuildable, adds
-wrapper error/lifecycle checks, and supplies catalog metadata.
-Those packaging/wrapper changes are checked locally; they have not been installed
+wrapper error/lifecycle checks, and moves runtime files into the Shard's private
+folder. Those changes are checked locally; they have not been installed
 on the test TV. A reboot of the final proxy helper, standby/wake, and a physical
 Bluetooth disconnect/reconnect have not been manually confirmed.
 
@@ -76,12 +80,12 @@ device, and write to the launcher's FIFO. These are privileged operations.
 | --- | --- |
 | `echo … \| base64 -d \| sh` | Pass a fixed script to Vetro's root agent |
 | `base64 -d`, `gzip -d`, `chmod 600`, `mv` | Materialize the bundled managed DLL in the Shard's directory; no executable is downloaded |
-| `/usr/bin/dotnet … --self-test` | Check the helper's filter/framing before starting it |
+| `/usr/bin/dotnet … --self-test` | Check filter/framing before starting it; no fixed log file is written |
 | `/usr/bin/dotnet … --check-platform` | Refuse unsupported runtime layouts before creating a service |
 | `systemctl is-active`, `reset-failed` | Inspect/reset this Shard's own transient unit |
 | `systemd-run --unit=vetro-8bitdo-guide --collect … /usr/bin/dotnet …` | Start the helper with restart-on-failure supervision |
 | `systemctl stop vetro-8bitdo-guide.service` | Stop the helper and release the controller |
-| `cat /tmp/vetro-8bitdo-guide-status.json` | Read current helper status |
+| `/usr/bin/dotnet … --status --state-dir <ctx.dir>/runtime` | Read helper status with symlink-safe file access |
 
 The helper uses libc input ioctls and file I/O. It does not start or kill Samsung
 Home, run shell commands on button presses, or open a network listener.
@@ -93,44 +97,60 @@ None. No runtime downloads or outbound requests.
 ## Data it keeps
 
 - In `ctx.dir`: the reconstructed `guide-bridge.dll` and its temporary `.new` file.
-- In `/tmp`: `vetro-8bitdo-guide.lock` (process lock),
-  `vetro-8bitdo-guide-status.json` and `.new` (device node, current state and
-  counts), and `vetro-8bitdo-guide-selftest.log` (self-test result).
+- In `ctx.dir/runtime`: `guide.lock` (process lock), `status.json` (device node,
+  current state and counts), and short-lived random `.status-*` files used for
+  atomic writes. Vetro creates this folder as its own user; the helper restricts
+  it to mode `0700` without changing ownership, preserving update/removal access.
+  State and lock files are mode `0600`.
+- No runtime state, lock or self-test log is written to a fixed path in `/tmp`.
 - A transient systemd unit; no persistent systemd service file is installed.
 
 No configuration, account credentials, room/TV identifiers or key-history log
 is stored. Status counters reset with the helper. Removing the disabled Shard
-removes its directory; the small `/tmp` files disappear at reboot.
+removes its directory, including runtime state.
+
+The helper pins the runtime directory using `O_DIRECTORY | O_NOFOLLOW`, accesses
+files relative to that descriptor with `openat`, refuses symlinked locks/status
+reads, and creates status updates with `O_EXCL | O_NOFOLLOW` before `renameat`.
+Atomic replacement replaces a malicious status symlink itself, not its target.
+Filesystem regression tests cover directory, status and lock symlink attacks.
 
 ## Disable or recover
 
 Use **Vetro Shards → 8BitDo Guide → Disable**, then Remove to uninstall.
 Use the TV remote or dashboard browser if gamepad controls are unavailable.
-The helper's `--preview-seconds 120` mode automatically releases the controller;
-the on-TV preview was also bounded by a separate systemd time limit.
+The helper's `--state-dir <ctx.dir>/runtime --preview-seconds 120` mode
+automatically releases the controller; the on-TV preview was also bounded by a
+separate systemd time limit.
 
 ## Helper source and build
 
-`GuideBridge.cs` is the readable helper source. The managed payload is stored
-as gzip/base64 because the bundle format accepts text files. This is compiled
-code, not plain JavaScript; it needs explicit maintainer review under the
-catalog's text-only/no-binary policy. The private launcher integration above
-also needs review before catalog publication.
+`GuideBridge.cs` and `StateFiles.cs` are the complete readable helper source.
+The managed payload is stored as gzip/base64 because the bundle format accepts
+text files. This is compiled code, not plain JavaScript. The required CI
+source-rebuild check proves that its committed DLL matches the readable source.
 
-The project at `helpers/eightbitdo-guide/GuideBridge.csproj` pins SDK 8.0.100 and
-targets the TV's existing .NET 3.1 runtime. From the repository root:
+The project at `helpers/eightbitdo-guide/GuideBridge.csproj` pins **.NET SDK 8.0.100**
+in `global.json` with roll-forward disabled and checks the selected SDK version.
+It targets the TV's existing .NET 3.1 runtime. From the repository root:
 
 ```sh
 node scripts/build-eightbitdo-guide-helper.cjs
-node scripts/build-eightbitdo-guide-helper.cjs --check
 npm run build
+node scripts/build-eightbitdo-guide-helper.cjs --check
 npm test
 npm run check
 npm run test:runtime
 ```
 
 The helper build runs filter tests without TV access and produces a deterministic
-DLL without debug paths. `--check` rebuilds and compares the packaged payload,
-runtime configuration and dependency manifest with source. CI does the same.
+DLL without debug paths. The required `guide-helper` CI job uses SDK 8.0.100.
+`--check` rebuilds and prints/compares the **SHA-256 of the rebuilt DLL** and the
+**SHA-256 of the DLL decoded from the committed plugin payload**, failing on a
+mismatch. It also compares the DLL decoded directly from the committed
+`.vplugin` bundle, and checks the runtime
+configuration and dependency manifest. CI does the same.
 Tests cover Guide/scan-code removal in a packet that also contains another
-button and axis movement, repeats/releases and 32-bit event encoding.
+button and axis movement, repeats/releases and 32-bit event encoding. Linux CI
+also runs `--self-test-files` to check symlink refusal and atomic state writes
+without accessing any input devices.

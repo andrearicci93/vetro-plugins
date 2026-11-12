@@ -3,17 +3,43 @@
   "version": 1,
   "plugins": [
     {
+      "id": "art-sql",
+      "name": "Art SQL API",
+      "version": "0.1.1",
+      "author": "bertrandom",
+      "description": "Read-only SQL over HTTP (Datasette-style JSON) for the Art app's artapp.db, on its own LAN port with an API key. Uses the TV's sqlite3. No outbound connections.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/art-sql-0.1.1.vplugin",
+      "sha256": "5ee3fe9cf3b8412c80023dd7c6357cfa0d4a11d25f5c6fa15d0c9ed15c30f503",
+      "size": 63084
+    },
+    {
+      "id": "bedtime",
+      "name": "Bedtime",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Turn the TV off at set times or after a sleep timer, or open an app on a schedule. No network.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/bedtime-1.0.0.vplugin",
+      "sha256": "d644404f1ee04855c2ece30807cfe26e3bfbedd16292cb90a27162ea07964e8e",
+      "size": 24081
+    },
+    {
       "id": "eightbitdo-guide",
       "name": "8BitDo Guide",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "augusto1024",
       "description": "Open the Vetro launcher with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes. No network access.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/eightbitdo-guide-1.1.1.vplugin",
-      "sha256": "4019db18430a27bcc4682ad4d3f57d224ff572d938048449e4ce2fdb9b4afcbc",
-      "size": 40873
+      "url": "dist/eightbitdo-guide-1.1.2.vplugin",
+      "sha256": "97e5c66183d767603eff06c3b0ade381686084bd7e08621bb04896e962c25321",
+      "size": 53722
     },
     {
       "id": "nordvpn",
@@ -27,6 +53,17 @@
       "url": "dist/nordvpn-1.0.0.vplugin",
       "sha256": "71ebdbc70c9070e0c4c658f43492151903c52f96d927a02b629b6c15654797aa",
       "size": 62170
+    },
+    {
+      "id": "prometheus",
+      "name": "Prometheus exporter",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "Prometheus metrics for the TV: CPU, memory, swap, network, Wi-Fi signal, SoC temperature, uptime. Reads /proc and /sys only; no network.",
+      "permissions": [],
+      "url": "dist/prometheus-1.0.0.vplugin",
+      "sha256": "f97de65ff5dc40815b84a8e053da705b4216bef08f69f75fe88e08a3653dd910",
+      "size": 19201
     },
     {
       "id": "shell",

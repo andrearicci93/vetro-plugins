@@ -11,7 +11,7 @@ internal static class Program
     // Linux ARM32 UAPI constants: input.h/uinput.h. Keep the guard in Main
     // before any evdev grab: this helper encodes 16-byte input_event records.
     const string Name = "8BitDo Ultimate 2 Wireless", Phys = "vetro-8bitdo-guide-proxy";
-    const string StatusPath = "/tmp/vetro-8bitdo-guide-status.json";
+    static StateFiles stateFiles;
     const int Guide = 316, NonBlock = 0x800, CloseExec = 0x80000;
     static int physical = -1, output = -1;
     static volatile bool quitting;
@@ -65,8 +65,6 @@ internal static class Program
     static extern IntPtr write(int fd, byte[] data, UIntPtr count);
     [DllImport("libc.so.6", SetLastError = true)]
     static extern int poll([In, Out] PollFd[] fds, uint count, int timeout);
-    [DllImport("libc.so.6")]
-    static extern int rename(string from, string to);
     static uint ReadCode(int n, int size)
     {
         return 0x80004500u | ((uint)size << 16) | (uint)n;
@@ -130,8 +128,8 @@ internal static class Program
         try
         {
             string safe = last.Replace("\\", "_").Replace("\"", "_").Replace("\n", " ");
-            File.WriteAllText(StatusPath + ".new", "{\"running\":" + (running ? "true" : "false") + ",\"connected\":" + (grabbed ? "true" : "false") + ",\"mode\":\"proxy\",\"preview\":" + (previewSeconds > 0 ? "true" : "false") + ",\"node\":\"" + (node ?? "") + "\",\"presses\":" + presses + ",\"emitted\":" + shown + ",\"frames\":" + frames + ",\"lastResult\":\"" + safe + "\"}");
-            rename(StatusPath + ".new", StatusPath);
+            if (stateFiles != null)
+                stateFiles.WriteStatus("{\"running\":" + (running ? "true" : "false") + ",\"connected\":" + (grabbed ? "true" : "false") + ",\"mode\":\"proxy\",\"preview\":" + (previewSeconds > 0 ? "true" : "false") + ",\"node\":\"" + (node ?? "") + "\",\"presses\":" + presses + ",\"emitted\":" + shown + ",\"frames\":" + frames + ",\"lastResult\":\"" + safe + "\"}");
         }
         catch
         {
@@ -469,33 +467,61 @@ internal static class Program
     {
         if (args.Length == 1 && args[0] == "--self-test")
             return SelfTest();
+        if (args.Length == 1 && args[0] == "--self-test-files")
+            return StateFiles.SelfTest();
         if (IntPtr.Size != 4 || !BitConverter.IsLittleEndian)
         {
             Console.Error.WriteLine("This helper requires a 32-bit little-endian TV runtime.");
             return 2;
         }
+
         if (args.Length == 1 && args[0] == "--check-platform")
             return 0;
-        if (args.Length > 0 && (args.Length != 2 || args[0] != "--preview-seconds" || !int.TryParse(args[1], out previewSeconds) || previewSeconds < 1 || previewSeconds > 300))
-            return 2;
-        int locked = open("/tmp/vetro-8bitdo-guide.lock", 2 | 0x40 | CloseExec, 384);
-        if (locked < 0)
-            return 1;
-        if (flock(locked, 2 | 4) < 0)
+        string statePath = null;
+        bool statusOnly = false;
+        for (int i = 0; i < args.Length; i++)
         {
-            close(locked);
-            return 0;
+            if (args[i] == "--state-dir" && i + 1 < args.Length)
+                statePath = args[++i];
+            else if (args[i] == "--status")
+                statusOnly = true;
+            else if (args[i] == "--preview-seconds" && i + 1 < args.Length)
+            {
+                if (!int.TryParse(args[++i], out previewSeconds) || previewSeconds < 1 || previewSeconds > 300)
+                    return 2;
+            }
+            else
+                return 2;
         }
 
-        AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+        if (statePath == null || (statusOnly && previewSeconds != 0))
         {
-            quitting = true;
-            Cleanup();
-            last = "stopped";
-            Save(false);
-        };
+            Console.Error.WriteLine("Pass --state-dir with the Shard's private runtime folder.");
+            return 2;
+        }
+
+        int locked = -1;
+        bool started = false, failed = false;
         try
         {
+            stateFiles = StateFiles.Open(statePath);
+            if (statusOnly)
+            {
+                Console.WriteLine(stateFiles.ReadStatus());
+                return 0;
+            }
+
+            locked = stateFiles.OpenLock();
+            if (flock(locked, 2 | 4) < 0)
+                return 0;
+            started = true;
+            AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+            {
+                quitting = true;
+                Cleanup();
+                last = "stopped";
+                Save(false);
+            };
             Save(true);
             while (!Expired)
             {
@@ -545,12 +571,28 @@ internal static class Program
 
             return 0;
         }
+        catch (Exception error)
+        {
+            failed = true;
+            last = error.Message;
+            Console.Error.WriteLine(last);
+            return 1;
+        }
         finally
         {
             Cleanup();
-            last = previewSeconds > 0 ? "preview-ended" : "stopped";
-            Save(false);
-            close(locked);
+            if (started)
+            {
+                if (!failed)
+                    last = previewSeconds > 0 ? "preview-ended" : "stopped";
+                Save(false);
+            }
+
+            if (locked >= 0)
+                close(locked);
+            if (stateFiles != null)
+                stateFiles.Dispose();
+            stateFiles = null;
         }
     }
 }

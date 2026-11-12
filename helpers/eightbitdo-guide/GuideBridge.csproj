@@ -17,5 +17,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../plugins/eightbitdo-guide/GuideBridge.cs" />
+    <Compile Include="../../plugins/eightbitdo-guide/StateFiles.cs" />
   </ItemGroup>
 </Project>

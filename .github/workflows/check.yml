@@ -51,7 +51,8 @@ jobs:
         with: {node-version: 20}
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with: {dotnet-version: 8.0.100}
-      # No TV access or signing secret: rebuild the payload and run portable tests.
+      # SDK 8.0.100: compare rebuilt/embedded DLL SHA-256 and test state-file safety.
+      # No TV access or signing secret is available to this job.
       - run: node scripts/build-eightbitdo-guide-helper.cjs --check
   check:
     if: always()

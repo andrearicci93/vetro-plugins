@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 'use strict';
 // Rebuild the embedded managed payload from its readable source; no TV is used.
-const fs = require('fs'), path = require('path'), cp = require('child_process'), zlib = require('zlib');
+const fs = require('fs'), path = require('path'), cp = require('child_process'), zlib = require('zlib'), crypto = require('crypto');
 const root = path.join(__dirname, '..');
 const project = path.join(root, 'helpers/eightbitdo-guide');
 const plugin = path.join(root, 'plugins/eightbitdo-guide');
 const check = process.argv.includes('--check');
+const sdk = JSON.parse(fs.readFileSync(path.join(project, 'global.json'), 'utf8')).sdk.version;
+const sha256 = data => crypto.createHash('sha256').update(data).digest('hex');
+function verifyPayload(rebuilt, encoded) {
+    const rebuiltSha256 = sha256(rebuilt);
+    const embeddedSha256 = sha256(zlib.gunzipSync(Buffer.from(encoded.trim(), 'base64')));
+    if (rebuiltSha256 !== embeddedSha256) throw Error('Helper DLL SHA-256 mismatch: rebuilt ' + rebuiltSha256 + ', embedded ' + embeddedSha256);
+    return {rebuiltSha256, embeddedSha256};
+}
 function run(args, extraEnv) {
     const result = cp.spawnSync('dotnet', args, {
         cwd: project, stdio: 'inherit', env: {...process.env, ...extraEnv}
@@ -13,11 +21,15 @@ function run(args, extraEnv) {
     if (result.error) throw result.error;
     if (result.status !== 0) throw Error('dotnet ' + args[0] + ' failed');
 }
-try {
-    run(['build', 'GuideBridge.csproj', '-c', 'Release', '--nologo']);
+function main() { try {
+    const version = cp.spawnSync('dotnet', ['--version'], {cwd: project, encoding: 'utf8'});
+    if (version.error || version.status !== 0 || version.stdout.trim() !== sdk) throw Error('Build requires exact .NET SDK ' + sdk);
+    console.log('Guide helper .NET SDK: ' + sdk);
+    run(['build', 'GuideBridge.csproj', '-c', 'Release', '--nologo', '-p:UseSharedCompilation=false']);
     const out = path.join(project, 'bin/Release/netcoreapp3.1');
     // The installed SDK runtime can run the portable filter tests locally.
     run([path.join(out, 'guide-bridge.dll'), '--self-test'], {DOTNET_ROLL_FORWARD: 'Major'});
+    if (process.platform === 'linux') run([path.join(out, 'guide-bridge.dll'), '--self-test-files'], {DOTNET_ROLL_FORWARD: 'Major'});
     if (process.arch === 'x64' || process.arch === 'arm64') {
         const guard = cp.spawnSync('dotnet', [path.join(out, 'guide-bridge.dll'), '--check-platform'], {
             cwd: project, encoding: 'utf8', timeout: 5000,
@@ -36,16 +48,28 @@ try {
     for (const [name, content] of Object.entries(files)) {
         const target = path.join(plugin, name);
         if (check) {
-            const matches = fs.existsSync(target) && (name.endsWith('.b64')
-                ? zlib.gunzipSync(Buffer.from(fs.readFileSync(target, 'utf8').trim(), 'base64')).equals(fs.readFileSync(path.join(out, 'guide-bridge.dll')))
-                : fs.readFileSync(target, 'utf8') === content);
+            let matches = fs.existsSync(target);
+            if (matches && name.endsWith('.b64')) {
+                const hashes = verifyPayload(fs.readFileSync(path.join(out, 'guide-bridge.dll')), fs.readFileSync(target, 'utf8'));
+                console.log('Rebuilt DLL SHA-256: ' + hashes.rebuiltSha256);
+                console.log('Embedded DLL SHA-256: ' + hashes.embeddedSha256);
+            } else if (matches) matches = fs.readFileSync(target, 'utf8') === content;
             if (!matches) {
                 throw Error(name + ' differs from the helper rebuilt from source; run node scripts/build-eightbitdo-guide-helper.cjs');
             }
         } else fs.writeFileSync(target, content);
     }
+    if (check) {
+        const manifest = JSON.parse(fs.readFileSync(path.join(plugin, 'manifest.json'), 'utf8'));
+        const bundlePath = path.join(root, 'dist', manifest.id + '-' + manifest.version + '.vplugin');
+        const bundle = JSON.parse(fs.readFileSync(bundlePath, 'utf8'));
+        const hashes = verifyPayload(fs.readFileSync(path.join(out, 'guide-bridge.dll')), bundle.files['guide-bridge.dll.gz.b64']);
+        console.log('Committed .vplugin DLL SHA-256: ' + hashes.embeddedSha256);
+    }
     console.log(check ? 'Guide helper payload matches its source' : 'Rebuilt Guide helper payload');
 } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
-}
+} }
+module.exports = {verifyPayload};
+if (require.main === module) main();
