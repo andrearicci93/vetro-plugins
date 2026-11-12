@@ -40,12 +40,26 @@ jobs:
           node-version: ${{ matrix.node }}
       # No signing secret, write token, or real TV commands in these jobs.
       - run: node scripts/test-runtime.cjs
+  guide-helper:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: {node-version: 20}
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with: {dotnet-version: 8.0.100}
+      # No TV access or signing secret: rebuild the payload and run portable tests.
+      - run: node scripts/build-eightbitdo-guide-helper.cjs --check
   check:
     if: always()
-    needs: [validate, runtime]
+    needs: [validate, runtime, guide-helper]
     runs-on: ubuntu-latest
     steps:
       - env:
           VALIDATION: ${{ needs.validate.result }}
           RUNTIME: ${{ needs.runtime.result }}
-        run: test "$VALIDATION" = success && test "$RUNTIME" = success
+          GUIDE_HELPER: ${{ needs.guide-helper.result }}
+        run: test "$VALIDATION" = success && test "$RUNTIME" = success && test "$GUIDE_HELPER" = success

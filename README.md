@@ -9,6 +9,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | Shard | What it does | Permissions | Author |
 | --- | --- | --- | --- |
 | [`nordvpn`](plugins/nordvpn) | NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect | `exec` | piecifra |
+| [`eightbitdo-guide`](plugins/eightbitdo-guide) | Open Vetro with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes | `exec` | augusto1024 |
 | [`shell`](plugins/shell) | A root shell on the TV, laid out like a terminal; one command at a time, `cd` remembered | `exec` | piecifra |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
 | [`youtube`](plugins/youtube) | **Ad-free YouTube**: Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube + SponsorBlock), nothing installed on the TV | `exec` | andrearicci93 |
