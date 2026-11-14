@@ -101,6 +101,8 @@ Fields: `message` (required, 200 characters), `title` (40), `seconds` (5-300, ho
 })();
 ```
 
+These three files are also in the `app/` folder next to this README. A ready-made, **unsigned** `.wgt` (with an icon) is attached to
+the releases of https://github.com/mclaudiopt/tv-notification-center (a catalog Shard can only hold text files, so the `.wgt` and its icon are not here).
 Add any 512x512 `icon.png`, zip the files as `.wgt`, sign it and install it (Apps2Samsung, TV-Store, Tizen Studio).
 If you use another app id, set it in the **Companion app** box of this Shard's page. If loopback does not answer on your TV,
 add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matching `<access origin="...">` to `config.xml`.
