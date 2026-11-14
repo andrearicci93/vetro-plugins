@@ -55,6 +55,17 @@
       "size": 62170
     },
     {
+      "id": "notification-center",
+      "name": "Notification Center",
+      "version": "0.1.0",
+      "author": "mclaudiopt",
+      "description": "Queue notifications from any device on the LAN and show them as native TV banners through a small companion web app. Talks only to Vetro on 127.0.0.1:8099.",
+      "permissions": [],
+      "url": "dist/notification-center-0.1.0.vplugin",
+      "sha256": "74706afed3761a9cdb994baf93eae82f399a1d45c137fd74f109b4639f1ae450",
+      "size": 24761
+    },
+    {
       "id": "prometheus",
       "name": "Prometheus exporter",
       "version": "1.0.0",

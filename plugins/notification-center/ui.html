@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Notification Center</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 14px; font: 15px/1.4 system-ui, sans-serif; background: #12151c; color: #e8ecf2; }
+h1 { font-size: 20px; margin: 0 0 12px; }
+h2 { font-size: 15px; margin: 18px 0 8px; color: #a9b8d6; }
+.card { background: #1b202b; border: 1px solid #2c3445; border-radius: 10px; padding: 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+input, button { font: inherit; color: inherit; background: #232a38; border: 1px solid #3a4358; border-radius: 8px; padding: 7px 10px; }
+input[type=text] { flex: 1; min-width: 160px; }
+input[type=number] { width: 84px; }
+button { cursor: pointer; } button.primary { background: #2f6fed; border-color: #2f6fed; }
+.msg { min-height: 20px; font-size: 13px; color: #8a94a6; } .ok { color: #6fdc9a; } .err { color: #ff8a8a; }
+ul { list-style: none; margin: 0; padding: 0; } li { padding: 6px 8px; border-bottom: 1px solid #2c3445; } li small { color: #8a94a6; }
+code, pre { background: #0d1016; border-radius: 6px; padding: 2px 6px; font-size: 12px; }
+pre { padding: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Notification Center</h1>
+
+<div class="card">
+  <div class="row"><input type="text" id="title" maxlength="40" placeholder="Title (optional)"></div>
+  <div class="row"><input type="text" id="message" maxlength="200" placeholder="Message"></div>
+  <div class="row">
+    <label>Seconds <input type="number" id="secs" min="5" max="300" value="30"></label>
+    <label><input type="checkbox" id="open" checked> Launch the companion app</label>
+    <button class="primary" id="send" type="button">Send</button>
+  </div>
+  <div class="msg" id="result"></div>
+</div>
+
+<h2>Recently sent</h2>
+<div class="card"><ul id="recent"><li><small>Nothing yet.</small></li></ul><div class="row" style="margin:8px 0 0"><button id="refresh" type="button">Refresh</button></div></div>
+
+<h2>Companion app</h2>
+<div class="card">
+  <div class="row"><input type="text" id="appid" maxlength="128" placeholder="App id"><button id="save" type="button">Save</button></div>
+  <div class="msg" id="cfg"></div>
+  <div class="msg">The app must be installed on the TV (see the README). The Shard only asks Vetro to launch it.</div>
+</div>
+
+<h2>Send from another device</h2>
+<div class="card"><pre id="curl"></pre></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function say(el, text, cls) { el.textContent = text || ""; el.className = "msg " + (cls || ""); }
+  function api(path, body) {
+    var opt = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {};
+    return fetch(path, opt).then(function (r) { return r.json().then(function (j) { if (!r.ok) { throw new Error(j.error || "error " + r.status); } return j; }); });
+  }
+  function recent() {
+    api("recent").then(function (d) {
+      $("recent").innerHTML = d.recent.length ? d.recent.map(function (n) {
+        return "<li><b>" + esc(n.title || "(no title)") + "</b> " + esc(n.message) + " <small>" + new Date(n.at).toLocaleTimeString() + "</small></li>";
+      }).join("") : "<li><small>Nothing yet.</small></li>";
+    }).catch(function (e) { say($("result"), e.message, "err"); });
+  }
+  // The dashboard frame has no allow-forms: use buttons and the Enter key, not <form>.
+  $("send").addEventListener("click", function () {
+    say($("result"), "Sending...");
+    api("notify", { title: $("title").value, message: $("message").value, seconds: parseInt($("secs").value, 10) || 30, open: $("open").checked })
+      .then(function (r) { say($("result"), "Queued (launch: " + r.open + ")", "ok"); $("message").value = ""; recent(); })
+      .catch(function (e) { say($("result"), e.message, "err"); });
+  });
+  $("message").addEventListener("keydown", function (e) { if (e.key === "Enter") { $("send").click(); } });
+  $("refresh").addEventListener("click", recent);
+  $("save").addEventListener("click", function () {
+    api("config", { appId: $("appid").value }).then(function (c) { say($("cfg"), "Saved: " + c.appId, "ok"); }).catch(function (e) { say($("cfg"), e.message, "err"); });
+  });
+  api("config").then(function (c) { $("appid").value = c.appId; });
+  $("curl").textContent = 'curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify \\\n  -H "Content-Type: application/json" \\\n  -d \'{"title":"Oven","message":"Dinner is ready","seconds":30}\'';
+  recent();
+})();
+</script>
+</body>
+</html>
