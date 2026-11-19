@@ -10,6 +10,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | --- | --- | --- | --- |
 | [`art-sql`](plugins/art-sql) | Read-only SQL API (Datasette-style JSON) over the Art app's database, for other apps on your network | `exec` | bertrandom |
 | [`bedtime`](plugins/bedtime) | Turn the TV off at set times or after a sleep timer, or open an app on a schedule | `exec` | piecifra |
+| [`channels`](plugins/channels) | Browse and switch satellite and IP channels with frequency search and channel management | `exec` | abdoghanem2011 |
 | [`eightbitdo-guide`](plugins/eightbitdo-guide) | Open Vetro with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes | `exec` | augusto1024 |
 | [`home-assistant`](plugins/home-assistant) | A **Control center card** (Vetro 0.7.0): switch Home Assistant lights, switches, scenes and scripts from the TV's remote. The example Shard for the card API | none | andrearicci93 |
 | [`nordvpn`](plugins/nordvpn) | NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect | `exec` | piecifra |

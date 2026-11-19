@@ -29,6 +29,19 @@
       "size": 24081
     },
     {
+      "id": "channels",
+      "name": "TV Channels",
+      "version": "1.0.0",
+      "author": "abdoghanem2011",
+      "description": "Browse and switch satellite and IP channels with frequency search, transponder details, and channel management.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/channels-1.0.0.vplugin",
+      "sha256": "d74541733c285a003eae8afe59127263c63191b3fe0119099d608693dc23383b",
+      "size": 158820
+    },
+    {
       "id": "eightbitdo-guide",
       "name": "8BitDo Guide",
       "version": "1.1.5",

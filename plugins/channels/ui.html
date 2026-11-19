@@ -1,0 +1,2527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TV Channels</title>
+<style>
+  :root {
+    --bg: #090c10;
+    --card: #131720;
+    --card-hover: #1c2230;
+    --card-active: #222a3a;
+    --border: #232a3b;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --muted: #64748b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-glow: rgba(59, 130, 246, 0.25);
+    --green: #10b981;
+    --green-bg: rgba(16, 185, 129, 0.15);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245, 158, 11, 0.15);
+    --red: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.15);
+    --radius-s: 6px;
+    --radius-m: 10px;
+    --radius-l: 14px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.5;
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app-container {
+    width: 100%;
+    max-width: 1040px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Header & Stats */
+  .header-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .header-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .header-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    width: 100%;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .header-nav-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .header-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .app-icon {
+    font-size: 28px;
+    line-height: 1;
+    padding: 8px;
+    background: rgba(59, 130, 246, 0.12);
+    border-radius: var(--radius-m);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+
+  .header-title h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .header-title p {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .header-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-tv-mode {
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-tv-mode:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-tv-mode:active { transform: scale(0.97); }
+
+  .stat-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .stat-badge strong { color: var(--text); }
+
+  /* Controls & Search */
+  .controls-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: sticky;
+    top: 10px;
+    z-index: 10;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  }
+
+  .search-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+
+  .search-wrapper {
+    flex: 1;
+    min-width: 120px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    font-size: 16px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 12px 40px 12px 40px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s ease;
+    text-overflow: ellipsis;
+  }
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .search-input::placeholder { color: var(--muted); }
+
+  .btn-clear {
+    position: absolute;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    display: none;
+  }
+  .btn-clear:hover { color: var(--text); }
+
+  /* Remote & Search Action Buttons */
+  .search-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .btn-ctrl-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 9px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+  }
+  .btn-ctrl-action:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #fff;
+  }
+  .btn-ctrl-action:active,
+  .btn-ctrl-action.holding {
+    transform: scale(0.93);
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-ctrl-action .ctrl-icon {
+    font-size: 13px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-ctrl-action .ctrl-text {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .btn-ctrl-action .mobile-sign {
+    display: none;
+  }
+  .btn-ctrl-action.reload {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #60a5fa;
+  }
+  .btn-ctrl-action.reload:hover {
+    background: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+  .btn-ctrl-action.reload.loading .ctrl-icon {
+    animation: spinCtrl 0.8s linear infinite;
+  }
+  @keyframes spinCtrl {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .view-tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: var(--radius-m);
+    border: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* Filter Chips */
+  .filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .chips-group {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .chip {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  .chip:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+  .chip.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .result-count {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* Channel Grid / List */
+  .channels-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 10px;
+    min-height: 200px;
+  }
+
+  .channel-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    position: relative;
+  }
+  .channel-card:hover {
+    background: var(--card-hover);
+    border-color: #3b4559;
+    transform: translateY(-1px);
+  }
+  .channel-card:active {
+    background: var(--card-active);
+    transform: translateY(0);
+  }
+  .channel-card.is-hidden {
+    opacity: 0.72;
+    border-style: dashed;
+  }
+  .channel-card.is-hidden:hover {
+    opacity: 1;
+  }
+
+  .channel-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .channel-num-badge {
+    min-width: 44px;
+    height: 38px;
+    padding: 0 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--accent);
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .channel-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .channel-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
+
+  .channel-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
+
+  .meta-tag {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .meta-tag.tp {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+  }
+  .meta-tag.sat {
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.1);
+  }
+  .meta-tag.iptv {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+  }
+  .meta-tag.scrambled {
+    color: var(--amber);
+    background: var(--amber-bg);
+  }
+  .meta-tag.hidden {
+    color: var(--red);
+    background: var(--red-bg);
+  }
+
+  .channel-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .btn-tune {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 6px 11px;
+    border-radius: var(--radius-s);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+  }
+  .channel-card:hover .btn-tune {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-tune:active {
+    transform: scale(0.97);
+  }
+
+  .app-container.editor-mode .channel-name {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: var(--radius-s);
+    padding: 2px 6px;
+    margin: -2px -6px;
+    transition: all 0.15s ease;
+  }
+  .app-container.editor-mode .channel-name:hover {
+    color: var(--accent);
+    background: rgba(56, 189, 248, 0.12);
+  }
+  .app-container.editor-mode .channel-name:hover .edit-hint {
+    opacity: 1;
+    color: var(--accent);
+  }
+  .edit-hint {
+    font-size: 11px;
+    opacity: 0.45;
+    transition: opacity 0.15s ease;
+    user-select: none;
+  }
+
+  /* Checkbox column on card in Editor Mode */
+  .ch-checkbox-col {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+  .app-container.editor-mode .ch-checkbox-col {
+    display: flex;
+  }
+  .ch-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    border-radius: 4px;
+  }
+  .channel-card.selected {
+    border-color: var(--accent);
+    background: rgba(56, 189, 248, 0.08);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+  }
+  .app-container.editor-mode .channel-card {
+    cursor: pointer;
+    user-select: none;
+  }
+  .app-container.editor-mode .channel-card:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  /* Batch Toolbar in Editor Mode */
+  .editor-batch-row {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-wrap: wrap;
+  }
+  .app-container.editor-mode .editor-batch-row {
+    display: flex;
+  }
+  .batch-select-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .batch-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    max-width: 100%;
+    padding-bottom: 2px;
+  }
+  .batch-select-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+    padding: 3px 6px;
+    border-radius: var(--radius-s);
+    transition: background 0.15s ease;
+  }
+  .batch-select-label:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .batch-counter {
+    font-size: 11px;
+    color: #fff;
+    background: var(--accent);
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    min-width: 16px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  .btn-batch-action {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 11px;
+    border-radius: var(--radius-s);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-batch-action:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .btn-batch-action.hide:not(:disabled) {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+  }
+  .btn-batch-action.hide:not(:disabled):hover {
+    background: rgba(245, 158, 11, 0.28);
+  }
+  .btn-batch-action.unhide:not(:disabled) {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+  }
+  .btn-batch-action.unhide:not(:disabled):hover {
+    background: rgba(56, 189, 248, 0.28);
+  }
+  .btn-batch-action.delete:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+  }
+  .btn-batch-action.delete:not(:disabled):hover {
+    background: rgba(239, 68, 68, 0.28);
+  }
+  .btn-batch-action.move:not(:disabled) {
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.4);
+    color: #c084fc;
+  }
+  .btn-batch-action.move:not(:disabled):hover {
+    background: rgba(168, 85, 247, 0.28);
+  }
+
+  /* Sort Control Styles */
+  .sort-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sort-select {
+    background: #0d121f;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: var(--radius-s);
+    font-size: 12px;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+  }
+  .sort-select:focus {
+    border-color: var(--accent);
+  }
+
+  /* Empty / Loading State */
+  .state-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+  }
+  .state-message .icon { font-size: 32px; margin-bottom: 8px; }
+  .state-message p { font-size: 15px; }
+
+  /* Editor Toolbar Card */
+  .editor-toolbar {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 14px 18px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .app-container.editor-mode .editor-toolbar { display: flex; }
+
+  .editor-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .editor-badge {
+    background: var(--amber-bg);
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .btn-restore {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: var(--radius-s);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-restore:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--text-dim);
+  }
+
+  /* Floating Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1e293b;
+    border: 1px solid #334155;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 9999;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* In-page Custom Confirmation Modal (bypasses sandboxed iframe allow-modals restriction) */
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+    animation: modalFadeIn 0.15s ease-out;
+  }
+  @keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .modal-dialog {
+    background: #181d29;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    max-width: 440px;
+    width: 100%;
+    padding: 22px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: modalScaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes modalScaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .modal-header-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .modal-icon {
+    font-size: 24px;
+    line-height: 1;
+    padding: 10px;
+    border-radius: var(--radius-m);
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    flex-shrink: 0;
+  }
+  .modal-icon.warning {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #f59e0b;
+  }
+  .modal-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .modal-text {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    line-height: 1.45;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .btn-modal-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text);
+    padding: 9px 18px;
+    border-radius: var(--radius-m);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-modal-cancel:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .btn-modal-confirm {
+    background: #ef4444;
+    border: 1px solid #dc2626;
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: var(--radius-m);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .btn-modal-confirm:hover {
+    background: #dc2626;
+  }
+  .btn-modal-confirm:active {
+    transform: scale(0.98);
+  }
+  .btn-modal-confirm.warning {
+    background: #d97706;
+    border-color: #b45309;
+  }
+  .btn-modal-confirm.warning:hover {
+    background: #b45309;
+  }
+
+  /* Form & Modal Inputs */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .form-input, .form-select {
+    background: #0d121f;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-input:focus, .form-select:focus {
+    border-color: var(--accent);
+  }
+  .segmented-control {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    overflow: hidden;
+    background: #0d121f;
+  }
+  .seg-btn {
+    flex: 1;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .seg-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .tp-lookup-card {
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tp-lookup-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    color: #fbbf24;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 640px) {
+    body { padding: 10px; }
+    .header-card { padding: 12px 14px; }
+    .app-icon { font-size: 22px; padding: 6px; }
+    .header-title h1 { font-size: 17px; }
+    #badge-total, #badge-sat, #badge-ip, #badge-hidden { display: none !important; }
+    .header-stats { gap: 6px; }
+    .header-nav-row { gap: 10px; }
+    .header-nav-left { width: 100%; gap: 8px; }
+    .header-nav-right { width: 100%; justify-content: space-between; }
+    .controls-panel { padding: 10px 12px; top: 6px; }
+    .search-row { gap: 6px; }
+    .search-wrapper { min-width: 90px; }
+    .search-input { font-size: 13.5px; padding: 9px 26px 9px 30px; }
+    .search-icon { left: 10px; font-size: 13px; }
+    .btn-clear { right: 8px; font-size: 14px; }
+    .search-actions { gap: 4px; }
+    .btn-ctrl-action { padding: 6px 7px; min-width: 30px; font-size: 11.5px; gap: 2px; }
+    .btn-ctrl-action .ctrl-text { display: none !important; }
+    .btn-ctrl-action .mobile-sign { display: inline-block; font-size: 9.5px; font-weight: 700; margin-left: 1px; vertical-align: baseline; }
+    .channels-container { grid-template-columns: 1fr; }
+    .channel-num-badge { min-width: 38px; height: 34px; font-size: 13px; }
+    .channel-name { font-size: 14px; }
+    .btn-tune { padding: 4.5px 8px; font-size: 11px; min-height: 28px; gap: 4px; }
+    .editor-batch-row { gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+    .batch-select-label { gap: 4px; padding: 2px 4px; font-size: 12px; }
+    .batch-btn-group { width: auto; display: flex; flex-direction: row; gap: 4px; overflow-x: auto; flex-shrink: 0; }
+    .batch-btn-group .btn-batch-action { flex: 0 0 auto; justify-content: center; padding: 5px 6.5px; font-size: 11px; gap: 3px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-container" id="app">
+
+  <!-- Header Card (Non-Sticky) -->
+  <div class="header-card">
+    <div class="header-top-row">
+      <div class="header-left">
+        <div class="app-icon">📡</div>
+        <div class="header-title">
+          <h1>TV Channels</h1>
+          <p>Instant channel search, frequency browser & remote tuner</p>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="view-tabs">
+          <button type="button" class="tab-btn active" data-view="list">📋 Channels</button>
+          <button type="button" class="tab-btn" data-view="editor">⚙️ Editor</button>
+        </div>
+        <button type="button" class="btn-tv-mode" id="btn-switch-tv" title="Switch TV input to Live Broadcast TV">📺 TV Mode</button>
+        <div class="stat-badge" id="badge-total">Channels: <strong id="cnt-total">…</strong></div>
+        <div class="stat-badge" id="badge-sat">Satellite: <strong id="cnt-sat">…</strong></div>
+        <div class="stat-badge" id="badge-ip">TV Plus: <strong id="cnt-ip">…</strong></div>
+        <div class="stat-badge" id="badge-hidden">Hidden: <strong id="cnt-hidden-stat">0</strong></div>
+      </div>
+    </div>
+
+    <!-- Top Navigation Row: Views, Source Filters, Sort & Count -->
+    <div class="header-nav-row">
+      <div class="header-nav-left">
+        <div class="chips-group" id="chips-source">
+          <button type="button" class="chip active" data-filter="all" title="All Channels">All</button>
+          <button type="button" class="chip" data-filter="dvbs" title="Satellite Broadcast (DVB-S)">📡 Satellite</button>
+          <button type="button" class="chip" data-filter="iptv" title="Samsung TV Plus (IPTV)">📺 TV Plus</button>
+          <button type="button" class="chip" data-filter="fta" title="Free to Air Channels (Unscrambled)">🆓 FTA</button>
+          <button type="button" class="chip" data-filter="hidden" title="Hidden Channels">🙈 Hidden</button>
+        </div>
+      </div>
+      <div class="header-nav-right">
+        <div class="sort-control">
+          <select id="sort-select" class="sort-select" title="Sort channels">
+            <option value="default">#1-9</option>
+            <option value="num-desc">#9-1</option>
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+          </select>
+        </div>
+        <div class="result-count" id="result-count">(0/0)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor Mode Banner Toolbar (Non-Sticky) -->
+  <div class="editor-toolbar" id="editor-bar">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:10px;">
+      <div class="editor-toolbar-left">
+        <span class="editor-badge">Editor Mode</span>
+        <span style="font-size:13px;color:var(--text-dim)">Select channels to batch hide, unhide, delete, or move. Click <strong>🔄 Reload TV</strong> to apply changes to tuner.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button type="button" class="btn-restore" id="btn-reload-tv" title="Apply all changes and reload TV tuner">🔄 Reload TV</button>
+        <button type="button" class="btn-restore" id="btn-export-bak" title="Export channel list as official Samsung Channel_list_*.zip (USB & ChanSort compatible)">💾 Export Backup</button>
+        <button type="button" class="btn-restore" id="btn-import-bak" title="Import channel list from Samsung Channel_list_*.zip">📥 Import Backup</button>
+        <input type="file" id="file-import-input" accept=".zip,application/zip" style="display:none;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Controls Panel -->
+  <div class="controls-panel">
+    <div class="search-row">
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" class="search-input" placeholder="Search by name, #number, or frequency…" autocomplete="off" spellcheck="false" dir="auto">
+        <button type="button" class="btn-clear" id="btn-clear-search">✕</button>
+      </div>
+      <div class="search-actions" id="search-actions">
+        <button type="button" class="btn-ctrl-action reload" id="btn-sticky-reload" title="Apply changes and reload TV tuner" style="display:none;">
+          <span class="ctrl-icon">🔄</span><span class="ctrl-text">Reload TV</span>
+        </button>
+        <button type="button" class="btn-ctrl-action" id="btn-vol-up" title="Volume Up (Vol+)">
+          <span class="ctrl-icon"><span class="icon-sym">🔊</span><span class="mobile-sign">+</span></span><span class="ctrl-text">Vol+</span>
+        </button>
+        <button type="button" class="btn-ctrl-action" id="btn-vol-down" title="Volume Down (Vol−)">
+          <span class="ctrl-icon"><span class="icon-sym">🔉</span><span class="mobile-sign">−</span></span><span class="ctrl-text">Vol−</span>
+        </button>
+        <button type="button" class="btn-ctrl-action" id="btn-ch-up" title="Channel Up (CH+)">
+          <span class="ctrl-icon"><span class="icon-sym">▲</span></span><span class="ctrl-text">CH+</span>
+        </button>
+        <button type="button" class="btn-ctrl-action" id="btn-ch-down" title="Channel Down (CH−)">
+          <span class="ctrl-icon"><span class="icon-sym">▼</span></span><span class="ctrl-text">CH−</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Batch Selection Controls (Sticky in Editor Mode) -->
+    <div class="editor-batch-row" id="editor-batch-row">
+      <div class="batch-select-group">
+        <label class="batch-select-label" for="chk-select-all" title="Toggle select all channels">
+          <input type="checkbox" id="chk-select-all" class="ch-checkbox">
+          <span id="label-select-all">All</span>
+          <span class="batch-counter" id="batch-counter" style="display:none;">0</span>
+        </label>
+      </div>
+      <div class="batch-btn-group">
+        <button type="button" class="btn-batch-action hide" id="btn-batch-hide" disabled title="Hide selected channels">🙈 Hide</button>
+        <button type="button" class="btn-batch-action unhide" id="btn-batch-unhide" disabled title="Unhide selected channels">👁️ Unhide</button>
+        <button type="button" class="btn-batch-action delete" id="btn-batch-delete" disabled title="Delete selected channels">🗑️ Delete</button>
+        <button type="button" class="btn-batch-action move" id="btn-batch-move" disabled title="Move selected channel(s) to new number">🔄 Move</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Channel List Grid -->
+  <div class="channels-container" id="channel-list">
+    <div class="state-message">
+      <div class="icon">⏳</div>
+      <p>Reading channel database from TV…</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- In-page Custom Confirmation Modal -->
+<div class="modal-backdrop" id="confirm-modal" style="display:none;">
+  <div class="modal-dialog">
+    <div class="modal-header-row">
+      <div class="modal-icon" id="modal-icon">🗑️</div>
+      <div class="modal-body">
+        <h3 class="modal-title" id="modal-title">Confirm Action</h3>
+        <p class="modal-text" id="modal-msg">Are you sure?</p>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-modal-cancel" id="modal-btn-cancel">Cancel</button>
+      <button type="button" class="btn-modal-confirm" id="modal-btn-confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Direct Download Modal (bypasses iframe sandbox allow-downloads limitation) -->
+<div class="modal-backdrop" id="export-modal" style="display:none;">
+  <div class="modal-dialog" style="max-width: 490px;">
+    <div class="modal-header-row">
+      <div class="modal-icon" style="background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:var(--accent);">💾</div>
+      <div class="modal-body">
+        <h3 class="modal-title">Export Channel Backup</h3>
+        <p class="modal-text" style="margin-bottom:12px;">Your channel list has been packaged into the official Samsung <strong id="export-zip-name">Channel_list.zip</strong> archive (compatible with TV USB restore &amp; ChanSort).</p>
+        
+        <p class="modal-text" style="font-size:12.5px;color:var(--amber);margin-bottom:8px;">⚠️ Because Vetro runs in a sandboxed frame, automatic downloads are restricted. Copy the link below and paste it into a new browser tab to download:</p>
+        
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="text" id="export-url-input" readonly style="font-size:12px;padding:9px 10px;background:#0d121f;border:1px solid var(--border);border-radius:var(--radius-s);color:#38bdf8;font-family:monospace;width:100%;box-sizing:border-box;">
+          <button type="button" class="btn-restore" id="btn-copy-export-url" style="white-space:nowrap;padding:9px 14px;background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;">📋 Copy Link</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+          <a id="export-direct-link" href="#" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:var(--accent);text-decoration:underline;">Or right-click here → Open in new tab ↗</a>
+          <span id="export-copy-hint" style="font-size:12px;color:#34d399;display:none;font-weight:600;">✅ Copied to clipboard!</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-modal-cancel" id="export-btn-close">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Rename Channel Modal -->
+<div class="modal-backdrop" id="rename-modal" style="display:none;">
+  <div class="modal-dialog" style="max-width: 440px;">
+    <div class="modal-header-row">
+      <div class="modal-icon" style="background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:var(--accent);">✏️</div>
+      <div class="modal-body">
+        <h3 class="modal-title" id="rename-title">Rename Channel</h3>
+        <p class="modal-text" id="rename-subtitle">Enter a new name for this channel.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px;">
+      <div class="form-group">
+        <label class="form-label" for="rename-input">Channel Name</label>
+        <input type="text" id="rename-input" class="form-input" placeholder="Channel name…" maxlength="60" dir="auto" autocomplete="off" style="font-size:14.5px;">
+      </div>
+      <div class="modal-actions" style="margin-top:4px;">
+        <button type="button" class="btn-modal-cancel" id="rename-btn-cancel">Cancel</button>
+        <button type="button" class="btn-restore" id="rename-btn-save" style="padding:9px 20px;font-size:13.5px;">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Move Channels Modal -->
+<div class="modal-backdrop" id="move-modal" style="display:none;">
+  <div class="modal-dialog" style="max-width: 460px;">
+    <div class="modal-header-row">
+      <div class="modal-icon" style="background:rgba(168,85,247,0.15);border-color:rgba(168,85,247,0.3);color:#c084fc;">🔄</div>
+      <div class="modal-body">
+        <h3 class="modal-title" id="move-title">Move Channels</h3>
+        <p class="modal-text" id="move-subtitle">Move selected channel(s) to a new channel number.</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:6px;">
+      <div id="move-summary" style="font-size:12.5px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:var(--radius-s);padding:9px 12px;line-height:1.5;"></div>
+
+      <div class="form-group">
+        <label class="form-label" for="move-input-target">New Channel Number</label>
+        <input type="number" id="move-input-target" class="form-input" min="1" max="9999" placeholder="e.g. 5" autocomplete="off" style="font-size:15px;font-weight:600;">
+      </div>
+
+      <div id="move-preview" style="font-size:12px;color:#38bdf8;min-height:16px;line-height:1.4;"></div>
+      <div id="move-error" style="display:none;color:#ef4444;font-size:12px;padding:6px 10px;background:rgba(239,68,68,0.1);border-radius:4px;border:1px solid rgba(239,68,68,0.25);"></div>
+
+      <div class="modal-actions" style="margin-top:4px;">
+        <button type="button" class="btn-modal-cancel" id="move-btn-cancel">Cancel</button>
+        <button type="button" class="btn-restore" id="move-btn-confirm" style="background:#8b5cf6;border-color:#7c3aed;color:#fff;padding:9px 20px;font-size:13.5px;" disabled>Move Channels</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Toast -->
+<div class="toast" id="toast">
+  <span>📺</span>
+  <span id="toast-msg">Tuning to channel…</span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var allChannels = [];
+  var filteredChannels = [];
+  var currentView = 'list'; // 'list' | 'editor'
+  var currentSourceFilter = 'all'; // 'all' | 'dvbs' | 'iptv' | 'fta' | 'hidden'
+  var searchQuery = '';
+  var renderLimit = 80;
+
+  var appEl = document.getElementById('app');
+  var listEl = document.getElementById('channel-list');
+  var searchInput = document.getElementById('search-input');
+  var btnClearSearch = document.getElementById('btn-clear-search');
+  var resultCountEl = document.getElementById('result-count');
+  var cntTotal = document.getElementById('cnt-total');
+  var cntSat = document.getElementById('cnt-sat');
+  var cntIp = document.getElementById('cnt-ip');
+  var cntHiddenStat = document.getElementById('cnt-hidden-stat');
+  var btnSwitchTv = document.getElementById('btn-switch-tv');
+  var toastEl = document.getElementById('toast');
+  var toastMsg = document.getElementById('toast-msg');
+  var toastTimer = null;
+
+  // Custom in-page confirmation modal (bypasses iframe sandbox allow-modals restriction)
+  var confirmModal = document.getElementById('confirm-modal');
+  var modalTitle = document.getElementById('modal-title');
+  var modalMsg = document.getElementById('modal-msg');
+  var modalIcon = document.getElementById('modal-icon');
+  var modalBtnCancel = document.getElementById('modal-btn-cancel');
+  var modalBtnConfirm = document.getElementById('modal-btn-confirm');
+  var pendingConfirmCallback = null;
+
+  function showConfirmModal(opts, onConfirm) {
+    modalTitle.textContent = opts.title || 'Confirm Action';
+    modalMsg.textContent = opts.message || 'Are you sure?';
+    modalBtnConfirm.textContent = opts.confirmText || 'Confirm';
+    var isDanger = opts.danger !== false;
+    modalIcon.textContent = opts.icon || (isDanger ? '🗑️' : '⚠️');
+    modalIcon.className = 'modal-icon' + (isDanger ? '' : ' warning');
+    modalBtnConfirm.className = 'btn-modal-confirm' + (isDanger ? '' : ' warning');
+    pendingConfirmCallback = onConfirm;
+    confirmModal.style.display = 'flex';
+  }
+
+  function hideConfirmModal() {
+    confirmModal.style.display = 'none';
+    pendingConfirmCallback = null;
+  }
+
+  if (modalBtnCancel) modalBtnCancel.addEventListener('click', hideConfirmModal);
+  if (modalBtnConfirm) {
+    modalBtnConfirm.addEventListener('click', function () {
+      var cb = pendingConfirmCallback;
+      hideConfirmModal();
+      if (cb) cb();
+    });
+  }
+  // Dismiss modal only if mousedown AND click both occurred directly on backdrop
+  // (Prevents modal closing when user clicks & drags text selection out of an input/dialog)
+  function setupBackdropDismiss(modalEl, dismissFn) {
+    if (!modalEl) return;
+    var downTarget = null;
+    modalEl.addEventListener('mousedown', function (e) {
+      downTarget = e.target;
+    });
+    modalEl.addEventListener('click', function (e) {
+      if (downTarget === modalEl && e.target === modalEl) {
+        dismissFn();
+      }
+      downTarget = null;
+    });
+  }
+
+  setupBackdropDismiss(confirmModal, hideConfirmModal);
+
+  function showToast(text, duration) {
+    if (toastTimer) clearTimeout(toastTimer);
+    toastMsg.textContent = text;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove('show');
+    }, duration || 2500);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function fetchChannels(refresh) {
+    var url = 'list' + (refresh ? '?refresh=1' : '');
+    fetch(url)
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          listEl.innerHTML = '<div class="state-message"><div class="icon">⚠️</div><p>Failed to load channels: ' + escapeHtml(data.error || 'Unknown error') + '</p></div>';
+          return;
+        }
+
+        allChannels = data.channels || [];
+        var satCount = 0;
+        var ipCount = 0;
+        var hiddenCount = 0;
+        for (var i = 0; i < allChannels.length; i++) {
+          if (allChannels[i].type === 'dvbs') satCount++;
+          else ipCount++;
+          if (allChannels[i].hidden) hiddenCount++;
+        }
+
+        cntTotal.textContent = allChannels.length;
+        cntSat.textContent = satCount;
+        cntIp.textContent = ipCount;
+        if (cntHiddenStat) cntHiddenStat.textContent = hiddenCount;
+
+        applyFilters();
+      })
+      .catch(function (err) {
+        listEl.innerHTML = '<div class="state-message"><div class="icon">⚠️</div><p>Network error connecting to TV daemon: ' + escapeHtml(err.message || 'Error') + '</p></div>';
+      });
+  }
+
+  var currentSort = 'default'; // 'default', 'num-desc', 'name-asc', 'name-desc'
+  var sortSelect = document.getElementById('sort-select');
+
+  var selectedChannels = {}; // map: { chNum: true }
+  var chkSelectAll = document.getElementById('chk-select-all');
+  var labelSelectAll = document.getElementById('label-select-all');
+  var btnBatchHide = document.getElementById('btn-batch-hide');
+  var btnBatchUnhide = document.getElementById('btn-batch-unhide');
+  var btnBatchDelete = document.getElementById('btn-batch-delete');
+  var batchCounter = document.getElementById('batch-counter');
+
+  function sortChannelList(list) {
+    if (currentSort === 'num-desc') {
+      return list.slice().sort(function (a, b) { return b.num - a.num; });
+    }
+    if (currentSort === 'name-asc') {
+      return list.slice().sort(function (a, b) {
+        return (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' });
+      });
+    }
+    if (currentSort === 'name-desc') {
+      return list.slice().sort(function (a, b) {
+        return (b.name || '').localeCompare(a.name || '', undefined, { numeric: true, sensitivity: 'base' });
+      });
+    }
+    // Default: num ascending (1 -> 9)
+    return list.slice().sort(function (a, b) { return a.num - b.num; });
+  }
+
+  function getSelectedArray() {
+    var arr = [];
+    for (var k in selectedChannels) {
+      if (selectedChannels.hasOwnProperty(k) && selectedChannels[k]) {
+        var n = parseInt(k, 10);
+        if (!isNaN(n) && n > 0) arr.push(n);
+      }
+    }
+    return arr;
+  }
+
+  function updateBatchToolbar() {
+    var arr = getSelectedArray();
+    var count = arr.length;
+    if (batchCounter) {
+      if (count > 0) {
+        batchCounter.textContent = count;
+        batchCounter.style.display = 'inline-flex';
+        batchCounter.title = count + ' channel' + (count === 1 ? '' : 's') + ' selected';
+      } else {
+        batchCounter.style.display = 'none';
+      }
+    }
+
+    var hasSelection = count > 0;
+    if (btnBatchHide) btnBatchHide.disabled = !hasSelection;
+    if (btnBatchUnhide) btnBatchUnhide.disabled = !hasSelection;
+    if (btnBatchDelete) btnBatchDelete.disabled = !hasSelection;
+    if (btnBatchMove) btnBatchMove.disabled = !hasSelection;
+
+    var allVisSelected = filteredChannels.length > 0;
+    for (var i = 0; i < filteredChannels.length; i++) {
+      if (!selectedChannels[filteredChannels[i].num]) {
+        allVisSelected = false;
+        break;
+      }
+    }
+    if (chkSelectAll) {
+      chkSelectAll.checked = allVisSelected;
+      chkSelectAll.indeterminate = (count > 0 && !allVisSelected);
+    }
+    if (labelSelectAll) labelSelectAll.textContent = 'All';
+  }
+
+  function toggleChannelSelection(chNum) {
+    if (selectedChannels[chNum]) {
+      delete selectedChannels[chNum];
+    } else {
+      selectedChannels[chNum] = true;
+    }
+    var card = listEl.querySelector('.channel-card[data-ch="' + chNum + '"]');
+    if (card) {
+      var isSel = !!selectedChannels[chNum];
+      card.classList.toggle('selected', isSel);
+      var chk = card.querySelector('.card-chk');
+      if (chk) chk.checked = isSel;
+    }
+    updateBatchToolbar();
+  }
+
+  function toggleSelectAll() {
+    var allVisSelected = true;
+    for (var i = 0; i < filteredChannels.length; i++) {
+      if (!selectedChannels[filteredChannels[i].num]) {
+        allVisSelected = false;
+        break;
+      }
+    }
+
+    if (allVisSelected) {
+      for (var j = 0; j < filteredChannels.length; j++) {
+        delete selectedChannels[filteredChannels[j].num];
+      }
+    } else {
+      for (var k = 0; k < filteredChannels.length; k++) {
+        selectedChannels[filteredChannels[k].num] = true;
+      }
+    }
+
+    var cards = listEl.querySelectorAll('.channel-card');
+    for (var c = 0; c < cards.length; c++) {
+      var cNum = parseInt(cards[c].getAttribute('data-ch'), 10);
+      var isSel = !!selectedChannels[cNum];
+      cards[c].classList.toggle('selected', isSel);
+      var chk = cards[c].querySelector('.card-chk');
+      if (chk) chk.checked = isSel;
+    }
+    updateBatchToolbar();
+  }
+
+  function clearAllSelections() {
+    selectedChannels = {};
+    var cards = listEl.querySelectorAll('.channel-card');
+    for (var c = 0; c < cards.length; c++) {
+      cards[c].classList.remove('selected');
+      var chk = cards[c].querySelector('.card-chk');
+      if (chk) chk.checked = false;
+    }
+    updateBatchToolbar();
+  }
+
+  if (chkSelectAll) chkSelectAll.addEventListener('change', toggleSelectAll);
+
+  function doBatchEdit(action) {
+    var chNums = getSelectedArray();
+    if (chNums.length === 0) {
+      showToast('⚠️ No channels selected', 2000);
+      return;
+    }
+
+    if (action === 'delete') {
+      var isSingle = chNums.length === 1;
+      showConfirmModal({
+        title: 'Delete ' + chNums.length + (isSingle ? ' Channel?' : ' Channels?'),
+        message: 'Are you sure you want to delete ' + chNums.length + ' selected channel' + (isSingle ? '' : 's') + ' from your TV? Remaining channels will automatically shift to fill gaps (1-X).',
+        confirmText: 'Delete ' + chNums.length + (isSingle ? ' Channel' : ' Channels'),
+        danger: true,
+        icon: '🗑️'
+      }, function () {
+        sendBatchEditRequest('delete', chNums);
+      });
+      return;
+    }
+
+    sendBatchEditRequest(action, chNums);
+  }
+
+  function sendBatchEditRequest(action, chNums) {
+    var actionLabel = action === 'delete' ? 'deleted' : (action === 'hide' ? 'hidden' : 'unhidden');
+    showToast('⏳ Updating ' + chNums.length + ' channels…', 3500);
+
+    var dvbsChannels = [];
+    var ipsrvChannels = [];
+    var selMap = {};
+    for (var s = 0; s < chNums.length; s++) {
+      selMap[chNums[s]] = true;
+    }
+
+    for (var i = 0; i < allChannels.length; i++) {
+      var ch = allChannels[i];
+      if (selMap[ch.num]) {
+        if (ch.type === 'iptv') {
+          ipsrvChannels.push(ch.num);
+        } else {
+          dvbsChannels.push(ch.num);
+        }
+      }
+    }
+
+    fetch('edit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: action,
+        dvbs: dvbsChannels,
+        ipsrv: ipsrvChannels
+      })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        showToast('✅ ' + chNums.length + ' channels ' + actionLabel, 2500);
+        clearAllSelections();
+        fetchChannels(true);
+      } else {
+        showToast('⚠️ Update failed: ' + (data.error || 'error'), 3000);
+      }
+    })
+    .catch(function (err) {
+      showToast('⚠️ Error: ' + err.message, 3000);
+    });
+  }
+
+  if (btnBatchHide) btnBatchHide.addEventListener('click', function () { doBatchEdit('hide'); });
+  if (btnBatchUnhide) btnBatchUnhide.addEventListener('click', function () { doBatchEdit('unhide'); });
+  if (btnBatchDelete) btnBatchDelete.addEventListener('click', function () { doBatchEdit('delete'); });
+
+  if (sortSelect) {
+    sortSelect.addEventListener('change', function () {
+      currentSort = this.value;
+      applyFilters();
+    });
+  }
+
+  function applyFilters() {
+    var q = searchQuery.toLowerCase().trim();
+    renderLimit = 80; // Reset scroll pagination
+
+    filteredChannels = allChannels.filter(function (ch) {
+      // Source filter
+      if (currentSourceFilter === 'dvbs' && ch.type !== 'dvbs') return false;
+      if (currentSourceFilter === 'iptv' && ch.type !== 'iptv') return false;
+      if (currentSourceFilter === 'fta' && ch.scrambled) return false;
+      if (currentSourceFilter === 'hidden' && !ch.hidden) return false;
+
+      // In editor mode or when 'hidden' filter is selected, show hidden channels; in default list view, hide them
+      if (currentView !== 'editor' && currentSourceFilter !== 'hidden' && ch.hidden) return false;
+
+      // Query search
+      if (!q) return true;
+
+      // Match channel number (e.g. "10" or "#10")
+      var numStr = String(ch.num);
+      if (numStr === q || '#' + numStr === q) return true;
+
+      // Match channel name
+      if (ch.name && ch.name.toLowerCase().indexOf(q) >= 0) return true;
+
+      // Match frequency / symbol rate / satellite name
+      if (ch.freq && String(ch.freq).indexOf(q) >= 0) return true;
+      if (ch.sr && String(ch.sr).indexOf(q) >= 0) return true;
+      if (ch.sat && ch.sat.toLowerCase().indexOf(q) >= 0) return true;
+
+      return false;
+    });
+
+    filteredChannels = sortChannelList(filteredChannels);
+
+    resultCountEl.textContent = '(' + filteredChannels.length + '/' + allChannels.length + ')';
+    renderList();
+    updateBatchToolbar();
+  }
+
+  function renderList() {
+    if (filteredChannels.length === 0) {
+      listEl.innerHTML = '<div class="state-message"><div class="icon">🔍</div><p>No channels matching "' + escapeHtml(searchQuery) + '"</p></div>';
+      return;
+    }
+
+    var html = '';
+    var count = Math.min(filteredChannels.length, renderLimit);
+
+    for (var i = 0; i < count; i++) {
+      var ch = filteredChannels[i];
+      html += renderChannelItem(ch);
+    }
+
+    if (count < filteredChannels.length) {
+      html += '<div style="grid-column:1/-1;text-align:center;padding:16px;">' +
+              '<button type="button" id="btn-load-more" class="btn-restore" style="padding:10px 24px;">Load more channels (' + (filteredChannels.length - count) + ' remaining)…</button>' +
+              '</div>';
+    }
+
+    listEl.innerHTML = html;
+
+    var btnMore = document.getElementById('btn-load-more');
+    if (btnMore) {
+      btnMore.addEventListener('click', function () {
+        renderLimit += 80;
+        renderList();
+      });
+    }
+  }
+
+  function renderChannelItem(ch) {
+    var isEditor = currentView === 'editor';
+    var isSelected = !!selectedChannels[ch.num];
+
+    var metaHtml = '';
+    if (ch.type === 'dvbs') {
+      if (ch.freq > 0) {
+        metaHtml += '<span class="meta-tag tp">' + ch.freq + ' MHz ' + (ch.pol ? '(' + ch.pol + ')' : '') + (ch.sr ? ' ' + ch.sr : '') + '</span>';
+      }
+      if (ch.sat) {
+        metaHtml += '<span class="meta-tag sat">' + escapeHtml(ch.sat) + '</span>';
+      }
+      if (ch.scrambled) {
+        metaHtml += '<span class="meta-tag scrambled">Scrambled</span>';
+      }
+    } else {
+      metaHtml += '<span class="meta-tag iptv">TV Plus</span>';
+    }
+
+    if (ch.hidden) {
+      metaHtml += '<span class="meta-tag hidden">Hidden</span>';
+    }
+
+    var chkHtml = '';
+    if (isEditor) {
+      chkHtml = '<div class="ch-checkbox-col">' +
+                '<input type="checkbox" class="ch-checkbox card-chk" data-ch="' + ch.num + '"' + (isSelected ? ' checked' : '') + ' tabindex="-1">' +
+                '</div>';
+    }
+
+    // Tune button in list / editor views
+    var rightAction = '';
+    if (!ch.hidden) {
+      rightAction = '<button type="button" class="btn-tune" data-ch="' + ch.num + '" data-name="' + escapeHtml(ch.name) + '" data-srvid="' + (ch.srvId || '') + '"><span>📺</span> Tune</button>';
+    } else if (isEditor) {
+      rightAction = '<span class="meta-tag hidden" style="font-size:11px;padding:3px 8px;">🙈 Hidden</span>';
+    }
+
+    var nameEditHint = isEditor ? ' <span class="edit-hint" title="Click channel name to rename">✏️</span>' : '';
+    var nameTitle = isEditor ? ' title="Click channel name to rename"' : '';
+
+    return '<div class="channel-card' + (ch.hidden ? ' is-hidden' : '') + (isSelected ? ' selected' : '') + '" data-ch="' + ch.num + '" data-name="' + escapeHtml(ch.name) + '" data-srvid="' + (ch.srvId || '') + '">' +
+             chkHtml +
+             '<div class="channel-left">' +
+               '<div class="channel-num-badge">#' + ch.num + '</div>' +
+               '<div class="channel-info">' +
+                 '<div class="channel-name" dir="auto"' + nameTitle + '>' + escapeHtml(ch.name || 'Channel ' + ch.num) + nameEditHint + '</div>' +
+                 '<div class="channel-meta">' + metaHtml + '</div>' +
+               '</div>' +
+             '</div>' +
+             '<div class="channel-right">' + rightAction + '</div>' +
+           '</div>';
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Tune Channel on TV (Instant direct srvId tune with high-speed key fallback)
+  function tuneChannel(chNum, chName, srvId) {
+    showToast('⏳ Tuning to #' + chNum + ' (' + chName + ')…', 2500);
+
+    fetch('tune', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ channel: chNum, srvId: srvId || undefined })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        showToast('📺 Switched to #' + chNum + ' ' + chName, 2500);
+      } else {
+        showToast('⚠️ Tune failed: ' + (data.error || 'error'), 3500);
+      }
+    })
+    .catch(function (err) {
+      showToast('⚠️ Error: ' + err.message, 3500);
+    });
+  }
+
+  // Event Delegation for Clicks on list items
+  listEl.addEventListener('click', function (e) {
+    var tuneBtn = e.target.closest('.btn-tune');
+    if (tuneBtn) {
+      e.stopPropagation();
+      var tNum = parseInt(tuneBtn.getAttribute('data-ch'), 10);
+      var tName = tuneBtn.getAttribute('data-name') || ('Channel ' + tNum);
+      var tSrvId = tuneBtn.getAttribute('data-srvid') || '';
+      tuneChannel(tNum, tName, tSrvId);
+      return;
+    }
+
+    var card = e.target.closest('.channel-card');
+    if (card) {
+      var num = parseInt(card.getAttribute('data-ch'), 10);
+      var name = card.getAttribute('data-name') || ('Channel ' + num);
+      var srvId = card.getAttribute('data-srvid') || '';
+      if (currentView === 'editor') {
+        if (e.target.closest('.channel-name')) {
+          openRenameModal(num, name, srvId);
+          return;
+        }
+        toggleChannelSelection(num);
+      } else {
+        var isHidden = card.classList.contains('is-hidden');
+        if (!isHidden) {
+          tuneChannel(num, name, srvId);
+        }
+      }
+    }
+  });
+
+  // Rename Channel Modal Logic
+  var renameModal = document.getElementById('rename-modal');
+  var renameTitle = document.getElementById('rename-title');
+  var renameSubtitle = document.getElementById('rename-subtitle');
+  var renameInput = document.getElementById('rename-input');
+  var renameBtnCancel = document.getElementById('rename-btn-cancel');
+  var renameBtnSave = document.getElementById('rename-btn-save');
+
+  var currentRenameCh = null;
+  var currentRenameSrvId = null;
+
+  function openRenameModal(chNum, currentName, srvId) {
+    currentRenameCh = chNum;
+    currentRenameSrvId = srvId || '';
+    if (renameTitle) renameTitle.textContent = 'Rename Channel #' + chNum;
+    if (renameSubtitle) renameSubtitle.textContent = 'Current: ' + (currentName || 'Channel ' + chNum);
+    if (renameInput) renameInput.value = currentName || '';
+    if (renameModal) renameModal.style.display = 'flex';
+
+    setTimeout(function () {
+      if (renameInput) {
+        renameInput.focus();
+        renameInput.select();
+      }
+    }, 100);
+  }
+
+  function closeRenameModal() {
+    if (renameModal) renameModal.style.display = 'none';
+    currentRenameCh = null;
+    currentRenameSrvId = null;
+  }
+
+  function doSaveRename() {
+    if (!currentRenameCh) return;
+    var newName = (renameInput ? renameInput.value : '').trim();
+    if (!newName) {
+      showToast('⚠️ Please enter a channel name', 2500);
+      if (renameInput) renameInput.focus();
+      return;
+    }
+
+    var targetNum = currentRenameCh;
+    var targetSrvId = currentRenameSrvId;
+    closeRenameModal();
+    showToast('⏳ Renaming channel #' + targetNum + '…', 3000);
+
+    var targetType = 'dvbs';
+    for (var i = 0; i < allChannels.length; i++) {
+      if (allChannels[i].num === targetNum) {
+        if (allChannels[i].type === 'iptv') targetType = 'ipsrv';
+        break;
+      }
+    }
+
+    fetch('edit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'rename',
+        channels: [targetNum],
+        srvId: targetSrvId || undefined,
+        type: targetType,
+        name: newName
+      })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        showToast('✅ Renamed to "' + newName + '" (click Reload TV to apply to tuner)', 3500);
+        for (var i = 0; i < allChannels.length; i++) {
+          if (allChannels[i].num === targetNum) {
+            allChannels[i].name = newName;
+            break;
+          }
+        }
+        for (var j = 0; j < filteredChannels.length; j++) {
+          if (filteredChannels[j].num === targetNum) {
+            filteredChannels[j].name = newName;
+            break;
+          }
+        }
+        var card = listEl.querySelector('.channel-card[data-ch="' + targetNum + '"]');
+        if (card) {
+          card.setAttribute('data-name', newName);
+          var nameEl = card.querySelector('.channel-name');
+          if (nameEl) {
+            var isEditor = currentView === 'editor';
+            nameEl.innerHTML = escapeHtml(newName) + (isEditor ? ' <span class="edit-hint" title="Click channel name to rename">✏️</span>' : '');
+            if (isEditor) nameEl.setAttribute('title', 'Click channel name to rename');
+          }
+          var tBtn = card.querySelector('.btn-tune');
+          if (tBtn) tBtn.setAttribute('data-name', newName);
+        }
+      } else {
+        showToast('⚠️ Failed to rename channel: ' + (data.error || 'error'), 3500);
+      }
+    })
+    .catch(function (err) {
+      showToast('⚠️ Error: ' + err.message, 3500);
+    });
+  }
+
+  if (renameBtnCancel) renameBtnCancel.addEventListener('click', closeRenameModal);
+  if (renameBtnSave) renameBtnSave.addEventListener('click', doSaveRename);
+  if (renameInput) {
+    renameInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        doSaveRename();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeRenameModal();
+      }
+    });
+  }
+  setupBackdropDismiss(renameModal, closeRenameModal);
+
+  // Move Channels Modal Logic
+  var moveModal = document.getElementById('move-modal');
+  var moveTitle = document.getElementById('move-title');
+  var moveSummary = document.getElementById('move-summary');
+  var moveInputTarget = document.getElementById('move-input-target');
+  var movePreview = document.getElementById('move-preview');
+  var moveError = document.getElementById('move-error');
+  var moveBtnClose = document.getElementById('move-btn-close');
+  var moveBtnCancel = document.getElementById('move-btn-cancel');
+  var moveBtnConfirm = document.getElementById('move-btn-confirm');
+  var btnBatchMove = document.getElementById('btn-batch-move');
+
+  var currentMoveChannels = [];
+  var currentMoveSourceType = 'dvbs';
+
+  function openMoveModal() {
+    var selNums = getSelectedArray();
+    if (selNums.length === 0) {
+      showToast('⚠️ Please select at least one channel to move', 2000);
+      return;
+    }
+
+    var chMap = {};
+    for (var i = 0; i < allChannels.length; i++) {
+      chMap[allChannels[i].num] = allChannels[i];
+    }
+
+    currentMoveChannels = [];
+    var typesFound = {};
+    for (var s = 0; s < selNums.length; s++) {
+      var ch = chMap[selNums[s]];
+      if (ch) {
+        currentMoveChannels.push(ch);
+        typesFound[ch.type || 'dvbs'] = true;
+      }
+    }
+
+    currentMoveChannels.sort(function (a, b) { return a.num - b.num; });
+
+    var typesArr = [];
+    for (var tk in typesFound) {
+      if (typesFound.hasOwnProperty(tk)) typesArr.push(tk);
+    }
+
+    if (typesArr.length > 1) {
+      showToast('⚠️ Selected channels belong to different sources (Satellite and TV Plus). Please select channels from one source to move.', 3500);
+      return;
+    }
+
+    currentMoveSourceType = typesArr[0] || 'dvbs';
+
+    var k = currentMoveChannels.length;
+    var chListText = [];
+    for (var m = 0; m < Math.min(k, 6); m++) {
+      chListText.push('#' + currentMoveChannels[m].num + ' (' + (currentMoveChannels[m].name || 'Ch' + currentMoveChannels[m].num) + ')');
+    }
+    if (k > 6) {
+      chListText.push('… +' + (k - 6) + ' more');
+    }
+
+    if (moveTitle) moveTitle.textContent = '🔄 Move ' + k + ' Channel' + (k > 1 ? 's' : '');
+    if (moveSummary) {
+      moveSummary.innerHTML = '<strong>' + k + ' channel' + (k > 1 ? 's' : '') + ' selected:</strong><br>' + escapeHtml(chListText.join(', '));
+    }
+
+    if (moveInputTarget) {
+      moveInputTarget.value = '';
+    }
+    if (movePreview) movePreview.textContent = '';
+    if (moveError) {
+      moveError.style.display = 'none';
+      moveError.textContent = '';
+    }
+    if (moveBtnConfirm) moveBtnConfirm.disabled = true;
+
+    if (moveModal) moveModal.style.display = 'flex';
+    setTimeout(function () {
+      if (moveInputTarget) {
+        moveInputTarget.focus();
+      }
+    }, 100);
+  }
+
+  function closeMoveModal() {
+    if (moveModal) moveModal.style.display = 'none';
+    currentMoveChannels = [];
+  }
+
+  function updateMovePreviewAndValidation() {
+    if (!moveInputTarget) return;
+    var valStr = (moveInputTarget.value || '').trim();
+    if (!valStr) {
+      if (movePreview) movePreview.textContent = 'Enter the target channel number where these channels will start.';
+      if (moveError) moveError.style.display = 'none';
+      if (moveBtnConfirm) moveBtnConfirm.disabled = true;
+      return;
+    }
+
+    var targetNum = parseInt(valStr, 10);
+    var k = currentMoveChannels.length;
+
+    if (isNaN(targetNum) || targetNum < 1) {
+      if (moveError) {
+        moveError.textContent = 'Target channel number must be at least 1.';
+        moveError.style.display = 'block';
+      }
+      if (movePreview) movePreview.textContent = '';
+      if (moveBtnConfirm) moveBtnConfirm.disabled = true;
+      return;
+    }
+
+    if (targetNum > 9999) {
+      if (moveError) {
+        moveError.textContent = 'Channel number cannot exceed 9999.';
+        moveError.style.display = 'block';
+      }
+      if (movePreview) movePreview.textContent = '';
+      if (moveBtnConfirm) moveBtnConfirm.disabled = true;
+      return;
+    }
+
+    if (targetNum + k - 1 > 9999) {
+      if (moveError) {
+        moveError.textContent = 'Moving ' + k + ' channels starting at #' + targetNum + ' would exceed max channel number 9999 (reaches #' + (targetNum + k - 1) + ').';
+        moveError.style.display = 'block';
+      }
+      if (movePreview) movePreview.textContent = '';
+      if (moveBtnConfirm) moveBtnConfirm.disabled = true;
+      return;
+    }
+
+    var isAlready = true;
+    for (var i = 0; i < k; i++) {
+      if (currentMoveChannels[i].num !== (targetNum + i)) {
+        isAlready = false;
+        break;
+      }
+    }
+
+    if (isAlready) {
+      if (moveError) {
+        moveError.textContent = 'Selected channel' + (k > 1 ? 's are' : ' is') + ' already at #' + targetNum + (k > 1 ? (' - #' + (targetNum + k - 1)) : '') + '.';
+        moveError.style.display = 'block';
+      }
+      if (movePreview) movePreview.textContent = '';
+      if (moveBtnConfirm) moveBtnConfirm.disabled = true;
+      return;
+    }
+
+    if (moveError) moveError.style.display = 'none';
+    var targetRangeStr = '#' + targetNum + (k > 1 ? (' - #' + (targetNum + k - 1)) : '');
+    if (movePreview) {
+      movePreview.innerHTML = '✨ Channels will be placed at <strong>' + targetRangeStr + '</strong> in order. Displaced channels will shift accordingly.';
+    }
+    if (moveBtnConfirm) moveBtnConfirm.disabled = false;
+  }
+
+  function doSaveMove() {
+    if (!moveInputTarget) return;
+    var targetNum = parseInt((moveInputTarget.value || '').trim(), 10);
+    var k = currentMoveChannels.length;
+    if (isNaN(targetNum) || targetNum < 1 || targetNum > 9999 || (targetNum + k - 1 > 9999)) {
+      return;
+    }
+
+    var chNums = [];
+    for (var i = 0; i < currentMoveChannels.length; i++) {
+      chNums.push(currentMoveChannels[i].num);
+    }
+
+    var sourceType = currentMoveSourceType || 'dvbs';
+    closeMoveModal();
+    showToast('⏳ Moving ' + k + ' channel' + (k > 1 ? 's' : '') + ' to #' + targetNum + '…', 4000);
+
+    fetch('edit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'move',
+        channels: chNums,
+        target: targetNum,
+        type: sourceType
+      })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        showToast('✅ Moved ' + k + ' channel' + (k > 1 ? 's' : '') + ' to #' + targetNum + (k > 1 ? (' - #' + (targetNum + k - 1)) : '') + ' (' + (data.changed || 0) + ' total shifted)', 3500);
+
+        if (data.changes && data.changes.length > 0) {
+          var changeMapBySrvId = {};
+          var changeMapByMajor = {};
+          for (var c = 0; c < data.changes.length; c++) {
+            var chg = data.changes[c];
+            if (chg.srvId) changeMapBySrvId[chg.srvId] = chg.newMajor;
+            changeMapByMajor[chg.oldMajor] = chg.newMajor;
+          }
+
+          var newSelected = {};
+          for (var a = 0; a < allChannels.length; a++) {
+            var ach = allChannels[a];
+            if (ach.type === sourceType || (!ach.type && sourceType === 'dvbs')) {
+              var newM = null;
+              if (ach.srvId && changeMapBySrvId.hasOwnProperty(ach.srvId)) {
+                newM = changeMapBySrvId[ach.srvId];
+              } else if (changeMapByMajor.hasOwnProperty(ach.num)) {
+                newM = changeMapByMajor[ach.num];
+              }
+
+              if (newM !== null) {
+                var wasSel = !!selectedChannels[ach.num];
+                ach.num = newM;
+                if (wasSel) {
+                  newSelected[newM] = true;
+                }
+              } else if (selectedChannels[ach.num]) {
+                newSelected[ach.num] = true;
+              }
+            }
+          }
+          selectedChannels = newSelected;
+        }
+
+        applyFilters();
+
+        setTimeout(function () {
+          var firstTargetCard = listEl.querySelector('.channel-card[data-ch="' + targetNum + '"]');
+          if (firstTargetCard) {
+            firstTargetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstTargetCard.style.outline = '2px solid #a855f7';
+            setTimeout(function () { firstTargetCard.style.outline = ''; }, 2000);
+          }
+        }, 150);
+      } else {
+        showToast('⚠️ Move failed: ' + (data.error || 'unknown error'), 4000);
+      }
+    })
+    .catch(function (err) {
+      showToast('⚠️ Error: ' + err.message, 3500);
+    });
+  }
+
+  if (btnBatchMove) btnBatchMove.addEventListener('click', openMoveModal);
+  if (moveBtnClose) moveBtnClose.addEventListener('click', closeMoveModal);
+  if (moveBtnCancel) moveBtnCancel.addEventListener('click', closeMoveModal);
+  if (moveBtnConfirm) moveBtnConfirm.addEventListener('click', doSaveMove);
+  if (moveInputTarget) {
+    moveInputTarget.addEventListener('input', updateMovePreviewAndValidation);
+    moveInputTarget.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (moveBtnConfirm && !moveBtnConfirm.disabled) {
+          doSaveMove();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMoveModal();
+      }
+    });
+  }
+  setupBackdropDismiss(moveModal, closeMoveModal);
+
+  // Switch to TV Source Button
+  if (btnSwitchTv) {
+    btnSwitchTv.addEventListener('click', function () {
+      showToast('📺 Switching to TV Source…', 3000);
+      fetch('tvsource', { method: 'POST' })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.ok) showToast('📺 Switched to TV Source', 2000);
+          else showToast('⚠️ Could not switch source', 2500);
+        })
+        .catch(function () { showToast('⚠️ Network error', 2500); });
+    });
+  }
+
+  // Search input events
+  searchInput.addEventListener('input', function () {
+    searchQuery = searchInput.value;
+    btnClearSearch.style.display = searchQuery ? 'block' : 'none';
+    applyFilters();
+  });
+
+  btnClearSearch.addEventListener('click', function () {
+    searchInput.value = '';
+    searchQuery = '';
+    btnClearSearch.style.display = 'none';
+    searchInput.focus();
+    applyFilters();
+  });
+
+  // View Switcher Tabs
+  var viewTabButtons = document.querySelectorAll('.tab-btn');
+  for (var v = 0; v < viewTabButtons.length; v++) {
+    viewTabButtons[v].addEventListener('click', function () {
+      for (var j = 0; j < viewTabButtons.length; j++) {
+        viewTabButtons[j].classList.remove('active');
+      }
+      this.classList.add('active');
+      currentView = this.getAttribute('data-view');
+
+      if (currentView === 'editor') {
+        appEl.classList.add('editor-mode');
+      } else {
+        appEl.classList.remove('editor-mode');
+      }
+
+      if (typeof updateStickyReloadVisibility === 'function') {
+        updateStickyReloadVisibility();
+      }
+      applyFilters();
+    });
+  }
+
+  // Filter Chips
+  var chipButtons = document.querySelectorAll('#chips-source .chip');
+  for (var c = 0; c < chipButtons.length; c++) {
+    chipButtons[c].addEventListener('click', function () {
+      for (var k = 0; k < chipButtons.length; k++) {
+        chipButtons[k].classList.remove('active');
+      }
+      this.classList.add('active');
+      currentSourceFilter = this.getAttribute('data-filter');
+      applyFilters();
+    });
+  }
+
+  // Export Channels Backup ZIP (handles iframe sandbox allow-downloads limitation)
+  var btnExportBak = document.getElementById('btn-export-bak');
+  var exportModal = document.getElementById('export-modal');
+  var exportZipName = document.getElementById('export-zip-name');
+  var exportUrlInput = document.getElementById('export-url-input');
+  var btnCopyExportUrl = document.getElementById('btn-copy-export-url');
+  var exportDirectLink = document.getElementById('export-direct-link');
+  var exportCopyHint = document.getElementById('export-copy-hint');
+  var exportBtnClose = document.getElementById('export-btn-close');
+
+  function showExportModal(filename, directUrl) {
+    if (exportZipName) exportZipName.textContent = filename || 'Channel_list_backup.zip';
+    if (exportUrlInput) exportUrlInput.value = directUrl;
+    if (exportDirectLink) exportDirectLink.href = directUrl;
+    if (exportCopyHint) exportCopyHint.style.display = 'none';
+    if (exportModal) exportModal.style.display = 'flex';
+
+    setTimeout(function () {
+      if (exportUrlInput) {
+        exportUrlInput.focus();
+        exportUrlInput.select();
+      }
+    }, 120);
+  }
+
+  function hideExportModal() {
+    if (exportModal) exportModal.style.display = 'none';
+  }
+
+  if (exportBtnClose) exportBtnClose.addEventListener('click', hideExportModal);
+  setupBackdropDismiss(exportModal, hideExportModal);
+
+  if (btnCopyExportUrl) {
+    btnCopyExportUrl.addEventListener('click', function () {
+      if (!exportUrlInput) return;
+      exportUrlInput.select();
+      exportUrlInput.setSelectionRange(0, 99999);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(exportUrlInput.value).then(function () {
+          if (exportCopyHint) exportCopyHint.style.display = 'inline';
+          showToast('✅ Link copied! Paste in a new tab to download', 3000);
+        }).catch(function () {
+          try {
+            document.execCommand('copy');
+            if (exportCopyHint) exportCopyHint.style.display = 'inline';
+            showToast('✅ Link copied! Paste in a new tab to download', 3000);
+          } catch (e) {
+            showToast('Link selected: press Ctrl+C / Cmd+C to copy', 3000);
+          }
+        });
+      } else {
+        try {
+          document.execCommand('copy');
+          if (exportCopyHint) exportCopyHint.style.display = 'inline';
+          showToast('✅ Link copied! Paste in a new tab to download', 3000);
+        } catch (e) {
+          showToast('Link selected: press Ctrl+C / Cmd+C to copy', 3000);
+        }
+      }
+    });
+  }
+
+  if (btnExportBak) {
+    btnExportBak.addEventListener('click', function () {
+      var directExportUrl = window.location.href.split('?')[0].replace(/\/ui\/?$/, '/export');
+      showExportModal('Channel_list_backup.zip', directExportUrl);
+    });
+  }
+
+  // Import Channels Backup ZIP
+  var btnImportBak = document.getElementById('btn-import-bak');
+  var fileImportInput = document.getElementById('file-import-input');
+  if (btnImportBak && fileImportInput) {
+    btnImportBak.addEventListener('click', function () {
+      fileImportInput.value = '';
+      fileImportInput.click();
+    });
+
+    fileImportInput.addEventListener('change', function () {
+      var file = fileImportInput.files && fileImportInput.files[0];
+      if (!file) return;
+
+      var sizeKb = Math.round(file.size / 1024);
+      showConfirmModal({
+        title: 'Import Channel Backup?',
+        message: 'Import "' + file.name + '" (' + sizeKb + ' KB)? This will replace the TV channel databases and reload the TV tuner.',
+        confirmText: 'Import & Apply',
+        danger: false,
+        icon: '📥'
+      }, function () {
+        showToast('⏳ Uploading and importing channel list…', 5000);
+
+        fetch('import', {
+          method: 'POST',
+          body: file
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            showToast('✅ ' + (data.message || 'Channels imported successfully!'), 3000);
+            fetchChannels(true);
+          } else {
+            showToast('⚠️ Import failed: ' + (data.error || 'error'), 4000);
+          }
+        })
+        .catch(function (err) {
+          showToast('⚠️ Error uploading backup: ' + err.message, 3500);
+        });
+      });
+    });
+  }
+
+  // Reload TV buttons (Editor Toolbar & Sticky Header)
+  var btnReloadTv = document.getElementById('btn-reload-tv');
+  var btnStickyReload = document.getElementById('btn-sticky-reload');
+  var editorBar = document.getElementById('editor-bar');
+
+  function triggerReloadTv() {
+    showToast('🔄 Flushing TV channel manager…', 3000);
+    if (btnReloadTv) btnReloadTv.classList.add('loading');
+    if (btnStickyReload) btnStickyReload.classList.add('loading');
+    fetch('reload', { method: 'POST' })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (btnReloadTv) btnReloadTv.classList.remove('loading');
+        if (btnStickyReload) btnStickyReload.classList.remove('loading');
+        if (data.ok) {
+          showToast('✅ TV channel manager reloaded!', 2500);
+          fetchChannels(true);
+        } else {
+          showToast('⚠️ Reload failed: ' + (data.error || 'error'), 3000);
+        }
+      })
+      .catch(function () {
+        if (btnReloadTv) btnReloadTv.classList.remove('loading');
+        if (btnStickyReload) btnStickyReload.classList.remove('loading');
+        showToast('⚠️ Network error', 2500);
+      });
+  }
+
+  if (btnReloadTv) {
+    btnReloadTv.addEventListener('click', triggerReloadTv);
+  }
+  if (btnStickyReload) {
+    btnStickyReload.addEventListener('click', triggerReloadTv);
+  }
+
+  // Remote Control Key Dispatch (Vol+, Vol-, CH+, CH-)
+  function sendKey(keyName, cb) {
+    fetch('key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: keyName })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (typeof cb === 'function') cb(null, data);
+    })
+    .catch(function (err) {
+      console.warn('Key event failed', err);
+      if (typeof cb === 'function') cb(err);
+    });
+  }
+
+  // Click & Hold (Long-Press Auto-Repeat) Helper for Volume Buttons
+  function attachHoldRepeat(el, onTrigger) {
+    if (!el) return;
+    var holdTimer = null;
+    var isHolding = false;
+    var inFlight = false;
+    var activePointerId = null;
+
+    function step() {
+      if (!isHolding) return;
+      if (inFlight) {
+        holdTimer = setTimeout(step, 30);
+        return;
+      }
+      inFlight = true;
+      onTrigger(function () {
+        inFlight = false;
+        if (isHolding) {
+          holdTimer = setTimeout(step, 160);
+        }
+      });
+    }
+
+    function startHold(e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      if (isHolding) return;
+      isHolding = true;
+      activePointerId = e.pointerId != null ? e.pointerId : null;
+      el.classList.add('holding');
+
+      try {
+        if (activePointerId != null && el.setPointerCapture) {
+          el.setPointerCapture(activePointerId);
+        }
+      } catch (err) {}
+
+      if (e.preventDefault) e.preventDefault();
+
+      inFlight = true;
+      onTrigger(function () {
+        inFlight = false;
+        if (isHolding) {
+          holdTimer = setTimeout(step, 350);
+        }
+      });
+    }
+
+    function stopHold(e) {
+      if (!isHolding) return;
+      isHolding = false;
+      el.classList.remove('holding');
+
+      if (holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+
+      try {
+        if (activePointerId != null && el.releasePointerCapture) {
+          el.releasePointerCapture(activePointerId);
+        }
+      } catch (err) {}
+      activePointerId = null;
+    }
+
+    if (window.PointerEvent) {
+      el.addEventListener('pointerdown', startHold);
+      el.addEventListener('pointerup', stopHold);
+      el.addEventListener('pointercancel', stopHold);
+      el.addEventListener('pointerleave', function (e) {
+        if (!activePointerId) stopHold(e);
+      });
+    } else {
+      el.addEventListener('mousedown', startHold);
+      el.addEventListener('mouseup', stopHold);
+      el.addEventListener('mouseleave', stopHold);
+      el.addEventListener('touchstart', startHold, { passive: false });
+      el.addEventListener('touchend', stopHold);
+      el.addEventListener('touchcancel', stopHold);
+    }
+
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onTrigger();
+      }
+    });
+
+    el.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+      return false;
+    });
+  }
+
+  var btnVolUp = document.getElementById('btn-vol-up');
+  if (btnVolUp) {
+    attachHoldRepeat(btnVolUp, function (done) {
+      sendKey('vol_up', done);
+    });
+  }
+  var btnVolDown = document.getElementById('btn-vol-down');
+  if (btnVolDown) {
+    attachHoldRepeat(btnVolDown, function (done) {
+      sendKey('vol_down', done);
+    });
+  }
+  var btnChUp = document.getElementById('btn-ch-up');
+  if (btnChUp) {
+    btnChUp.addEventListener('click', function () { sendKey('ch_up'); });
+  }
+  var btnChDown = document.getElementById('btn-ch-down');
+  if (btnChDown) {
+    btnChDown.addEventListener('click', function () { sendKey('ch_down'); });
+  }
+
+  // Sticky Reload Button Visibility on Scroll
+  function updateStickyReloadVisibility() {
+    if (currentView !== 'editor') {
+      if (btnStickyReload) btnStickyReload.style.display = 'none';
+      return;
+    }
+    var targetEl = btnReloadTv || editorBar;
+    if (!targetEl || !btnStickyReload) return;
+    var rect = targetEl.getBoundingClientRect();
+    var isDisappeared = rect.bottom <= 10;
+    btnStickyReload.style.display = isDisappeared ? 'inline-flex' : 'none';
+  }
+
+  window.addEventListener('scroll', updateStickyReloadVisibility, { passive: true });
+  if (window.IntersectionObserver && editorBar) {
+    var editorObserver = new IntersectionObserver(function () {
+      updateStickyReloadVisibility();
+    }, { threshold: [0, 0.2, 0.5, 1.0] });
+    editorObserver.observe(editorBar);
+  }
+
+
+
+  // Infinite Scroll Handler
+  window.addEventListener('scroll', function () {
+    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 400) {
+      if (renderLimit < filteredChannels.length) {
+        renderLimit += 60;
+        renderList();
+      }
+    }
+  }, { passive: true });
+
+  // Initial Load
+  fetchChannels(false);
+
+})();
+</script>
+</body>
+</html>
