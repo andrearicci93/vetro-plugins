@@ -1,0 +1,10 @@
+{
+  "id": "tpk-autorun-fix",
+  "name": "TPK autorun fix",
+  "version": "0.4.0",
+  "apiVersion": 1,
+  "description": "Reopens the last app at power-on when Samsung's Autorun Last App skips it (.tpk apps you installed yourself).",
+  "author": "Namer03",
+  "permissions": ["exec"],
+  "main": "index.js"
+}
