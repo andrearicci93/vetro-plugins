@@ -104,8 +104,6 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
   var LEVELS = [["info", "\u2139\uFE0F"], ["ok", "\u2705"], ["warn", "\u26A0\uFE0F"], ["alert", "\uD83D\uDD34"]];
   var COLORS = { info: "#2f7bff", ok: "#2fc28b", warn: "#f5a524", alert: "#f0506e" };
   var lang = "en", level = "info";
-  try { lang = localStorage.getItem("nc_lang") || ((navigator.language || "en").slice(0, 2) === "pt" ? "pt" : "en"); } catch (e) { lang = "en"; }
-  if (!T[lang]) { lang = "en"; }
   function tr(k) { return T[lang][k] || T.en[k] || k; }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function say(text, cls) { $("result").textContent = text || ""; $("result").className = "msg " + (cls || ""); }
@@ -144,7 +142,8 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     $("l-en").className = lang === "en" ? "on" : ""; $("l-pt").className = lang === "pt" ? "on" : "";
     paintLevels(); preview(); recent();
   }
-  function setLang(l) { lang = l; try { localStorage.setItem("nc_lang", l); } catch (e) { /* storage unavailable */ } applyLang(); }
+  // The language is a Shard setting (default English); it also decides the language of the app screen on the TV.
+  function setLang(l) { lang = l; applyLang(); api("lang", { lang: l }).catch(function (e) { say(e.message, "err"); }); }
   // The dashboard frame has no allow-forms: use buttons and the Enter key, not <form>.
   $("send").addEventListener("click", function () {
     say(tr("sending"));
@@ -159,6 +158,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
   $("l-pt").addEventListener("click", function () { setLang("pt"); });
   $("curl").textContent = 'curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify \\\n  -H "Content-Type: application/json" \\\n  -d \'{"title":"Oven","message":"Dinner is ready","level":"ok","seconds":30}\'';
   applyLang();
+  api("lang").then(function (d) { if (T[d.lang] && d.lang !== lang) { lang = d.lang; applyLang(); } }).catch(function () { /* keep English */ });
 })();
 </script>
 </body>

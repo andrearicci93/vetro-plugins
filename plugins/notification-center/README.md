@@ -11,7 +11,7 @@ launch the companion app, and the app shows it as a **native Samsung TV banner**
 > **Status: early.** It works end to end on one TV (see "Tested on"), but it is **not** a banner on top of the running
 > app: the companion app has to come to the foreground for a few seconds. Read "Limitations" before installing.
 
-The panel (tab **Notifications**) and the app screen are bilingual (English / Portuguese, chosen from the browser/TV language, switchable in the panel) and use a One UI style look. The banner itself is always the TV's own native one.
+The panel (tab **Notifications**) and the app screen are bilingual (English by default, Portuguese optional: use the EN/PT switch in the panel, or `POST .../api/lang` with `{"lang":"pt"}`) and use a One UI style look. The banner itself is always the TV's own native one.
 
 ## Permissions
 
@@ -26,7 +26,7 @@ None. It does not use `exec`.
 
 ## Data it keeps
 
-Nothing in `ctx.config`. The id of the companion app is fixed in the code (`NotifCtr01.NotifCenter`), so no route can point the Shard at another app.
+Only the display language (`lang`, `en` or `pt`) is kept in `ctx.config`. The id of the companion app is fixed in the code (`NotifCtr01.NotifCenter`), so no route can point the Shard at another app.
 The queue (up to 5 active notifications) and the list of the last 20 sent are kept in memory only and are cleared when the Shard stops.
 
 ## How it works

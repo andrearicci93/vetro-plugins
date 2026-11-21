@@ -17,6 +17,8 @@ module.exports = function (ctx) {
     var seq = 0;
     var lastOpen = 0;
 
+    // Display language of the app screen and the panel: 'en' (default) or 'pt'. The only thing kept in ctx.config.
+    function getLang() { var c = ctx.config.get() || {}; return c.lang === 'pt' ? 'pt' : 'en'; }
     function appId() { return DEFAULT_APP; }   // fixed: nothing can point the Shard at another app
     function send(res, code, type, body) {
         res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store' });
@@ -109,10 +111,23 @@ module.exports = function (ctx) {
             if (sub === 'notifications' && req.method === 'GET') {
                 prune();
                 var now = Date.now();
-                var out = { notifications: queue.map(function (n) {
+                var out = { lang: getLang(), notifications: queue.map(function (n) {
                     return { id: n.id, title: n.title, message: n.message, level: n.level, seconds: Math.ceil((n.expires - now) / 1000) };
                 }) };
                 if (wantsScript(req)) { sendScript(res, out); } else { sendJson(res, 200, out); }
+                return true;
+            }
+            if (sub === 'lang' && req.method === 'GET') { sendJson(res, 200, { lang: getLang() }); return true; }
+            if (sub === 'lang' && req.method === 'POST') {
+                readBody(req, function (raw) {
+                    var b;
+                    try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
+                    if (!b || (b.lang !== 'en' && b.lang !== 'pt')) { return sendJson(res, 400, { error: 'lang must be en or pt' }); }
+                    var c = ctx.config.get() || {};
+                    c.lang = b.lang;
+                    ctx.config.set(c);
+                    sendJson(res, 200, { lang: b.lang });
+                });
                 return true;
             }
             if (sub === 'recent' && req.method === 'GET') { sendJson(res, 200, { recent: recent }); return true; }

@@ -18,9 +18,12 @@
 
 
   // Screen shown while the app is open: a One UI style card (EN/PT by the TV language). The banner itself is the TV's native one.
-  var PT = /^pt/i.test(navigator.language || '');
-  var TX = PT ? { wait: 'Centro de Notifica\u00E7\u00F5es', ready: '\u00C0 espera de avisos', sent: 'Aviso enviado', back: 'A voltar \u00E0 aplica\u00E7\u00E3o anterior em ', err: 'Sem liga\u00E7\u00E3o ao Shard' }
-              : { wait: 'Notification Center', ready: 'Waiting for notifications', sent: 'Notification sent', back: 'Returning to the previous app in ', err: 'Cannot reach the Shard' };
+  // The language is a Shard setting (default English); it is applied as soon as the first answer from the Shard arrives.
+  var DICT = {
+    en: { wait: 'Notification Center', ready: 'Waiting for notifications', sent: 'Notification sent', back: 'Returning to the previous app in', err: 'Cannot reach the Shard' },
+    pt: { wait: 'Centro de Notifica\u00E7\u00F5es', ready: '\u00C0 espera de avisos', sent: 'Aviso enviado', back: 'A voltar \u00E0 aplica\u00E7\u00E3o anterior em', err: 'Sem liga\u00E7\u00E3o ao Shard' }
+  };
+  var TX = DICT.en;
   var COL = { info: '#2f7bff', ok: '#2fc28b', warn: '#f5a524', alert: '#f0506e' };
   var ICO = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
   var cardEl = null;
@@ -35,10 +38,15 @@
     document.head.appendChild(st);
     cardEl = document.createElement('div'); cardEl.id = 'nc';
     cardEl.innerHTML = '<h1></h1><p></p><div id="ncl"></div>';
-    cardEl.getElementsByTagName('h1')[0].textContent = '\uD83D\uDD14 ' + TX.wait;
-    cardEl.getElementsByTagName('p')[0].textContent = TX.ready;
     document.body.appendChild(cardEl);
+    applyLang('en');
   })();
+  function applyLang(l) {
+    TX = DICT[l] || DICT.en;
+    if (!cardEl) { return; }
+    cardEl.getElementsByTagName('h1')[0].textContent = '\uD83D\uDD14 ' + TX.wait;
+    if (!document.getElementById('ncl').firstChild) { cardEl.getElementsByTagName('p')[0].textContent = TX.ready; }
+  }
   function showCard(n) {
     if (!cardEl) { return; }
     var c = COL[n.level] || COL.info, d = document.createElement('div');
@@ -91,9 +99,9 @@
       if (i >= list.length) { return done(errors.join('; ') || 'no address'); }
       var base = list[i++];
       xhrGet(base, function (err, text) {
-        if (!err) { try { apiGood = base; return done(null, JSON.parse(text).notifications || []); } catch (e) { err = 'json'; } }
+        if (!err) { try { apiGood = base; var jd = JSON.parse(text); applyLang(jd.lang); return done(null, jd.notifications || []); } catch (e) { err = 'json'; } }
         scriptGet(base, function (err2, data) {
-          if (!err2) { apiGood = base; return done(null, (data && data.notifications) || []); }
+          if (!err2) { apiGood = base; applyLang(data && data.lang); return done(null, (data && data.notifications) || []); }
           errors.push(base + ' xhr:' + err + ' script:' + err2); next();
         });
       });
@@ -114,10 +122,15 @@
   function countdown(sec) {
     if (!cardEl || cdTimer) { return; }
     var el = document.createElement('div');
-    el.style.cssText = 'margin-top:40px;font-size:30px;color:#8b96ab';
+    el.style.cssText = 'margin-top:48px;color:#8b96ab;font-size:34px';
     cardEl.appendChild(el);
     (function tick() {
-      el.textContent = TX.back + sec + ' s';
+      el.innerHTML = '';
+      var lbl = document.createElement('div'), num = document.createElement('div');
+      lbl.textContent = TX.back;
+      num.textContent = String(sec);
+      num.style.cssText = 'font-size:220px;font-weight:700;line-height:1.05;color:#fff';
+      el.appendChild(lbl); el.appendChild(num);
       if (sec <= 0) { return; }
       sec -= 1; cdTimer = setTimeout(tick, 1000);
     })();
