@@ -13,6 +13,9 @@ does bring the companion app to the foreground for a few seconds. Everything run
 
 The panel (tab **Notifications**) and the app screen are bilingual (English by default, Portuguese optional: use the EN/PT switch in the panel, or `POST .../api/lang` with `{"lang":"pt"}`) and use a One UI style look. The banner itself is always the TV's own native one.
 
+The icon can be picked from the panel (button "Choose icon"): an emoji list with search in English and Portuguese, bundled with the Shard
+(`emoji.json`, Unicode CLDR data from [emojibase-data](https://github.com/milesj/emojibase) 18.0.0, MIT; emoji up to Unicode 13, no network needed).
+
 ## Permissions
 
 None. It does not use `exec`.
@@ -70,7 +73,7 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify -H "Auth
 
 The companion app on the TV itself (127.0.0.1) needs no key. With pairing off (Vetro's "Disable pairing mode") any device on the LAN can send notifications.
 
-Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `mode` (`both` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
+Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `icon` (an emoji, up to 8 characters: in front of the title on the native banner and in the card; default by level: ℹ️ ✅ ⚠️ 🔴), `mode` (`banner` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
 (`false` only queues it, without launching the app). The page of this Shard (tab **Notifications**) has a form for it.
 
 ## Install the companion app (required)
@@ -84,7 +87,7 @@ Sign it with your own certificate and install it with Apps2Samsung, TV-Store or 
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://localhost/notifcenter" version="0.2.0" viewmodes="maximized">
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://localhost/notifcenter" version="0.2.1" viewmodes="maximized">
   <tizen:application id="NotifCtr01.NotifCenter" package="NotifCtr01" required_version="6.0"/>
   <name>Notification Center</name>
   <icon src="icon.png"/>
@@ -147,6 +150,7 @@ try {
 } catch (e) { /* keep loopback only */ }
 var PATH = '/plugins/notification-center/api/notifications';
 var seen = {};
+var EMOJI = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
 function check() {
   var i = 0;
   (function next() {
@@ -156,7 +160,10 @@ function check() {
         if (seen[n.id]) { return; }
         seen[n.id] = 1;
         if (n.mode !== 'banner') { return; }   // "full" and "both" are shown by the companion app screen
-        try { webapis.postPlainNotification(n.title || 'Notification', n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
+        // The native banner takes plain text only, but it draws emoji: the icon (or the level's emoji) goes in front of the title.
+        var head = n.icon || EMOJI[n.level] || '';
+        var title = (head ? head + ' ' : '') + (n.title || 'Notification');
+        try { webapis.postPlainNotification(title, n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
       });
     }).catch(function () { next(); });
   })();

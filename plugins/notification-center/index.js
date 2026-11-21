@@ -90,6 +90,7 @@ module.exports = function (ctx) {
             var note = {
                 id: seq + '-' + Date.now().toString(36),
                 title: clean(b.title, MAX_TITLE),
+                icon: clean(b.icon, 8),
                 message: message,
                 level: LEVELS[b.level] ? b.level : 'info',
                 mode: MODES[b.mode] ? b.mode : 'banner',
@@ -98,7 +99,7 @@ module.exports = function (ctx) {
             };
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
-            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, at: Date.now() });
+            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
             var opened = b.open === false ? 'not requested' : openApp(note.mode === 'banner');
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
@@ -119,13 +120,14 @@ module.exports = function (ctx) {
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
             if (sub === 'ui' && req.method === 'GET') { sendFile(res, 'ui.html', 'text/html; charset=utf-8'); return true; }
+            if (sub === 'emoji' && req.method === 'GET') { sendFile(res, 'emoji.json', 'application/json; charset=utf-8'); return true; }
             if (sub === 'nt.js' && req.method === 'GET') { sendFile(res, 'nt.js', 'application/javascript; charset=utf-8'); return true; }
             if (sub === 'notify' && req.method === 'POST') { handleNotify(req, res); return true; }
             if (sub === 'notifications' && req.method === 'GET') {
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {
-                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, seconds: Math.ceil((n.expires - now) / 1000) };
+                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, seconds: Math.ceil((n.expires - now) / 1000) };
                 }) };
                 if (wantsScript(req)) { sendScript(res, out); } else { sendJson(res, 200, out); }
                 return true;

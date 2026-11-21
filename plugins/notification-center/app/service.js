@@ -9,6 +9,7 @@ try {
 } catch (e) { /* keep loopback only */ }
 var PATH = '/plugins/notification-center/api/notifications';
 var seen = {};
+var EMOJI = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
 function check() {
   var i = 0;
   (function next() {
@@ -18,7 +19,10 @@ function check() {
         if (seen[n.id]) { return; }
         seen[n.id] = 1;
         if (n.mode !== 'banner') { return; }   // "full" and "both" are shown by the companion app screen
-        try { webapis.postPlainNotification(n.title || 'Notification', n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
+        // The native banner takes plain text only, but it draws emoji: the icon (or the level's emoji) goes in front of the title.
+        var head = n.icon || EMOJI[n.level] || '';
+        var title = (head ? head + ' ' : '') + (n.title || 'Notification');
+        try { webapis.postPlainNotification(title, n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
       });
     }).catch(function () { next(); });
   })();

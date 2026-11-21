@@ -24,6 +24,7 @@
     pt: { wait: 'Centro de Notifica\u00E7\u00F5es', ready: '\u00C0 espera de avisos', sent: 'Aviso enviado', back: 'A voltar \u00E0 aplica\u00E7\u00E3o anterior em', err: 'Sem liga\u00E7\u00E3o ao Shard' }
   };
   var TX = DICT.en;
+  var EMO = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
   var COL = { info: '#2f7bff', ok: '#2fc28b', warn: '#f5a524', alert: '#f0506e' };
   // One UI style line icons (24x24, round caps): info, done, warning, alert.
   var ICON_BODY = {
@@ -60,7 +61,7 @@
     if (!cardEl) { return; }
     var c = COL[n.level] || COL.info, d = document.createElement('div');
     d.className = 'card'; d.style.setProperty('--c', c);
-    var ic = document.createElement('div'); ic.className = 'ic'; ic.innerHTML = iconSvg(n.level, 56);
+    var ic = document.createElement('div'); ic.className = 'ic'; if (n.icon) { ic.textContent = n.icon; ic.style.fontSize = '48px'; } else { ic.innerHTML = iconSvg(n.level, 56); }
     var b = document.createElement('div'), t = document.createElement('div'), m = document.createElement('div');
     t.className = 't'; t.textContent = n.title || ''; m.className = 'm'; m.textContent = n.message || '';
     b.appendChild(t); b.appendChild(m); d.appendChild(ic); d.appendChild(b);
@@ -164,7 +165,7 @@
       fresh.forEach(function (n) {
         seen[n.id] = 1;
         if (n.mode !== 'banner') { showCard(n); }
-        (n.mode === 'full' ? function (t, b, cb) { cb(null); } : post)(n.title || 'Notification', n.message || '', function (e) {
+        (n.mode === 'full' ? function (t, b, cb) { cb(null); } : post)(((n.icon || EMO[n.level] || '') + ' ' + (n.title || 'Notification')).replace(/^ /, ''), n.message || '', function (e) {
           log(e ? 'err' : 'ok', (n.title || 'Notification') + ': ' + (e || 'posted'));
           pending -= 1;
           if (pending) { return; }
