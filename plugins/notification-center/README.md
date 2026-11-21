@@ -1,7 +1,11 @@
 # Notification Center
 
+> **This Shard does nothing on its own: it needs the companion web app on the TV.** The app (an unsigned `.wgt`, id `NotifCtr01.NotifCenter`)
+> is not part of the catalog. Get it from https://github.com/mclaudiopt/tv-notification-center/releases, sign it with your own certificate and
+> install it (see "Install the companion app" below). Without it, `notify` queues messages but nothing is shown.
+
 Any device on your LAN (PC, phone, script) can `POST` a message to this Shard. It queues the message, asks Vetro to
-launch a small companion web app, and the app shows it as a **native Samsung TV banner** (top-right, with the OK /
+launch the companion app, and the app shows it as a **native Samsung TV banner** (top-right, with the OK /
 "View history" buttons, kept in the TV's own notification history). Everything runs on the TV, no PC is needed afterwards.
 
 > **Status: early.** It works end to end on one TV (see "Tested on"), but it is **not** a banner on top of the running
@@ -13,14 +17,14 @@ None. It does not use `exec`.
 
 ## Network
 
-- **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `notifications`, `recent`, `config`, `ui`, `nt.js`),
+- **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `notifications`, `recent`, `ui`, `nt.js`),
   open to every device that can reach Vetro, like the rest of Vetro when pairing is off.
 - **Outgoing:** one call, to Vetro itself on `127.0.0.1:8099` (`POST /apps/launch`, body `{"appId": "..."}`), to start the companion app. At most once every 10 seconds.
   It talks to no other host and downloads no code.
 
 ## Data it keeps
 
-`ctx.config`: `{ "appId": "NotifCtr01.NotifCenter" }`, the id of the companion app to launch.
+Nothing in `ctx.config`. The id of the companion app is fixed in the code (`NotifCtr01.NotifCenter`), so no route can point the Shard at another app.
 The queue (up to 5 active notifications) and the list of the last 20 sent are kept in memory only and are cleared when the Shard stops.
 
 ## How it works
@@ -49,10 +53,26 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify \
   -d '{"title":"Oven","message":"Dinner is ready","seconds":30}'
 ```
 
+**With pairing on (Vetro's default)** a request from another device goes through Vetro's sign-in like every other route, so a script on the LAN needs
+`Authorization: Bearer <key>`. Pair the script once (the TV shows a 6-digit code), as described in Vetro's `SIGN-IN.md`:
+
+```
+curl -s -X POST -H 'Content-Type: application/json' -d '{"name":"scripts"}' http://<TV-IP>:8099/auth/pair
+curl -s -X POST -H 'Content-Type: application/json' -d '{"id":"<id>","code":"<code>"}' http://<TV-IP>:8099/auth/confirm   # returns the token
+curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"message":"Dinner is ready"}'
+```
+
+The companion app on the TV itself (127.0.0.1) needs no key. With pairing off (Vetro's "Disable pairing mode") any device on the LAN can send notifications.
+
 Fields: `message` (required, 200 characters), `title` (40), `seconds` (5-300, how long it stays in the queue), `open`
 (`false` only queues it, without launching the app). The page of this Shard (tab **Notifications**) has a form for it.
 
-## The companion app (copy these three files)
+## Install the companion app (required)
+
+Download the unsigned `.wgt` from the releases of https://github.com/mclaudiopt/tv-notification-center, or build it from the three files below (also in `app/`).
+Sign it with your own certificate and install it with Apps2Samsung, TV-Store or Tizen Studio. The app id must stay `NotifCtr01.NotifCenter`.
+
+### Source (copy these three files)
 
 `config.xml`
 
@@ -104,7 +124,7 @@ Fields: `message` (required, 200 characters), `title` (40), `seconds` (5-300, ho
 These three files are also in the `app/` folder next to this README. A ready-made, **unsigned** `.wgt` (with an icon) is attached to
 the releases of https://github.com/mclaudiopt/tv-notification-center (a catalog Shard can only hold text files, so the `.wgt` and its icon are not here).
 Add any 512x512 `icon.png`, zip the files as `.wgt`, sign it and install it (Apps2Samsung, TV-Store, Tizen Studio).
-If you use another app id, set it in the **Companion app** box of this Shard's page. If loopback does not answer on your TV,
+If loopback does not answer on your TV,
 add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matching `<access origin="...">` to `config.xml`.
 
 ## Limitations (all measured on a real TV)
@@ -121,7 +141,7 @@ add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matchi
 - The TV refuses to run **unsigned script files** ("the file is NOT signed"); inline commands through Vetro still work. This Shard needs neither.
 - Whether the previous screen comes back cleanly after the app exits was tested only from the launcher, not yet over
   every kind of source (live TV, HDMI).
-- Anyone who can reach Vetro's port can send notifications and make it launch the app (Vetro without pairing).
+- With pairing off, any device that can reach Vetro's port can send notifications and make Vetro launch the companion app (at most once every 10 s); with pairing on, senders need a key (see above).
 
 ## Tested on
 

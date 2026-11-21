@@ -41,9 +41,7 @@ pre { padding: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-a
 
 <h2>Companion app</h2>
 <div class="card">
-  <div class="row"><input type="text" id="appid" maxlength="128" placeholder="App id"><button id="save" type="button">Save</button></div>
-  <div class="msg" id="cfg"></div>
-  <div class="msg">The app must be installed on the TV (see the README). The Shard only asks Vetro to launch it.</div>
+  <div class="msg">Launches <code>NotifCtr01.NotifCenter</code> (the app id is fixed). It must be installed on the TV, see the README.</div>
 </div>
 
 <h2>Send from another device</h2>
@@ -75,10 +73,6 @@ pre { padding: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-a
   });
   $("message").addEventListener("keydown", function (e) { if (e.key === "Enter") { $("send").click(); } });
   $("refresh").addEventListener("click", recent);
-  $("save").addEventListener("click", function () {
-    api("config", { appId: $("appid").value }).then(function (c) { say($("cfg"), "Saved: " + c.appId, "ok"); }).catch(function (e) { say($("cfg"), e.message, "err"); });
-  });
-  api("config").then(function (c) { $("appid").value = c.appId; });
   $("curl").textContent = 'curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify \\\n  -H "Content-Type: application/json" \\\n  -d \'{"title":"Oven","message":"Dinner is ready","seconds":30}\'';
   recent();
 })();

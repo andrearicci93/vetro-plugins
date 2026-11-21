@@ -8,7 +8,6 @@ var http = require('http');
 
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
-var APP_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 var DEFAULT_APP = 'NotifCtr01.NotifCenter';
 
 module.exports = function (ctx) {
@@ -17,10 +16,7 @@ module.exports = function (ctx) {
     var seq = 0;
     var lastOpen = 0;
 
-    function appId() {
-        var c = ctx.config.get() || {};
-        return APP_ID.test(c.appId || '') ? c.appId : DEFAULT_APP;
-    }
+    function appId() { return DEFAULT_APP; }   // fixed: nothing can point the Shard at another app
     function send(res, code, type, body) {
         res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store' });
         res.end(body);
@@ -92,19 +88,6 @@ module.exports = function (ctx) {
         });
     }
 
-    function handleConfig(req, res) {
-        if (req.method === 'GET') { sendJson(res, 200, { appId: appId(), defaultAppId: DEFAULT_APP }); return true; }
-        readBody(req, function (raw) {
-            var b;
-            try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
-            var id = b && b.appId;
-            if (!APP_ID.test(id || '')) { return sendJson(res, 400, { error: 'invalid appId' }); }
-            ctx.config.set({ appId: id });
-            sendJson(res, 200, { appId: id });
-        });
-        return true;
-    }
-
     function sendFile(res, name, type) {
         fs.readFile(path.join(__dirname, name), 'utf8', function (err, text) {
             if (err) { return sendJson(res, 500, { error: name + ' is missing' }); }
@@ -131,7 +114,6 @@ module.exports = function (ctx) {
                 return true;
             }
             if (sub === 'recent' && req.method === 'GET') { sendJson(res, 200, { recent: recent }); return true; }
-            if (sub === 'config' && (req.method === 'GET' || req.method === 'POST')) { return handleConfig(req, res); }
             return false;
         }
     };
