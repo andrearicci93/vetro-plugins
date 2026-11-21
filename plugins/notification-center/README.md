@@ -1,15 +1,15 @@
 # Notification Center
 
-> **This Shard does nothing on its own: it needs the companion web app on the TV.** The app (an unsigned `.wgt`, id `NotifCtr01.NotifCenter`)
-> is not part of the catalog. Get it from https://github.com/mclaudiopt/tv-notification-center/releases, sign it with your own certificate and
-> install it (see "Install the companion app" below). Without it, `notify` queues messages but nothing is shown.
+> **This Shard does nothing on its own: it needs the companion app on the TV.** The app (an unsigned `.wgt`, id `NotifCtr01.NotifCenter`, with a
+> background service `NotifCtr01.Svc`) is not part of the catalog. Get it from https://github.com/mclaudiopt/tv-notification-center/releases, sign it
+> with your own certificate and install it (see "Install the companion app" below). Without it, `notify` queues messages but nothing is shown.
 
-Any device on your LAN (PC, phone, script) can `POST` a message to this Shard. It queues the message, asks Vetro to
-launch the companion app, and the app shows it as a **native Samsung TV banner** (top-right, with the OK /
-"View history" buttons, kept in the TV's own notification history). Everything runs on the TV, no PC is needed afterwards.
+Any device on your LAN (PC, phone, script) can `POST` a message to this Shard. By default the TV shows it as a **native Samsung banner**
+(top-right, with the OK / "View history" buttons, kept in the TV's own notification history) **on top of whatever is running, without opening
+any app**: the companion app's background service posts it. Optionally the message can also (or only) be shown as a **full-screen card**, which
+does bring the companion app to the foreground for a few seconds. Everything runs on the TV, no PC is needed afterwards.
 
-> **Status: early.** It works end to end on one TV (see "Tested on"), but it is **not** a banner on top of the running
-> app: the companion app has to come to the foreground for a few seconds. Read "Limitations" before installing.
+> **Status: early.** It works end to end on one TV (see "Tested on"). Read "Limitations" before installing.
 
 The panel (tab **Notifications**) and the app screen are bilingual (English by default, Portuguese optional: use the EN/PT switch in the panel, or `POST .../api/lang` with `{"lang":"pt"}`) and use a One UI style look. The banner itself is always the TV's own native one.
 
@@ -19,10 +19,11 @@ None. It does not use `exec`.
 
 ## Network
 
-- **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `notifications`, `recent`, `ui`, `nt.js`),
+- **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `notifications`, `recent`, `lang`, `ui`, `nt.js`),
   open to every device that can reach Vetro, like the rest of Vetro when pairing is off.
-- **Outgoing:** one call, to Vetro itself on `127.0.0.1:8099` (`POST /apps/launch`, body `{"appId": "..."}`), to start the companion app. At most once every 10 seconds.
-  It talks to no other host and downloads no code.
+- **Outgoing:** one call, to Vetro itself on `127.0.0.1:8099` (`POST /apps/launch`, body `{"appId": "..."}`), to start the companion app or its service.
+  The app is launched at most once every 10 seconds. It talks to no other host and downloads no code.
+- The companion app's service reads this Shard on the TV's own LAN address, port 8099 (`GET notifications`). Nothing leaves the TV.
 
 ## Data it keeps
 
@@ -32,14 +33,17 @@ The queue (up to 5 active notifications) and the list of the last 20 sent are ke
 ## How it works
 
 ```
+mode "banner" (default, native banner over the running app, no app switch):
+any device --POST notify--> Shard (queue) --POST /apps/launch--> Vetro starts the app's background SERVICE (headless)
+service --GET notifications--> Shard --> webapis.postPlainNotification(title, message, seconds) --> TV banner + notification history
+
+modes "full" / "both" (full-screen card; the companion app comes to the foreground):
 any device --POST notify--> Shard (queue) --POST /apps/launch--> Vetro launches the companion app
-companion app --GET notifications--> Shard      (XHR, or <script> if the TV blocks cross-origin XHR)
-companion app --new Notification(title, {body})--> TV banner + TV notification history
-companion app stays open ~8 s (it must be on screen for the banner to show), then exits
+app --GET notifications--> Shard --> card on screen (+ new Notification(...) native banner for "both") --> exits after `duration`
 ```
 
-The companion app is a **thin loader**: its logic is `nt.js`, served by this Shard, so you can change the logic from the
-Vetro panel without reinstalling the app on the TV.
+The full-screen app is a **thin loader**: its logic is `nt.js`, served by this Shard, so you can change it from the Vetro panel without
+reinstalling the app. The background service is self-contained (it downloads no code).
 
 ## Install
 
@@ -71,16 +75,16 @@ Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok
 
 ## Install the companion app (required)
 
-Download the unsigned `.wgt` from the releases of https://github.com/mclaudiopt/tv-notification-center, or build it from the three files below (also in `app/`).
-Sign it with your own certificate and install it with Apps2Samsung, TV-Store or Tizen Studio. The app id must stay `NotifCtr01.NotifCenter`.
+Download the unsigned `.wgt` from the releases of https://github.com/mclaudiopt/tv-notification-center, or build it from the four files below (also in `app/`) plus any 512x512 `icon.png`.
+Sign it with your own certificate and install it with Apps2Samsung, TV-Store or Tizen Studio. The app id must stay `NotifCtr01.NotifCenter` and the service id `NotifCtr01.Svc`.
 
-### Source (copy these three files)
+### Source (copy these four files)
 
 `config.xml`
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://localhost/notifcenter" version="0.1.0" viewmodes="maximized">
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://localhost/notifcenter" version="0.2.0" viewmodes="maximized">
   <tizen:application id="NotifCtr01.NotifCenter" package="NotifCtr01" required_version="6.0"/>
   <name>Notification Center</name>
   <icon src="icon.png"/>
@@ -90,6 +94,12 @@ Sign it with your own certificate and install it with Apps2Samsung, TV-Store or 
   <tizen:privilege name="http://tizen.org/privilege/internet"/>
   <tizen:privilege name="http://tizen.org/privilege/notification"/>
   <tizen:profile name="tv-samsung"/>
+  <tizen:service id="NotifCtr01.Svc" auto-restart="false" on-boot="false">
+    <tizen:content src="service.js"/>
+    <tizen:name>Notification Center service</tizen:name>
+    <tizen:icon src="icon.png"/>
+    <tizen:description>Shows the Samsung notification banner without opening an app</tizen:description>
+  </tizen:service>
 </widget>
 ```
 
@@ -123,7 +133,40 @@ Sign it with your own certificate and install it with Apps2Samsung, TV-Store or 
 })();
 ```
 
-These three files are also in the `app/` folder next to this README. A ready-made, **unsigned** `.wgt` (with an icon) is attached to
+`service.js` (the background service)
+
+```js
+// Background service of the Notification Center companion app (Node.js in the TV's web service runtime).
+// Vetro starts it (POST /apps/launch) each time a notification is queued in "banner" mode; it reads the Shard's queue and posts the native
+// Samsung banner with webapis.postPlainNotification, without opening any app.
+// The Shard is reached on the TV's own LAN address (found here), because loopback is not reachable from the service on every TV.
+var HOSTS = ['127.0.0.1'];
+try {
+  var ifs = require('os').networkInterfaces();
+  Object.keys(ifs).forEach(function (k) { ifs[k].forEach(function (i) { if (i.family === 'IPv4' && !i.internal && HOSTS.indexOf(i.address) < 0) { HOSTS.push(i.address); } }); });
+} catch (e) { /* keep loopback only */ }
+var PATH = '/plugins/notification-center/api/notifications';
+var seen = {};
+function check() {
+  var i = 0;
+  (function next() {
+    if (i >= HOSTS.length) { return; }
+    fetch('http://' + HOSTS[i++] + ':8099' + PATH + '?t=' + Date.now()).then(function (r) { if (!r.ok) { throw new Error('http ' + r.status); } return r.json(); }).then(function (d) {
+      (d.notifications || []).forEach(function (n) {
+        if (seen[n.id]) { return; }
+        seen[n.id] = 1;
+        if (n.mode !== 'banner') { return; }   // "full" and "both" are shown by the companion app screen
+        try { webapis.postPlainNotification(n.title || 'Notification', n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
+      });
+    }).catch(function () { next(); });
+  })();
+}
+module.exports.onStart = check;
+module.exports.onRequest = check;
+module.exports.onStop = function () {};
+```
+
+These files are also in the `app/` folder next to this README. A ready-made, **unsigned** `.wgt` (with an icon) is attached to
 the releases of https://github.com/mclaudiopt/tv-notification-center (a catalog Shard can only hold text files, so the `.wgt` and its icon are not here).
 Add any 512x512 `icon.png`, zip the files as `.wgt`, sign it and install it (Apps2Samsung, TV-Store, Tizen Studio).
 `nt.js` also tries the address it was loaded from. If the app shows "nt.js failed" (loopback does not answer on some TVs), build the app with the TV's LAN address too:
@@ -131,15 +174,13 @@ add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matchi
 
 ## Limitations (all measured on a real TV)
 
-- **The app must be in the foreground to post.** The web `Notification` API only works while the web app is on screen
-  (a background web app is suspended and its timers stop). So the companion app comes to the front, posts, stays ~8 s
-  (leaving earlier hides the banner), and exits. You will see it for a moment, and what was playing is interrupted briefly.
-- `tizen.notification` / `StatusNotification` **do not exist** on the TV profile; only the web `Notification` API works.
-- **No banner over the running app without launching an app.** I checked that it is not possible from a Shard or a shell:
-  the TV's `libnotification` uses its own sockets (nothing about notifications on the system D-Bus), there is no
-  `notification_test`, and writing to `/opt/dbspace/.notification.db` does not notify the UI. The realistic way is a small
-  background **`service-application`** (native or .NET) with the `notification` privilege calling `NotificationManager.Post`.
-  Nobody has built it here (no Tizen Studio / .NET SDK); **help wanted**.
+- **Banner mode** uses Samsung's `webapis.postPlainNotification(title, message, seconds)`, which exists only inside a web *service* (a background
+  `<tizen:service>` of the app, Node.js 18 in `wrt-service-launcher`). It takes plain text and a duration: **no icon, level or colour** on the native
+  banner (the level only colours the panel and the full-screen card).
+- **Full-screen card / both**: the web `Notification` API only works while the web app is on screen, so the companion app comes to the front, shows
+  the card for `duration` seconds and exits; what was playing is interrupted briefly. `tizen.notification` does not exist in the app (UI) context.
+- The service reaches the Shard through the TV's own LAN address (loopback is not reachable from the service on the TV I tested, `EHOSTUNREACH`).
+- Plain `notification_test`, `libnotification` sockets, D-Bus and writing the notification database were all dead ends (see the repository's `docs/NATIVE-NOTIFICATIONS.md`).
 - The TV refuses to run **unsigned script files** ("the file is NOT signed"); inline commands through Vetro still work. This Shard needs neither.
 - Whether the previous screen comes back cleanly after the app exits was tested only from the launcher, not yet over
   every kind of source (live TV, HDMI).

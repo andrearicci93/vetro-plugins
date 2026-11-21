@@ -8,10 +8,11 @@ var http = require('http');
 
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
-var DEFAULT_APP = 'NotifCtr01.NotifCenter';
+var DEFAULT_APP = 'NotifCtr01.NotifCenter';   // the companion app (screen: full-screen card, native banner)
+var SERVICE_APP = 'NotifCtr01.Svc';           // its background service (native banner over the running app, no app switch)
 var LEVELS = { info: 1, ok: 1, warn: 1, alert: 1 };
 var MIN_DURATION = 1, MAX_DURATION = 60, DEFAULT_DURATION = 8;
-var MODES = { both: 1, banner: 1, full: 1 };   // banner = native Samsung banner only, full = full-screen card only
+var MODES = { both: 1, banner: 1, full: 1 };   // banner (default) = native banner over the running app, from the background service; full = full-screen card; both = card + banner
 
 module.exports = function (ctx) {
     var queue = [];      // active notifications (memory only)
@@ -47,12 +48,15 @@ module.exports = function (ctx) {
         queue = queue.filter(function (n) { return n.expires > now; });
     }
 
-    // Asks Vetro to launch the companion app (at most once every 10 s).
-    function openApp() {
+    // Asks Vetro to launch the companion app (at most once every 10 s), or its background service (every time: it is
+    // headless, so launching it only makes it read the queue and post the banner).
+    function openApp(service) {
         var now = Date.now();
-        if (now - lastOpen < OPEN_EVERY_MS) { return 'skipped (less than 10 s since the last launch)'; }
-        lastOpen = now;
-        var body = JSON.stringify({ appId: appId() });
+        if (!service) {
+            if (now - lastOpen < OPEN_EVERY_MS) { return 'skipped (less than 10 s since the last launch)'; }
+            lastOpen = now;
+        }
+        var body = JSON.stringify({ appId: service ? SERVICE_APP : appId() });
         try {
             var rq = http.request({
                 host: '127.0.0.1', port: 8099, path: '/apps/launch', method: 'POST', timeout: 5000,
@@ -88,7 +92,7 @@ module.exports = function (ctx) {
                 title: clean(b.title, MAX_TITLE),
                 message: message,
                 level: LEVELS[b.level] ? b.level : 'info',
-                mode: MODES[b.mode] ? b.mode : 'both',
+                mode: MODES[b.mode] ? b.mode : 'banner',
                 duration: dur,
                 expires: Date.now() + secs * 1000
             };
@@ -96,7 +100,7 @@ module.exports = function (ctx) {
             if (queue.length > MAX_QUEUE) { queue.shift(); }
             recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
-            var opened = b.open === false ? 'not requested' : openApp();
+            var opened = b.open === false ? 'not requested' : openApp(note.mode === 'banner');
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
         });
     }

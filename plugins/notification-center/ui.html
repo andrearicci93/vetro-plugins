@@ -142,7 +142,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (ICON_BODY[level] || ICON_BODY.info) + '</svg>';
   }
   var COLORS = { info: "#2f7bff", ok: "#2fc28b", warn: "#f5a524", alert: "#f0506e" };
-  var lang = "en", level = "info", mode = "both", lastRecent = [];
+  var lang = "en", level = "info", mode = "banner", lastRecent = [];
   function tr(k) { return T[lang][k] || T.en[k] || k; }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function say(text, cls) { $("result").textContent = text || ""; $("result").className = "msg " + (cls || ""); }
@@ -159,7 +159,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     for (i = 0; i < b.length; i++) { b[i].addEventListener("click", function () { level = this.getAttribute("data-l"); paintLevels(); preview(); }); }
   }
   function paintModes() {
-    var MODES = ["both", "banner", "full"];
+    var MODES = ["banner", "full", "both"];
     $("modes").innerHTML = MODES.map(function (m) {
       return '<button type="button" class="md' + (m === mode ? " on" : "") + '" data-m="' + m + '">' + esc(tr("m_" + m)) + "</button>";
     }).join("");
