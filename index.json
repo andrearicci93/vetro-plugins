@@ -62,8 +62,8 @@
       "description": "Queue notifications from any device on the LAN and show them as native TV banners through a small companion web app. Talks only to Vetro on 127.0.0.1:8099.",
       "permissions": [],
       "url": "dist/notification-center-0.1.0.vplugin",
-      "sha256": "cb2a0e563ed282694a7c4295cce2aa21e0b7698db4b00dc11ff847bfb08f4cfe",
-      "size": 46960
+      "sha256": "95c46ff0a65f7f8c228898b61838aa890b05e24968cae0a9dc436c6d1e8e48e8",
+      "size": 47390
     },
     {
       "id": "prometheus",

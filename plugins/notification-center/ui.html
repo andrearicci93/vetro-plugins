@@ -24,6 +24,10 @@ input:focus { outline: 2px solid var(--acc); border-color: transparent; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .row label { color: var(--dim); font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .row input[type=number] { width: 80px; margin: 0; }
+.dur { display: flex; align-items: center; gap: 12px; width: 100%; color: var(--dim); font-size: 13px; }
+.dur input { flex: 1; accent-color: var(--acc); margin: 0; }
+.dur b { color: var(--txt); min-width: 44px; text-align: right; font-weight: 600; }
+.wide { grid-column: 1 / -1; }
 .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
 .lv { border: 1px solid var(--line); background: #0f131c; border-radius: 14px; padding: 10px 4px; cursor: pointer; text-align: center; font-size: 12px; color: var(--dim); }
 .lv i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 6px; }
@@ -63,7 +67,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     <input type="text" id="title" maxlength="40" data-p="ph_title">
     <input type="text" id="message" maxlength="200" data-p="ph_msg">
     <div class="row">
-      <label><span data-t="secs">Show for (s)</span> <input type="number" id="secs" min="1" max="60" value="8"></label>
+      <div class="dur"><span data-t="secs">Show for (s)</span><input type="range" id="secs" min="1" max="60" value="8"><b id="secsv">8 s</b></div>
       <label><input type="checkbox" id="open" checked> <span data-t="open">Show on TV now</span></label>
       <button class="send" id="send" type="button" data-t="btn">Send</button>
     </div>
@@ -82,7 +86,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     <button class="ghost" id="refresh" type="button" data-t="refresh">Refresh</button>
   </div>
 
-  <div class="card">
+  <div class="card wide">
     <h2 data-t="app">Companion app</h2>
     <div class="msg" style="margin:0 0 10px" data-t="appnote">Launches NotifCtr01.NotifCenter (fixed id). It must be installed on the TV, see the README.</div>
     <h2 data-t="curl">Send from another device</h2>
@@ -190,6 +194,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
   });
   $("message").addEventListener("keydown", function (e) { if (e.key === "Enter") { $("send").click(); } });
   $("message").addEventListener("input", preview); $("title").addEventListener("input", preview);
+  $("secs").addEventListener("input", function () { $("secsv").textContent = this.value + " s"; });
   $("refresh").addEventListener("click", recent);
   $("l-en").addEventListener("click", function () { setLang("en"); });
   $("l-pt").addEventListener("click", function () { setLang("pt"); });
