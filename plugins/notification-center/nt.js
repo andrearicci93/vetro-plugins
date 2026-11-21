@@ -19,8 +19,8 @@
 
   // Screen shown while the app is open: a One UI style card (EN/PT by the TV language). The banner itself is the TV's native one.
   var PT = /^pt/i.test(navigator.language || '');
-  var TX = PT ? { wait: 'Centro de Notifica\u00E7\u00F5es', ready: '\u00C0 espera de avisos', sent: 'Aviso enviado', err: 'Sem liga\u00E7\u00E3o ao Shard' }
-              : { wait: 'Notification Center', ready: 'Waiting for notifications', sent: 'Notification sent', err: 'Cannot reach the Shard' };
+  var TX = PT ? { wait: 'Centro de Notifica\u00E7\u00F5es', ready: '\u00C0 espera de avisos', sent: 'Aviso enviado', back: 'A voltar \u00E0 aplica\u00E7\u00E3o anterior em ', err: 'Sem liga\u00E7\u00E3o ao Shard' }
+              : { wait: 'Notification Center', ready: 'Waiting for notifications', sent: 'Notification sent', back: 'Returning to the previous app in ', err: 'Cannot reach the Shard' };
   var COL = { info: '#2f7bff', ok: '#2fc28b', warn: '#f5a524', alert: '#f0506e' };
   var ICO = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
   var cardEl = null;
@@ -110,6 +110,19 @@
     } catch (e) { cb(e.message); }
   }
 
+  var cdTimer = null;
+  function countdown(sec) {
+    if (!cardEl || cdTimer) { return; }
+    var el = document.createElement('div');
+    el.style.cssText = 'margin-top:40px;font-size:30px;color:#8b96ab';
+    cardEl.appendChild(el);
+    (function tick() {
+      el.textContent = TX.back + sec + ' s';
+      if (sec <= 0) { return; }
+      sec -= 1; cdTimer = setTimeout(tick, 1000);
+    })();
+  }
+
   // On start, on resume and every few seconds while visible: post what is new, stay open while the banner shows, then exit.
   function check(why) {
     if (busy) { return; }
@@ -127,7 +140,7 @@
           pending -= 1;
           if (pending) { return; }
           try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (x) { /* storage unavailable */ }
-          busy = false;
+          busy = false; countdown(Math.round(STAY_MS / 1000));
           // Leaving too early hides the banner: stay open while it is on screen.
           setTimeout(function () { try { tizen.application.getCurrentApplication().exit(); } catch (x) { /* not on a TV */ } }, STAY_MS);
         });
