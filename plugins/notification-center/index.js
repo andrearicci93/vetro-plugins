@@ -10,7 +10,7 @@ var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY 
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
 var DEFAULT_APP = 'NotifCtr01.NotifCenter';
 var LEVELS = { info: 1, ok: 1, warn: 1, alert: 1 };
-var MIN_DURATION = 2, MAX_DURATION = 60, DEFAULT_DURATION = 8;
+var MIN_DURATION = 1, MAX_DURATION = 60, DEFAULT_DURATION = 8;
 var MODES = { both: 1, banner: 1, full: 1 };   // banner = native Samsung banner only, full = full-screen card only
 
 module.exports = function (ctx) {

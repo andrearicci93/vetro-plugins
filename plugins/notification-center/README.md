@@ -66,7 +66,7 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify -H "Auth
 
 The companion app on the TV itself (127.0.0.1) needs no key. With pairing off (Vetro's "Disable pairing mode") any device on the LAN can send notifications.
 
-Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (2-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; at least 5 when a native banner is shown), `mode` (`both` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
+Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `mode` (`both` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
 (`false` only queues it, without launching the app). The page of this Shard (tab **Notifications**) has a form for it.
 
 ## Install the companion app (required)

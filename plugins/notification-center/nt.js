@@ -156,9 +156,9 @@
       if (!fresh.length) { busy = false; return log('inf', why + ': nothing new'); }
       var pending = fresh.length;
       // mode: 'banner' = native Samsung banner only, 'full' = full-screen card only, anything else = both.
-      // How long to stay on screen: the longest duration asked (default 8 s). The native banner needs about 5 s to show.
+      // How long to stay on screen: the longest duration asked (default 8 s), exactly as requested.
       var stayMs = 0;
-      fresh.forEach(function (n) { var d = parseInt(n.duration, 10) || 8; if (n.mode !== 'full' && d < 5) { d = 5; } if (d * 1000 > stayMs) { stayMs = d * 1000; } });
+      fresh.forEach(function (n) { var d = parseInt(n.duration, 10) || 8; if (d * 1000 > stayMs) { stayMs = d * 1000; } });
       var onlyBanner = fresh.every(function (n) { return n.mode === 'banner'; });
       if (cardEl) { cardEl.style.display = onlyBanner ? 'none' : ''; }
       fresh.forEach(function (n) {
