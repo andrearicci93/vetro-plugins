@@ -6,6 +6,11 @@
   window.__ncLoaded = true;
 
   var BASES = ['http://127.0.0.1:8099'];
+  // Also try the address this script was loaded from (the loader may have reached the Shard over the LAN).
+  try {
+    var me = document.currentScript && document.currentScript.src, o = me && /^(https?:\/\/[^\/]+)\/plugins\//.exec(me);
+    if (o && BASES.indexOf(o[1]) < 0) { BASES.push(o[1]); }
+  } catch (e) { /* ignore */ }
   var NOTES_PATH = '/plugins/notification-center/api/notifications';
   var SEEN_KEY = 'nc_seen', STAY_MS = 8000, WATCH_MS = 5000;
   var logEl = document.getElementById('log');
