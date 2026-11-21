@@ -10,6 +10,7 @@ var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY 
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
 var DEFAULT_APP = 'NotifCtr01.NotifCenter';
 var LEVELS = { info: 1, ok: 1, warn: 1, alert: 1 };
+var MIN_DURATION = 2, MAX_DURATION = 60, DEFAULT_DURATION = 8;
 var MODES = { both: 1, banner: 1, full: 1 };   // banner = native Samsung banner only, full = full-screen card only
 
 module.exports = function (ctx) {
@@ -75,6 +76,11 @@ module.exports = function (ctx) {
             var secs = parseInt(b.seconds, 10);
             if (!(secs >= MIN_SECONDS)) { secs = DEFAULT_SECONDS; }
             if (secs > MAX_SECONDS) { secs = MAX_SECONDS; }
+            // duration = how long the notification stays on the TV screen (the app shows it, then returns to the previous app).
+            var dur = parseInt(b.duration, 10);
+            if (!(dur >= MIN_DURATION)) { dur = DEFAULT_DURATION; }
+            if (dur > MAX_DURATION) { dur = MAX_DURATION; }
+            if (secs < dur + 20) { secs = dur + 20; }
             prune();
             seq += 1;
             var note = {
@@ -83,11 +89,12 @@ module.exports = function (ctx) {
                 message: message,
                 level: LEVELS[b.level] ? b.level : 'info',
                 mode: MODES[b.mode] ? b.mode : 'both',
+                duration: dur,
                 expires: Date.now() + secs * 1000
             };
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
-            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, at: Date.now() });
+            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
             var opened = b.open === false ? 'not requested' : openApp();
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
@@ -114,7 +121,7 @@ module.exports = function (ctx) {
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {
-                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, seconds: Math.ceil((n.expires - now) / 1000) };
+                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, seconds: Math.ceil((n.expires - now) / 1000) };
                 }) };
                 if (wantsScript(req)) { sendScript(res, out); } else { sendJson(res, 200, out); }
                 return true;

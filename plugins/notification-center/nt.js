@@ -12,7 +12,7 @@
     if (o && BASES.indexOf(o[1]) < 0) { BASES.push(o[1]); }
   } catch (e) { /* ignore */ }
   var NOTES_PATH = '/plugins/notification-center/api/notifications';
-  var SEEN_KEY = 'nc_seen', STAY_MS = 8000, WATCH_MS = 5000;
+  var SEEN_KEY = 'nc_seen', WATCH_MS = 5000;
   var logEl = document.getElementById('log');
   var apiGood = null, busy = false;
 
@@ -156,6 +156,9 @@
       if (!fresh.length) { busy = false; return log('inf', why + ': nothing new'); }
       var pending = fresh.length;
       // mode: 'banner' = native Samsung banner only, 'full' = full-screen card only, anything else = both.
+      // How long to stay on screen: the longest duration asked (default 8 s). The native banner needs about 5 s to show.
+      var stayMs = 0;
+      fresh.forEach(function (n) { var d = parseInt(n.duration, 10) || 8; if (n.mode !== 'full' && d < 5) { d = 5; } if (d * 1000 > stayMs) { stayMs = d * 1000; } });
       var onlyBanner = fresh.every(function (n) { return n.mode === 'banner'; });
       if (cardEl) { cardEl.style.display = onlyBanner ? 'none' : ''; }
       fresh.forEach(function (n) {
@@ -166,9 +169,9 @@
           pending -= 1;
           if (pending) { return; }
           try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (x) { /* storage unavailable */ }
-          busy = false; countdown(Math.round(STAY_MS / 1000));
+          busy = false; countdown(Math.round(stayMs / 1000));
           // Leaving too early hides the banner: stay open while it is on screen.
-          setTimeout(function () { try { tizen.application.getCurrentApplication().exit(); } catch (x) { /* not on a TV */ } }, STAY_MS);
+          setTimeout(function () { try { tizen.application.getCurrentApplication().exit(); } catch (x) { /* not on a TV */ } }, stayMs);
         });
       });
     });
