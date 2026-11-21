@@ -1,0 +1,15 @@
+{
+  "id": "arc-fix",
+  "name": "ARC receiver fix",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "description": "Resets legacy HDMI ARC receivers stuck in \"Decoder Off\" when a movie starts Dolby Digital or DD+.",
+  "author": "thalesv6",
+  "permissions": [
+    "exec"
+  ],
+  "main": "index.js",
+  "ui": {
+    "label": "ARC fix"
+  }
+}
