@@ -1,0 +1,11 @@
+{
+  "id": "notification-center",
+  "name": "Notification Center",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "permissions": [],
+  "author": "mclaudiopt",
+  "description": "Queue notifications from any device on the LAN and show them as native TV banners through a small companion web app. Talks only to Vetro on 127.0.0.1:8099.",
+  "main": "index.js",
+  "ui": { "label": "Notifications" }
+}
