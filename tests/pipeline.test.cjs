@@ -25,6 +25,10 @@ test('signature round trip and tampered/wrong-key/identity rejection',()=>{
  catalog.sign(dir,out,keys.privateKey.export({type:'pkcs8',format:'pem'}));fs.appendFileSync(path.join(out,'dist/sample-1.0.0.vplugin'),' ');assert.throws(()=>catalog.verify(out),/checksum/);
  const current=JSON.parse(fs.readFileSync(path.join(dir,'index.json')));current.plugins[0].url='../outside';fs.writeFileSync(path.join(dir,'index.json'),JSON.stringify(current));assert.throws(()=>catalog.sign(dir,out,keys.privateKey.export({type:'pkcs8',format:'pem'})),/unexpected bundle URL/);
 });
+test('ids of the Shards built into Vetro are refused (launcher; tuner from 0.7.0)',()=>{
+ for(const id of ['launcher','tuner'])assert.ok(build.validate(id,{...manifest,id},validFiles).some(e=>/bundled with Vetro/.test(e)),id);
+ assert.deepEqual(build.validate('tuner-extras',{...manifest,id:'tuner-extras'},validFiles),[]);
+});
 test('published changes require higher versions',()=>{
  const old={plugins:[{id:'sample',version:'1.2.0',sha256:'before'}]};
  assert.throws(()=>changes.check(old,{plugins:[{id:'sample',version:'1.2.0',sha256:'after'}]}),/new version/);

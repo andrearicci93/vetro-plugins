@@ -35,7 +35,7 @@ module.exports = function (ctx) {
         // Switched off (also called if start() throws). Release everything you opened.
         stop: function () { /* nothing to release */ },
 
-        // Only with "intercepts" in the manifest (see docs/writing-a-plugin.md): the launcher tile of that app calls
+        // Only with "intercepts" in the manifest (Vetro 0.7.0, see docs/writing-a-plugin.md): the launcher tile of that app calls
         // this instead of starting the app. Return a Promise: true = started, false = decline (Vetro starts the app).
         // launch: function (appId) { return ctx.execute('app_launcher -s ' + appId, 10000).then(function () { return true; }); },
 

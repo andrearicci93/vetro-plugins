@@ -53,7 +53,7 @@ a Shard run, then change it.
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `id` | yes | Equals the folder name. 2-32 characters, `a-z 0-9 -`, starts with a letter. Not `install`, `resume`, `developer` or `launcher` (a Shard that ships inside Vetro). |
+| `id` | yes | Equals the folder name. 2-32 characters, `a-z 0-9 -`, starts with a letter. Not `install`, `resume`, `developer`, `launcher` or `tuner` (Shards that ship inside Vetro). |
 | `apiVersion` | yes | `1`. |
 | `name` | yes | Up to 40 characters. Shown in the catalog. |
 | `version` | yes | `1.2.3`. The dashboard offers an update when the catalog has a higher one. |
@@ -63,7 +63,7 @@ a Shard run, then change it.
 | `main` | no | The entry file. Default `index.js`. |
 | `ui` | no | `{ "label": "…" }`, 1-24 characters. Adds a tab to the dashboard while the Shard runs. The Shard must answer the `ui` route. |
 | `controlCenter` | no | `{ "label": "…" }`, 1-24 plain characters. Adds one card to the Control center of the Vetro launcher while the Shard runs, from your `card()` and `cardSelect(rowId)`. Both methods are required with it. Needs Vetro 0.7.0; older versions ignore the key. See [Adding a card to the Control center](#adding-a-card-to-the-control-center). |
-| `intercepts` | no | `[{ "appId": "…", "label": "…" }]`, 1-3 apps. Says that the Vetro launcher's tile for each app starts your `launch(appId)` while the Shard runs. The Shard must have a `launch` method. See [Taking over an app's tile](#taking-over-an-apps-launcher-tile). |
+| `intercepts` | no | `[{ "appId": "…", "label": "…" }]`, 1-3 apps. Says that the Vetro launcher's tile for each app starts your `launch(appId)` while the Shard runs. The Shard must have a `launch` method. Needs Vetro 0.7.0; older versions ignore the key. See [Taking over an app's tile](#taking-over-an-apps-launcher-tile). |
 
 **Choosing `permissions`.** There is only one, `exec`: shell commands on the TV, as root. Leave it out unless you need
 it. If you have it, the README has to say which commands you run and why (section 4). Leaving it out does not make a
@@ -113,7 +113,7 @@ pressed. The Ad-free YouTube Shard does this for YouTube; a Twitch Shard could d
 - **Vetro tells the user.** The Shard's card in the dashboard shows **Intercepts the YouTube app**, and the install question lists the apps.
   The catalog entry (`index.json`) carries the same list, and Vetro refuses a download whose manifest lists other apps than the catalog says.
   Put it in your README too: say what changes for the tile.
-- It is **not a permission**: `permissions` stays `[]` or `["exec"]`. Older Vetro versions ignore the key and the Shard still loads.
+- It is **not a permission**: `permissions` stays `[]` or `["exec"]`. It needs **Vetro 0.7.0**: 0.5.0 and older ignore the key, the Shard still loads and the tile starts the app as before.
 - `launch(appId)` returns a Promise. Resolve `true` when the app is starting; resolve `false` to decline. It may take a while the first time (up to 2 minutes).
 - **The fallback is Vetro's.** If the Shard is off, has no answer, declines, throws, rejects or is too slow, Vetro starts the app the normal way, so the tile
   never goes dead. Do not start the app yourself *and* resolve `false`: it would start twice.
@@ -204,8 +204,8 @@ which `build.cjs` does not.
 3. Change the code, run `build.cjs` again, install again: the Shard is replaced in place and comes back switched off.
 4. If it fails, the dashboard shows *Failed* and the last error. Three errors in a row switch it off.
 
-If the TV does not come back after a restart, Vetro starts the next boot in safe mode: Shards are paused, and you can
-switch off or remove yours.
+If the TV does not come back after a restart, Vetro starts the next boot in safe mode (0.7.0: after two starts in a row that did not
+stay up for 60 seconds): Shards are paused, and you can switch off or remove yours.
 
 ## 7. Publish
 
@@ -273,7 +273,7 @@ built on this.
 | *Invalid* in the dashboard | The bundle failed a check on the TV. The reason is shown. |
 | `SHA-256 does not match` | The file changed after the catalog was written, or GitHub's CDN has not caught up (wait a few minutes). |
 | *Failed* | `start()` threw, or three errors came in a row. The message is the last one. |
-| Shards *Suspended* | Safe mode: the last boot did not stay up for 60 seconds. Switch off or remove the culprit, then Resume. |
+| Shards *Suspended* | Safe mode: the last start (0.7.0: the last two in a row) did not stay up for 60 seconds. Switch off or remove the culprit, then Resume (0.7.0 starts the Shards again at once; 0.5.0 at the next restart). |
 | Works in CI, breaks on the TV | Probably syntax newer than ES5. |
 | The page loads but its requests fail | An absolute URL in `fetch`: use a relative one. |
 | `has no exec permission` | You call `ctx.execute` and the manifest does not list `exec`. |

@@ -1,7 +1,7 @@
 # What a Vetro Shard can and cannot do
 
 Written against Vetro **0.4.0**, **0.5.0** and **0.7.0**, plugin API **1** (experimental). It did not change between 0.4.0 and 0.5.0. Vetro 0.7.0 adds
-an optional manifest key, `controlCenter` (`card` and `cardSelect` methods); older versions ignore it.
+two optional manifest keys, `intercepts` (`launch` method) and `controlCenter` (`card` and `cardSelect` methods); older versions ignore them.
 Since 0.5.0 the dashboard calls the plugin system **Vetro Shards** and one plugin a **Shard**; 0.4.0 calls the same page
 *Plugins*. Only that name changed: the code, the `permissions` field, the `.vplugin` bundles and the routes still say
 "plugin". Everything here comes from the host's code
@@ -50,12 +50,12 @@ Checked by the host. A Shard cannot opt out of any of these.
 | **Only paired devices manage Shards** | Installing, switching on and removing need a device paired with the TV. |
 | **Only its own routes** | A Shard gets `/plugins/<id>/api/...` and nothing else. It cannot take a Vetro route or another Shard's. |
 | **Failing Shards are switched off** | Calls into `start`, `status` and `route` are guarded. After **3 errors in a row** the Shard is stopped and shown as *Failed* with the last message. If `start()` throws, `stop()` is called so it can release what it took. |
-| **Safe mode** | If a boot does not stay up for 60 seconds, the next one starts with every Shard paused. They are still listed, so you can switch off or remove the culprit, then resume. |
+| **Safe mode** | If a start of Vetro does not stay up for 60 seconds, the next one starts with every Shard paused (from 0.7.0: two such starts in a row, so turning the TV off once right after a restart is not enough). They are still listed, so you can switch off or remove the culprit, then Resume (0.7.0 starts them again at once; 0.5.0 at the next restart). |
 | **Text only, small** | A bundle is at most **20 files and 512 KB** in total, text only: no binaries, no native code, no `node_modules`. File names use `a-z A-Z 0-9 . _ -` and `/`. |
-| **Manifest limits** | `id` 2-32 chars (`a-z 0-9 -`, starts with a letter, not `install`, `resume` or `developer`; nor the id of a built-in Shard such as `launcher`) · `name` ≤ 40 · `version` ≤ 24 · `description` ≤ 160 · `author` ≤ 60 · `ui.label` 1-24 · `intercepts` 1-3 apps, each `appId` a Tizen id (`a-z A-Z 0-9 . _ -`) and `label` 1-24 plain characters · `controlCenter.label` 1-24 plain characters · `apiVersion` must be `1` · `permissions` may only contain `exec`. |
+| **Manifest limits** | `id` 2-32 chars (`a-z 0-9 -`, starts with a letter, not `install`, `resume` or `developer`; nor the id of a built-in Shard, `launcher` or `tuner`) · `name` ≤ 40 · `version` ≤ 24 · `description` ≤ 160 · `author` ≤ 60 · `ui.label` 1-24 · `intercepts` 1-3 apps, each `appId` a Tizen id (`a-z A-Z 0-9 . _ -`) and `label` 1-24 plain characters · `controlCenter.label` 1-24 plain characters · `apiVersion` must be `1` · `permissions` may only contain `exec`. |
 | **Unsigned installs need Developer mode** | A Shard the catalog has not signed, including one installed from a file, installs only with **Developer mode** on. It is off by default and asks for confirmation. In 0.5.0 this holds for every build; in 0.4.0 only for builds that have the catalog's key. |
-| **Built-in Shards are protected** | A Shard that ships inside Vetro (since 0.5.0: `launcher`) cannot be replaced by a bundle or removed, and keeps running in safe mode. Only built-in Shards receive `ctx.vetro`, Vetro's own services; a catalog Shard never does. |
-| **Taking over a launcher tile** | A manifest `intercepts` list makes the Vetro launcher call the Shard's `launch(appId)` for those apps' tiles while the Shard is on. It is not a permission, the dashboard shows **Intercepts the &lt;app&gt; app** on the Shard's card and in the install question, and Vetro starts the app itself if the Shard is off, declines, fails or takes more than 2 minutes. The launcher never reads anything from the Shard: it only learns which tiles are taken over. Two Shards claiming the same app: neither takes it, and the dashboard shows the conflict. |
+| **Built-in Shards are protected** | A Shard that ships inside Vetro (since 0.5.0: `launcher`; since 0.7.0: `tuner`, Live TV) cannot be replaced by a bundle or removed, and keeps running in safe mode. Only built-in Shards receive `ctx.vetro`, Vetro's own services; a catalog Shard never does. |
+| **Taking over a launcher tile** | A manifest `intercepts` list makes the Vetro launcher call the Shard's `launch(appId)` for those apps' tiles while the Shard is on (Vetro 0.7.0; older versions ignore the key). It is not a permission, the dashboard shows **Intercepts the &lt;app&gt; app** on the Shard's card and in the install question, and Vetro starts the app itself if the Shard is off, declines, fails or takes more than 2 minutes. The launcher never reads anything from the Shard: it only learns which tiles are taken over. Two Shards claiming the same app: neither takes it, and the dashboard shows the conflict. |
 | **A card in the Control center** | A manifest `controlCenter` (`{ "label": "…" }`) makes the Vetro launcher's Control center show one card from the Shard's `card()` and `cardSelect(rowId)` while the Shard is on (Vetro 0.7.0; older versions ignore the key). It is not a permission. Vetro cleans everything the Shard returns (at most 7 rows, `label` 40, `value` 24, `note` 80 characters, no control characters), reads time out at 3 s and presses at 10 s, and errors are the card's own ("Not available"), never counted towards the 3 that switch a Shard off. The launcher never runs Shard code: it asks the Vetro service on the TV, which asks the Shard. The user has to turn the card on in Vetro UI → Launcher → Control center. |
 | **Own saved data** | `ctx.config` reads and writes one file, `config.json`, in the Shard's own folder. Nothing else survives an update; Remove deletes it. |
 | **`ctx.execute` needs `exec`** | Without the permission, `ctx.execute` rejects. This is the only thing the permission gates (see section 4). |
@@ -120,6 +120,7 @@ module.exports = function (ctx) {
 | `stop()` | It is switched off, or `start()` threw. Close everything you opened. |
 | `status()` | The dashboard asks for the Shard's detail. Returns an object. Called often: keep it cheap. |
 | `route(req, res, sub)` | A request to `/plugins/<id>/api/<sub>`. Return `true` when you answered, `false` when it is not yours. |
+| `launch(appId)` | Only with `intercepts` (Vetro 0.7.0). The tile of a listed app is pressed: start it your way and return a Promise of `true`, or `false` to let Vetro start it. Vetro gives it 2 minutes. |
 | `card()` | Only with `controlCenter` (Vetro 0.7.0). The Control center opens: return `{ rows: [{ id, label, value?, ticked? }], note?, choosable? }`, or a Promise of it. Vetro gives it 3 seconds. |
 | `cardSelect(rowId)` | Only with `controlCenter`. OK on a row: do it, return `{ ok, note?, rows? }`, or a Promise. 10 seconds. OK on a ticked row is ignored by the Control center. |
 
@@ -145,8 +146,9 @@ section 4: it is not supported, it can break on any Vetro update, and a Shard th
 
 **The Launcher is a Shard, but not one you can build on.** Since 0.5.0 it ships inside Vetro as a built-in Shard. It is
 not in the catalog, cannot be removed, and uses services (`ctx.vetro`) that the host lends to built-in Shards only. A
-catalog Shard cannot take the id `launcher`, and `build.cjs` refuses it. Other features may become built-in Shards in
-later Vetro versions; the same rule will apply to their ids.
+catalog Shard cannot take the id `launcher`, and `build.cjs` refuses it. Vetro 0.7.0 adds a second built-in Shard, `tuner`
+(its Live TV), with the same rule: 0.7.0 refuses a bundle with that id, and `build.cjs` refuses it too. Other features may
+become built-in Shards in later Vetro versions; the same rule will apply to their ids.
 
 Anything beyond this is possible only through shell commands (`exec`) or Node's own modules, which is exactly what
 section 4 is about. Say so in the README if your Shard does it.
@@ -175,4 +177,4 @@ section 4 is about. Say so in the README if your Shard does it.
 2. Read its README: what it runs, where it connects, what it stores.
 3. Be wary of `exec`. It is the one permission that is declared, but section 4 explains why its absence proves nothing.
 4. It lands switched off. Switch it on when you are ready; switch it off and Remove if you are not.
-5. If a TV does not come back after installing something, Vetro starts the next boot in safe mode by itself.
+5. If a TV does not come back after installing something, Vetro starts the next boot in safe mode by itself (0.7.0: after two starts in a row that did not stay up).

@@ -17,7 +17,7 @@ const acorn = require('acorn');
 // Copied, not imported: CI does not have the Vetro repo. Re-read them when a new Vetro version changes the API.
 const ID = /^[a-z][a-z0-9-]{1,31}$/, RESERVED = ['install', 'resume', 'developer'];
 const PERMISSIONS = ['exec'];
-const BUNDLED = ['launcher'];
+const BUNDLED = ['launcher', 'tuner'];   // built-in Shards of Vetro (0.5.0: launcher; 0.7.0: tuner): the TV refuses a bundle with their id
 const FILE = /^[A-Za-z0-9_-][A-Za-z0-9._-]*(\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
 const MAX_FILES = 20, MAX_BYTES = 512 * 1024;
 
