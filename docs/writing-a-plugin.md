@@ -102,7 +102,7 @@ All five are optional (`launch` only matters with `intercepts`). `ctx` gives you
 
 Some apps have to be started in a particular way: through a proxy, with a flag, with a patch applied first. A Shard can
 say that it does this for an app, and the Vetro launcher then starts the Shard instead of the app when that app's tile is
-pressed. The Ad-free YouTube Shard does this for YouTube; a Twitch Shard could do the same for the Twitch app.
+pressed. The Ad-free YouTube and Twitch enhancements Shards use it for their respective TV apps.
 
 ```json
 "intercepts": [{ "appId": "com.samsung.tv.cobalt-yt", "label": "YouTube" }]
