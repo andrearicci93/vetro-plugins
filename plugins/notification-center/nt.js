@@ -25,7 +25,16 @@
   };
   var TX = DICT.en;
   var COL = { info: '#2f7bff', ok: '#2fc28b', warn: '#f5a524', alert: '#f0506e' };
-  var ICO = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
+  // One UI style line icons (24x24, round caps): info, done, warning, alert.
+  var ICON_BODY = {
+    info: '<circle cx="12" cy="12" r="9.5"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r="0.6" fill="#fff"/>',
+    ok: '<circle cx="12" cy="12" r="9.5"/><path d="M7.6 12.6l3 3 5.8-6.4"/>',
+    warn: '<path d="M12 3.8L21.2 20H2.8z"/><path d="M12 10v4.6"/><circle cx="12" cy="17.4" r="0.6" fill="#fff"/>',
+    alert: '<circle cx="12" cy="12" r="9.5"/><path d="M12 7v6"/><circle cx="12" cy="16.6" r="0.6" fill="#fff"/>'
+  };
+  function iconSvg(level, size) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (ICON_BODY[level] || ICON_BODY.info) + '</svg>';
+  }
   var cardEl = null;
   (function buildUi() {
     var st = document.createElement('style');
@@ -33,7 +42,7 @@
       '#nc{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:1100px;max-width:90%;text-align:center}' +
       '#nc h1{font-size:44px;font-weight:600;margin:0 0 8px}#nc p{font-size:28px;color:#8b96ab;margin:0 0 40px}' +
       '#nc .card{display:flex;gap:28px;align-items:center;text-align:left;background:rgba(255,255,255,.08);border-radius:36px;padding:34px 42px;border-left:12px solid var(--c);margin-top:24px}' +
-      '#nc .ic{width:96px;height:96px;border-radius:50%;background:var(--c);display:grid;place-items:center;font-size:48px;flex:none}' +
+      '#nc .ic{width:96px;height:96px;border-radius:50%;background:var(--c);display:grid;place-items:center;flex:none}' +
       '#nc .t{font-size:38px;font-weight:600}#nc .m{font-size:30px;color:#c4cde0;margin-top:6px}#log{display:none}';
     document.head.appendChild(st);
     cardEl = document.createElement('div'); cardEl.id = 'nc';
@@ -51,7 +60,7 @@
     if (!cardEl) { return; }
     var c = COL[n.level] || COL.info, d = document.createElement('div');
     d.className = 'card'; d.style.setProperty('--c', c);
-    var ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = ICO[n.level] || ICO.info;
+    var ic = document.createElement('div'); ic.className = 'ic'; ic.innerHTML = iconSvg(n.level, 56);
     var b = document.createElement('div'), t = document.createElement('div'), m = document.createElement('div');
     t.className = 't'; t.textContent = n.title || ''; m.className = 'm'; m.textContent = n.message || '';
     b.appendChild(t); b.appendChild(m); d.appendChild(ic); d.appendChild(b);
