@@ -11,6 +11,41 @@
   var logEl = document.getElementById('log');
   var apiGood = null, busy = false;
 
+
+  // Screen shown while the app is open: a One UI style card (EN/PT by the TV language). The banner itself is the TV's native one.
+  var PT = /^pt/i.test(navigator.language || '');
+  var TX = PT ? { wait: 'Centro de Notifica\u00E7\u00F5es', ready: '\u00C0 espera de avisos', sent: 'Aviso enviado', err: 'Sem liga\u00E7\u00E3o ao Shard' }
+              : { wait: 'Notification Center', ready: 'Waiting for notifications', sent: 'Notification sent', err: 'Cannot reach the Shard' };
+  var COL = { info: '#2f7bff', ok: '#2fc28b', warn: '#f5a524', alert: '#f0506e' };
+  var ICO = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
+  var cardEl = null;
+  (function buildUi() {
+    var st = document.createElement('style');
+    st.textContent = 'body{margin:0;background:radial-gradient(circle at 30% 20%,#17203a,#07090f);color:#eef2f9;font-family:SamsungOne,"Segoe UI",sans-serif}' +
+      '#nc{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:1100px;max-width:90%;text-align:center}' +
+      '#nc h1{font-size:44px;font-weight:600;margin:0 0 8px}#nc p{font-size:28px;color:#8b96ab;margin:0 0 40px}' +
+      '#nc .card{display:flex;gap:28px;align-items:center;text-align:left;background:rgba(255,255,255,.08);border-radius:36px;padding:34px 42px;border-left:12px solid var(--c);margin-top:24px}' +
+      '#nc .ic{width:96px;height:96px;border-radius:50%;background:var(--c);display:grid;place-items:center;font-size:48px;flex:none}' +
+      '#nc .t{font-size:38px;font-weight:600}#nc .m{font-size:30px;color:#c4cde0;margin-top:6px}#log{display:none}';
+    document.head.appendChild(st);
+    cardEl = document.createElement('div'); cardEl.id = 'nc';
+    cardEl.innerHTML = '<h1></h1><p></p><div id="ncl"></div>';
+    cardEl.getElementsByTagName('h1')[0].textContent = '\uD83D\uDD14 ' + TX.wait;
+    cardEl.getElementsByTagName('p')[0].textContent = TX.ready;
+    document.body.appendChild(cardEl);
+  })();
+  function showCard(n) {
+    if (!cardEl) { return; }
+    var c = COL[n.level] || COL.info, d = document.createElement('div');
+    d.className = 'card'; d.style.setProperty('--c', c);
+    var ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = ICO[n.level] || ICO.info;
+    var b = document.createElement('div'), t = document.createElement('div'), m = document.createElement('div');
+    t.className = 't'; t.textContent = n.title || ''; m.className = 'm'; m.textContent = n.message || '';
+    b.appendChild(t); b.appendChild(m); d.appendChild(ic); d.appendChild(b);
+    var host = document.getElementById('ncl'); host.appendChild(d);
+    cardEl.getElementsByTagName('p')[0].textContent = TX.sent;
+  }
+
   function now() { var d = new Date(); function p(n) { return (n < 10 ? '0' : '') + n; } return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()); }
   function log(cls, text) {
     if (!logEl) { return; }
@@ -81,7 +116,7 @@
       if (!fresh.length) { busy = false; return log('inf', why + ': nothing new'); }
       var pending = fresh.length;
       fresh.forEach(function (n) {
-        seen[n.id] = 1;
+        seen[n.id] = 1; showCard(n);
         post(n.title || 'Notification', n.message || '', function (e) {
           log(e ? 'err' : 'ok', (n.title || 'Notification') + ': ' + (e || 'posted'));
           pending -= 1;
