@@ -155,9 +155,13 @@
       var fresh = list.filter(function (n) { return !seen[n.id]; });
       if (!fresh.length) { busy = false; return log('inf', why + ': nothing new'); }
       var pending = fresh.length;
+      // mode: 'banner' = native Samsung banner only, 'full' = full-screen card only, anything else = both.
+      var onlyBanner = fresh.every(function (n) { return n.mode === 'banner'; });
+      if (cardEl) { cardEl.style.display = onlyBanner ? 'none' : ''; }
       fresh.forEach(function (n) {
-        seen[n.id] = 1; showCard(n);
-        post(n.title || 'Notification', n.message || '', function (e) {
+        seen[n.id] = 1;
+        if (n.mode !== 'banner') { showCard(n); }
+        (n.mode === 'full' ? function (t, b, cb) { cb(null); } : post)(n.title || 'Notification', n.message || '', function (e) {
           log(e ? 'err' : 'ok', (n.title || 'Notification') + ': ' + (e || 'posted'));
           pending -= 1;
           if (pending) { return; }

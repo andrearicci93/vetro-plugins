@@ -10,6 +10,7 @@ var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY 
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
 var DEFAULT_APP = 'NotifCtr01.NotifCenter';
 var LEVELS = { info: 1, ok: 1, warn: 1, alert: 1 };
+var MODES = { both: 1, banner: 1, full: 1 };   // banner = native Samsung banner only, full = full-screen card only
 
 module.exports = function (ctx) {
     var queue = [];      // active notifications (memory only)
@@ -81,11 +82,12 @@ module.exports = function (ctx) {
                 title: clean(b.title, MAX_TITLE),
                 message: message,
                 level: LEVELS[b.level] ? b.level : 'info',
+                mode: MODES[b.mode] ? b.mode : 'both',
                 expires: Date.now() + secs * 1000
             };
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
-            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, at: Date.now() });
+            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
             var opened = b.open === false ? 'not requested' : openApp();
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
@@ -112,7 +114,7 @@ module.exports = function (ctx) {
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {
-                    return { id: n.id, title: n.title, message: n.message, level: n.level, seconds: Math.ceil((n.expires - now) / 1000) };
+                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, seconds: Math.ceil((n.expires - now) / 1000) };
                 }) };
                 if (wantsScript(req)) { sendScript(res, out); } else { sendJson(res, 200, out); }
                 return true;
