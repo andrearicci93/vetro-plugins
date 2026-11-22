@@ -35,8 +35,10 @@ JSON body. Only `message` is required.
 | `wallpaper` | http/https URL, max 290 | none | A darkened full-screen background behind the card. Can be combined with `image`. |
 | `seconds` | integer 5-300 | `30` | How long it may wait in the queue (always at least `duration` + 20). |
 | `open` | boolean | `true` | `false` only queues it, without launching the app or its service. |
+| `source` | string, max 32 (`a-z 0-9 . _ -`) | none | Who is sending (or the header `X-NC-Source`). If a source with that name exists, its defaults, key, on/off switch and rate limit apply, see "Sources". |
 
-Answer: `{"ok":true,"id":"1-abc","open":"requested"}`. Errors: `400 {"error":"message is required"}` or `"invalid JSON"`.
+Answer: `{"ok":true,"id":"1-abc","open":"requested"}`. Errors: `400 {"error":"message is required"}` or `"invalid JSON"`; `403` (`invalid key for this source`, `source is disabled`, `unknown source`); `429` (`rate limit for this source`).
+Two other answers are still `200`: during quiet hours `{"ok":true,"id":"...","suppressed":"quiet hours"}` (recorded in `GET recent`, not shown), and a repeat inside the grouping window `{"ok":true,"id":"...","merged":true,"count":2}`.
 
 Notes:
 - `image` and `wallpaper` are fetched **by the Shard** (the app may only load origins it declares) and served back to the app. Up to 3 redirects, 8 s, 3 MB, png/jpeg/gif/webp/bmp only.
@@ -111,7 +113,36 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title:
 | `GET lang` / `POST lang` | Display language `{lang:"en"|"pt"}`, shared by the panel and the TV screen. |
 | `GET emoji` | The bundled emoji list (Unicode CLDR, MIT) used by the panel's icon picker. |
 
+## Sources, quiet hours, grouping and webhooks
+
+**Sources** give each sender its own defaults and rules. A source is a short name (`doorbell`, `home-assistant`, `match-alerts`); senders put it in `source` (or the header `X-NC-Source`).
+
+| Route | What it does |
+|---|---|
+| `GET profiles` | `{profiles:{<source>:{enabled,icon,level,mode,duration,rate,hasKey}}, max:20}`. The key is never returned. |
+| `POST profiles` | Create, change or delete one: `{source, icon?, level?, mode?, duration?, rate?, enabled?, key?, genKey?, delete?}`. `icon`, `level`, `mode` and `duration` fill in what the sender leaves out (the sender's own value always wins). `rate` is the most notifications per minute (`0` = no limit). `key` (8-64 characters; `""` clears it) makes the source require the header `X-NC-Key`; `genKey: true` creates a random key and returns it **once**. |
+
+**Settings:**
+
+| Route | What it does |
+|---|---|
+| `GET settings` | `{settings:{quiet:{enabled,from,to,allow},groupSeconds,strict}}` |
+| `POST settings` | Send only what changes. `quiet`: between `from` and `to` (`"22:00"` to `"07:00"`, TV local time, may cross midnight) nothing is shown below the level `allow` (`alert` lets only alerts through, `warn` lets warnings and alerts, `none` silences everything); suppressed ones are still listed in `GET recent`. `groupSeconds` (0-3600, default 60, `0` = off): a notification identical to one from the last `groupSeconds` (same source, title, message and level) is counted (`count` in `GET recent`) instead of shown again. `strict: true` rejects notifications whose `source` has no profile. |
+
+**Webhooks** turn any JSON a service already sends (GitHub, Home Assistant, Grafana, a router) into a notification, without changing the sender:
+
+| Route | What it does |
+|---|---|
+| `GET hooks` | `{hooks:{<name>:{title,message,level,icon,mode,duration,source}}, max:10, base}` |
+| `POST hooks` | Create, change or delete one: `{name, message, title?, level?, icon?, mode?, duration?, source?, delete?}`. `name`: `a-z 0-9 -`, up to 24. The text fields are templates: `{{a.b.0.c}}` is replaced by that value of the posted JSON (a missing value gives an empty string; nothing is ever evaluated). `message` is required. |
+| `POST hook/<name>` | Send any JSON (up to 64 KB) to that hook. A body that is not JSON is available as `{{text}}`. The notification is sent as source `source`, or the hook's name if `source` is empty, so a source's key protects its hook. |
+
+Example, GitHub pushes: `POST hooks` with `{"name":"github","title":"{{repository.name}}","message":"{{pusher.name}} pushed {{head_commit.message}}","icon":"📦"}`, then give GitHub the URL `http://<TV-IP>:8099/plugins/notification-center/api/hook/github`.
+
 ## Security notes
+
+- A source key is stored in `ctx.config` on the TV and checked by the Shard; it is not a replacement for Vetro pairing (it travels in clear text on the LAN, like the rest of the traffic) but it lets you accept one sender and refuse the others when pairing is off. `GET profiles` never returns it.
+- Anyone who can reach the Shard can change sources, settings and hooks, as they can change the language. Hooks and sources can only shape the text, icon, level, mode and duration of a notification: nothing can point the Shard at another app or run a command.
 
 - With pairing off, anyone who can reach the TV's port 8099 can send notifications and make the Shard fetch an image URL. Turn pairing on for shared networks.
 - The Shard only fetches `http`/`https` URLs, never `file:` or other schemes, and serves only image types.

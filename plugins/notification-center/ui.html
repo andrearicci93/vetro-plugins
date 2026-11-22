@@ -126,6 +126,12 @@ button:focus-visible, .tab:focus-visible { outline: 2px solid var(--acc); outlin
 .dtabs button.on { color: var(--txt); border-bottom-color: var(--acc); }
 .pane { padding: 18px 20px; }
 .pane[hidden] { display: none; }
+.rl { cursor: pointer; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; background: var(--s2); }
+.rl:hover { border-color: var(--acc); }
+.rl small { display: block; color: var(--dim); font-size: 12px; }
+.rulesgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rulesgrid > * { min-width: 0; }
+.lab { font-size: 12px; color: var(--dim); margin: 0 0 3px; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
 .tab { border: 1px solid var(--line); background: none; color: var(--dim); border-radius: 999px; padding: 4px 13px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .tab.on { color: #fff; border-color: var(--acc); background: rgba(61, 139, 255, .12); }
@@ -160,6 +166,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
 
   <nav class="dtabs">
     <button type="button" class="on" data-pane="p-main" data-t="tab_main">Notifications</button>
+    <button type="button" data-pane="p-rules" data-t="rules_tab">Sources and rules</button>
     <button type="button" data-pane="p-req" data-t="rq_title">Request for other apps and Shards</button>
     <button type="button" data-pane="p-api" data-t="api_title">API</button>
     <button type="button" data-pane="p-app" data-t="app">Companion app</button>
@@ -214,6 +221,59 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
   </main>
 
   <section class="dev" id="devwrap" hidden>
+    <div class="pane" id="p-rules" hidden>
+      <div class="appcols">
+        <div>
+          <h3 data-t="src_title">Sources</h3>
+          <div class="msg" style="padding:0 0 8px" data-t="src_note">One entry per sender. Its defaults fill in what a request leaves out; a key makes it require the header X-NC-Key.</div>
+          <ul id="srclist"></ul>
+          <div class="rulesgrid" style="margin-top:10px">
+            <div><div class="lab" data-t="f_name">Name</div><input type="text" id="s_name" maxlength="32" placeholder="doorbell"></div>
+            <div><div class="lab" data-t="f_icon">Icon</div><input type="text" id="s_icon" maxlength="16"></div>
+            <div><div class="lab" data-t="f_level">Level</div><select id="s_level"><option value=""></option><option>info</option><option>ok</option><option>warn</option><option>alert</option></select></div>
+            <div><div class="lab" data-t="f_mode">Show as</div><select id="s_mode"><option value=""></option><option>banner</option><option>full</option><option>both</option></select></div>
+            <div><div class="lab" data-t="f_dur">Duration (s)</div><input type="text" id="s_dur" maxlength="2"></div>
+            <div><div class="lab" data-t="f_rate">Max per minute (0 = no limit)</div><input type="text" id="s_rate" maxlength="3"></div>
+          </div>
+          <label class="chk" style="margin-bottom:10px"><input type="checkbox" id="s_on" checked> <span data-t="f_enabled">Enabled</span></label>
+          <div class="row"><button type="button" class="send" id="s_save" data-t="save">Save</button><button type="button" class="ghost" id="s_key" data-t="gen_key">New key</button><button type="button" class="ghost" id="s_clearkey" data-t="clear_key">Remove key</button><button type="button" class="ghost" id="s_del" data-t="del">Delete</button></div>
+          <div class="msg" id="srcmsg" style="padding:8px 0 0"></div>
+          <pre id="srckey" hidden></pre>
+        </div>
+        <div>
+          <h3 data-t="q_title">Quiet hours and repeats</h3>
+          <label class="chk" style="margin-bottom:8px"><input type="checkbox" id="q_on"> <span data-t="q_on">Quiet hours</span></label>
+          <div class="rulesgrid">
+            <div><div class="lab" data-t="q_from">From (HH:MM)</div><input type="text" id="q_from" maxlength="5"></div>
+            <div><div class="lab" data-t="q_to">To (HH:MM)</div><input type="text" id="q_to" maxlength="5"></div>
+          </div>
+          <div class="lab" data-t="q_allow">Still show</div>
+          <select id="q_allow"><option value="alert">alert</option><option value="warn">warn + alert</option><option value="none">nothing</option></select>
+          <div class="lab" data-t="g_secs">Count repeats inside (s, 0 = off)</div>
+          <input type="text" id="g_secs" maxlength="4">
+          <label class="chk" style="margin-bottom:10px"><input type="checkbox" id="g_strict"> <span data-t="g_strict">Refuse senders that have no source entry</span></label>
+          <div class="row"><button type="button" class="send" id="q_save" data-t="save">Save</button></div>
+          <div class="msg" id="qmsg" style="padding:8px 0 0"></div>
+
+          <h3 style="margin-top:22px" data-t="h_title">Webhooks</h3>
+          <div class="msg" style="padding:0 0 8px" data-t="h_note">Turn any JSON a service already sends into a notification. Use {{path.to.value}} from the JSON in the texts.</div>
+          <ul id="hooklist"></ul>
+          <div class="rulesgrid" style="margin-top:10px">
+            <div><div class="lab" data-t="f_name">Name</div><input type="text" id="h_name" maxlength="24" placeholder="github"></div>
+            <div><div class="lab" data-t="f_icon">Icon</div><input type="text" id="h_icon" maxlength="16"></div>
+          </div>
+          <div class="lab" data-t="h_ttl">Title template</div><input type="text" id="h_ttl" maxlength="200" placeholder="{{repository.name}}">
+          <div class="lab" data-t="h_msg">Message template (required)</div><input type="text" id="h_msg" maxlength="200" placeholder="{{pusher.name}} pushed {{head_commit.message}}">
+          <div class="rulesgrid">
+            <div><div class="lab" data-t="f_level">Level</div><input type="text" id="h_level" maxlength="40" placeholder="info"></div>
+            <div><div class="lab" data-t="h_src">Source (default: the name)</div><input type="text" id="h_src" maxlength="32"></div>
+          </div>
+          <div class="row"><button type="button" class="send" id="h_save" data-t="save">Save</button><button type="button" class="ghost" id="h_del" data-t="del">Delete</button></div>
+          <div class="msg" id="hmsg" style="padding:8px 0 0"></div>
+          <pre id="hurl" hidden></pre>
+        </div>
+      </div>
+    </div>
     <div class="pane" id="p-req" hidden>
       <div class="tabs" id="reqtabs"></div>
       <pre id="reqcode"></pre>
@@ -539,6 +599,104 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         $("devwrap").hidden = id === "p-main";
       });
     }
+  })();
+
+  // Sources and rules: sources (profiles with keys), quiet hours, grouping and webhooks. Every control calls the documented API (API.md).
+  (function () {
+    var X = {
+      en: { rules_tab: "Sources and rules", src_title: "Sources", src_note: "One entry per sender. Its defaults fill in what a request leaves out; a key makes it require the header X-NC-Key.",
+        f_name: "Name", f_icon: "Icon", f_level: "Level", f_mode: "Show as", f_dur: "Duration (s)", f_rate: "Max per minute (0 = no limit)", f_enabled: "Enabled", save: "Save", gen_key: "New key", clear_key: "Remove key", del: "Delete",
+        q_title: "Quiet hours and repeats", q_on: "Quiet hours", q_from: "From (HH:MM)", q_to: "To (HH:MM)", q_allow: "Still show", g_secs: "Count repeats inside (s, 0 = off)", g_strict: "Refuse senders that have no source entry",
+        h_title: "Webhooks", h_note: "Turn any JSON a service already sends into a notification. Use {{path.to.value}} from the JSON in the texts.", h_ttl: "Title template", h_msg: "Message template (required)", h_src: "Source (default: the name)",
+        off: "off", haskey: "key", saved: "Saved", deleted: "Deleted", keynote: "Copy this key now, it is shown only once. Senders send it in the header X-NC-Key:", hookurl: "Send any JSON to:", needname: "Type a name first" },
+      pt: { rules_tab: "Origens e regras", src_title: "Origens", src_note: "Uma entrada por emissor. Os valores por defeito preenchem o que o pedido não traz; com chave, o emissor tem de enviar o cabeçalho X-NC-Key.",
+        f_name: "Nome", f_icon: "Ícone", f_level: "Nível", f_mode: "Mostrar como", f_dur: "Duração (s)", f_rate: "Máximo por minuto (0 = sem limite)", f_enabled: "Ativa", save: "Guardar", gen_key: "Nova chave", clear_key: "Remover chave", del: "Apagar",
+        q_title: "Silêncio e repetições", q_on: "Horas de silêncio", q_from: "De (HH:MM)", q_to: "Até (HH:MM)", q_allow: "Mostrar mesmo assim", g_secs: "Contar repetições dentro de (s, 0 = desligado)", g_strict: "Recusar emissores sem entrada nas origens",
+        h_title: "Webhooks", h_note: "Transforma o JSON que um serviço já envia numa notificação. Use {{caminho.do.valor}} do JSON nos textos.", h_ttl: "Modelo do título", h_msg: "Modelo da mensagem (obrigatório)", h_src: "Origem (por defeito: o nome)",
+        off: "desligada", haskey: "chave", saved: "Guardado", deleted: "Apagado", keynote: "Copie esta chave agora, só aparece uma vez. Os emissores enviam-na no cabeçalho X-NC-Key:", hookurl: "Envie qualquer JSON para:", needname: "Escreva primeiro um nome" }
+    }, k;
+    for (k in X.en) { T.en[k] = X.en[k]; }
+    for (k in X.pt) { T.pt[k] = X.pt[k]; }
+    function note(id, text, cls) { $(id).textContent = text || ""; $(id).className = "msg " + (cls || ""); }
+    function fail(id) { return function (e) { note(id, e.message, "err"); throw e; }; }
+    function num(id) { return parseInt($(id).value, 10) || 0; }
+    var BASE = "http://<TV-IP>:8099/plugins/notification-center/api/";
+
+    var SRC = {}, HOOKS = {};
+    function loadSources() {
+      return api("profiles").then(function (d) {
+        SRC = d.profiles;
+        var names = Object.keys(SRC);
+        $("srclist").innerHTML = names.length ? names.map(function (n) {
+          var p = SRC[n];
+          return '<li class="rl" data-n="' + esc(n) + '"><b>' + esc(n) + "</b><small>" + esc([p.enabled ? "" : tr("off"), p.icon, p.level, p.mode, p.duration ? p.duration + " s" : "", p.rate ? p.rate + "/min" : "", p.hasKey ? tr("haskey") : ""].filter(Boolean).join(" · ")) + "</small></li>";
+        }).join("") : '<li class="empty">' + esc(tr("none")) + "</li>";
+        var li = $("srclist").getElementsByClassName("rl"), i;
+        for (i = 0; i < li.length; i++) {
+          li[i].addEventListener("click", function () {
+            var n = this.getAttribute("data-n"), p = SRC[n];
+            $("s_name").value = n; $("s_icon").value = p.icon; $("s_level").value = p.level; $("s_mode").value = p.mode;
+            $("s_dur").value = p.duration || ""; $("s_rate").value = p.rate || ""; $("s_on").checked = p.enabled; $("srckey").hidden = true;
+          });
+        }
+      }).catch(function (e) { note("srcmsg", e.message, "err"); });
+    }
+    function srcName() { return $("s_name").value.trim().toLowerCase(); }
+    $("s_save").addEventListener("click", function () {
+      act(this, api("profiles", { source: srcName(), icon: $("s_icon").value, level: $("s_level").value, mode: $("s_mode").value, duration: num("s_dur"), rate: num("s_rate"), enabled: $("s_on").checked })
+        .then(function () { note("srcmsg", tr("saved"), "ok"); return loadSources(); }, fail("srcmsg")));
+    });
+    $("s_key").addEventListener("click", function () {
+      if (!srcName()) { note("srcmsg", tr("needname"), "err"); return; }
+      act(this, api("profiles", { source: srcName(), genKey: true }).then(function (r) {
+        $("srckey").hidden = false; $("srckey").textContent = tr("keynote") + "\n" + r.key; note("srcmsg", "", ""); return loadSources();
+      }, fail("srcmsg")));
+    });
+    $("s_clearkey").addEventListener("click", function () {
+      act(this, api("profiles", { source: srcName(), key: "" }).then(function () { $("srckey").hidden = true; note("srcmsg", tr("saved"), "ok"); return loadSources(); }, fail("srcmsg")));
+    });
+    $("s_del").addEventListener("click", function () {
+      act(this, api("profiles", { source: srcName(), delete: true }).then(function () { note("srcmsg", tr("deleted"), "ok"); $("s_name").value = ""; return loadSources(); }, fail("srcmsg")));
+    });
+
+    function loadSettings() {
+      return api("settings").then(function (d) {
+        var s = d.settings;
+        $("q_on").checked = s.quiet.enabled; $("q_from").value = s.quiet.from; $("q_to").value = s.quiet.to; $("q_allow").value = s.quiet.allow;
+        $("g_secs").value = s.groupSeconds; $("g_strict").checked = s.strict;
+      }).catch(function (e) { note("qmsg", e.message, "err"); });
+    }
+    $("q_save").addEventListener("click", function () {
+      act(this, api("settings", { quiet: { enabled: $("q_on").checked, from: $("q_from").value, to: $("q_to").value, allow: $("q_allow").value }, groupSeconds: num("g_secs"), strict: $("g_strict").checked })
+        .then(function (r) { note("qmsg", tr("saved"), "ok"); $("q_from").value = r.settings.quiet.from; $("q_to").value = r.settings.quiet.to; }, fail("qmsg")));
+    });
+
+    function loadHooks() {
+      return api("hooks").then(function (d) {
+        HOOKS = d.hooks;
+        var names = Object.keys(HOOKS);
+        $("hooklist").innerHTML = names.length ? names.map(function (n) {
+          return '<li class="rl" data-n="' + esc(n) + '"><b>' + esc(n) + "</b><small>" + esc(HOOKS[n].message) + "</small></li>";
+        }).join("") : '<li class="empty">' + esc(tr("none")) + "</li>";
+        var li = $("hooklist").getElementsByClassName("rl"), i;
+        for (i = 0; i < li.length; i++) {
+          li[i].addEventListener("click", function () {
+            var n = this.getAttribute("data-n"), h = HOOKS[n];
+            $("h_name").value = n; $("h_icon").value = h.icon; $("h_ttl").value = h.title; $("h_msg").value = h.message; $("h_level").value = h.level; $("h_src").value = h.source;
+            $("hurl").hidden = false; $("hurl").textContent = tr("hookurl") + "\n" + BASE + "hook/" + n;
+          });
+        }
+      }).catch(function (e) { note("hmsg", e.message, "err"); });
+    }
+    function hookName() { return $("h_name").value.trim().toLowerCase(); }
+    $("h_save").addEventListener("click", function () {
+      act(this, api("hooks", { name: hookName(), icon: $("h_icon").value, title: $("h_ttl").value, message: $("h_msg").value, level: $("h_level").value, source: $("h_src").value })
+        .then(function (r) { note("hmsg", tr("saved"), "ok"); $("hurl").hidden = false; $("hurl").textContent = tr("hookurl") + "\n" + BASE + r.url; return loadHooks(); }, fail("hmsg")));
+    });
+    $("h_del").addEventListener("click", function () {
+      act(this, api("hooks", { name: hookName(), delete: true }).then(function () { note("hmsg", tr("deleted"), "ok"); $("hurl").hidden = true; $("h_name").value = ""; return loadHooks(); }, fail("hmsg")));
+    });
+    loadSources(); loadSettings(); loadHooks();
   })();
 
   applyLang();

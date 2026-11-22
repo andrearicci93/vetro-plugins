@@ -8,7 +8,9 @@ var http = require('http');
 var https = require('https');
 var urlmod = require('url');
 var os = require('os');
+var rules = require('./rules.js');
 
+var MAX_HOOK_BODY = 65536;
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192, MAX_ICON = 16;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, MIN_RELAUNCH_MS = 2000, APP_ACTIVE_MS = 3500;
 // The banner service reads the queue from this file, so it needs no network and no Vetro key (it still works with pairing on).
@@ -42,11 +44,14 @@ module.exports = function (ctx) {
         send(res, 200, 'application/javascript; charset=utf-8', 'window.__ncNotes&&window.__ncNotes(' + json + ');');
     }
     function wantsScript(req) { return /[?&]js=1(&|$)/.test(String(req.url || '')); }
-    function readBody(req, cb) {
-        var s = '';
-        req.on('data', function (d) { s += d; if (s.length > MAX_BODY) { req.destroy(); } });
+    function readBody(req, cb, max) {
+        var s = '', limit = max || MAX_BODY;
+        req.on('data', function (d) { s += d; if (s.length > limit) { req.destroy(); } });
         req.on('end', function () { cb(s); });
     }
+    var limiter = rules.makeLimiter(), groups = {};   // per-source rate windows and recently seen repeats (memory only)
+    function cfgGet() { return ctx.config.get() || {}; }
+    function settingsNow() { return rules.sanitizeSettings(cfgGet().settings, {}); }
     function clean(text, max) {
         return String(text == null ? '' : text).replace(/[\x00-\x1f]/g, ' ').slice(0, max).trim();
     }
@@ -215,10 +220,11 @@ module.exports = function (ctx) {
                 image: { type: 'url', note: 'http/https picture under the message on the full-screen card. The Shard fetches it.' },
                 wallpaper: { type: 'url', note: 'http/https full-screen background behind the card. The Shard fetches it.' },
                 seconds: { type: 'integer', min: MIN_SECONDS, max: MAX_SECONDS, default: DEFAULT_SECONDS, note: 'How long it waits in the queue (always at least duration + 20).' },
-                open: { type: 'boolean', default: true, note: 'false only queues it, without launching the app or its service.' }
+                open: { type: 'boolean', default: true, note: 'false only queues it, without launching the app or its service.' },
+                source: { type: 'string', max: 32, note: 'Who is sending (a-z, 0-9, . _ -), or the header X-NC-Source. If a profile with that name exists, its icon, level, mode and duration fill in what you leave out, and its key (header X-NC-Key), enabled flag and rate limit apply.' }
             },
             endpoints: [
-                { method: 'POST', path: 'notify', summary: 'Send a notification (JSON body with the fields above).', returns: '{ok, id, open}' },
+                { method: 'POST', path: 'notify', summary: 'Send a notification (JSON body with the fields above). With quiet hours it may answer {ok, id, suppressed}; a repeat inside the grouping window answers {ok, id, merged:true, count}.', returns: '{ok, id, open}' },
                 { method: 'POST', path: 'ntfy', summary: 'ntfy-compatible publish: body = message; headers Title, Priority (5 alert, 4 warning), Tags; or JSON {message,title,priority,tags}.', returns: '{ok, id, open}' },
                 { method: 'GET', path: 'notifications', summary: 'The active queue (used by the app and its service); add ?js=1 for the script form.', returns: '{lang, notifications:[...]}' },
                 { method: 'GET', path: 'recent', summary: 'The last notifications sent.', returns: '{recent:[...]}' },
@@ -227,6 +233,13 @@ module.exports = function (ctx) {
                 { method: 'GET', path: 'status', summary: 'Installation status: companion app, its service, Vetro pairing, Shard version.', returns: '{version, app, appVersion, service, pairing}' },
                 { method: 'GET', path: 'lang', summary: 'Display language (en or pt).', returns: '{lang}' },
                 { method: 'POST', path: 'lang', summary: 'Set the display language.', body: '{lang: "en"|"pt"}', returns: '{lang}' },
+                { method: 'GET', path: 'profiles', summary: 'The sources (profiles): defaults per sender. Keys are never returned, only hasKey.', returns: '{profiles:{<source>:{enabled,icon,level,mode,duration,rate,hasKey}}, max}' },
+                { method: 'POST', path: 'profiles', summary: 'Create, change or delete a source.', body: '{source, icon?, level?, mode?, duration?, rate? (per minute, 0 = no limit), enabled?, key? ("" clears), genKey? (true returns a new key once), delete?}', returns: '{ok, source, profile, key?}' },
+                { method: 'GET', path: 'settings', summary: 'Quiet hours, grouping of repeats and strict mode.', returns: '{settings:{quiet:{enabled,from,to,allow},groupSeconds,strict}}' },
+                { method: 'POST', path: 'settings', summary: 'Change those settings (send only what changes).', body: '{quiet?:{enabled,from:"22:00",to:"07:00",allow:"alert"|"warn"|"none"}, groupSeconds? (0 = off), strict? (true rejects unknown sources)}', returns: '{ok, settings}' },
+                { method: 'GET', path: 'hooks', summary: 'The webhooks (templates that turn any JSON into a notification).', returns: '{hooks, max, base}' },
+                { method: 'POST', path: 'hooks', summary: 'Create, change or delete a webhook.', body: '{name, message (template), title?, level?, icon?, mode?, duration?, source?, delete?}; templates use {{a.b.0.c}} from the posted JSON', returns: '{ok, name, hook, url}' },
+                { method: 'POST', path: 'hook/<name>', summary: 'Send any JSON (up to 64 KB) to a webhook; its templates build the notification. Non-JSON bodies are available as {{text}}.', returns: 'same as notify' },
                 { method: 'GET', path: 'emoji', summary: 'The bundled emoji list used by the icon picker.', returns: '{source, groups, list}' },
                 { method: 'GET', path: 'api', summary: 'This description.', returns: 'JSON' }
             ],
@@ -285,7 +298,7 @@ module.exports = function (ctx) {
                     break;
                 }
             }
-            handleNotify({ on: function (ev, f) { if (ev === 'data') { f(JSON.stringify(b)); } if (ev === 'end') { f(); } } }, res);
+            submit(b, h, res);
         });
     }
 
@@ -293,7 +306,36 @@ module.exports = function (ctx) {
         readBody(req, function (raw) {
             var b;
             try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
-            b = b || {};
+            submit(b, req.headers || {}, res);
+        });
+    }
+
+    // Webhook: POST hook/<name> with any JSON. The hook's templates turn it into a notification ({{a.b}} = that value of the posted JSON).
+    function handleHook(req, res, rawName) {
+        var name = rules.cleanHookName(rawName), hook = name ? (cfgGet().hooks || {})[name] : null;
+        if (!hook) { return sendJson(res, 404, { error: 'no such hook' }); }
+        readBody(req, function (raw) {
+            var data;
+            try { data = JSON.parse(raw); } catch (e) { data = { text: raw }; }
+            if (!data || typeof data !== 'object') { data = { text: String(raw) }; }
+            submit(rules.buildFromHook(hook, data), req.headers || {}, res, hook.source || name);
+        }, MAX_HOOK_BODY);
+    }
+
+    // The one way into the queue: applies the source's profile (key, enabled, rate, defaults), then validates, then quiet hours and grouping.
+    function submit(b, headers, res, forcedSource) {
+        b = b && typeof b === 'object' ? b : {};
+        {
+            var settings = settingsNow(), profiles = cfgGet().profiles || {};
+            var source = forcedSource || rules.cleanSource(b.source || headers['x-nc-source']);
+            var profile = source ? profiles[source] : null;
+            if (settings.strict && !profile) { return sendJson(res, 403, { error: source ? 'unknown source' : 'source is required' }); }
+            if (profile) {
+                if (profile.enabled === false) { return sendJson(res, 403, { error: 'source is disabled' }); }
+                if (profile.key && !rules.sameKey(headers['x-nc-key'] || b.key, profile.key)) { return sendJson(res, 403, { error: 'invalid key for this source' }); }
+                if (!limiter(source, profile.rate, Date.now())) { return sendJson(res, 429, { error: 'rate limit for this source' }); }
+            }
+            b = rules.applyProfile(b, profile);
             var message = clean(b.message, MAX_MESSAGE);
             if (!message) { return sendJson(res, 400, { error: 'message is required' }); }
             var secs = parseInt(b.seconds, 10);
@@ -316,16 +358,85 @@ module.exports = function (ctx) {
                 level: LEVELS[b.level] ? b.level : 'info',
                 mode: MODES[b.mode] ? b.mode : 'banner',
                 duration: dur,
+                source: source,
                 expires: Date.now() + secs * 1000
             };
+            var entry = { id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, source: source, at: Date.now() };
+            // Quiet hours: below the allowed level the notification is only recorded, never shown.
+            if (rules.isQuiet(settings, note.level, new Date())) {
+                entry.suppressed = true;
+                recent.unshift(entry); if (recent.length > MAX_RECENT) { recent.pop(); } saveRecent();
+                return sendJson(res, 200, { ok: true, id: note.id, suppressed: 'quiet hours' });
+            }
+            // Grouping: the same source, title, message and level within the window is counted, not shown again.
+            var sig = [source, note.title, note.message, note.level].join('\u0001'), nowMs = Date.now(), g = groups[sig], gk, r;
+            if (settings.groupSeconds && g && nowMs - g.at < settings.groupSeconds * 1000) {
+                g.count += 1;
+                for (r = 0; r < recent.length; r++) { if (recent[r].id === g.id) { recent[r].count = g.count; } }
+                saveRecent();
+                return sendJson(res, 200, { ok: true, id: g.id, merged: true, count: g.count });
+            }
+            groups[sig] = { at: nowMs, id: note.id, count: 1 };
+            gk = Object.keys(groups);
+            if (gk.length > 60) { gk.forEach(function (k) { if (nowMs - groups[k].at > 3600000) { delete groups[k]; } }); }
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
             writeQueueFile();
-            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, at: Date.now() });
+            recent.unshift(entry);
             if (recent.length > MAX_RECENT) { recent.pop(); }
             saveRecent();
             var opened = b.open === false ? 'not requested' : openApp(note.mode === 'banner');
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
+        }
+    }
+
+    // Sources (profiles), settings (quiet hours, grouping, strict) and webhooks are kept in ctx.config. Keys are never returned.
+    function saveCfg(mut) { var c = cfgGet(); mut(c); ctx.config.set(c); }
+    function handleProfiles(req, res) {
+        if (req.method === 'GET') {
+            var out = {}, ps = cfgGet().profiles || {};
+            Object.keys(ps).forEach(function (k) { out[k] = rules.publicProfile(ps[k]); });
+            return sendJson(res, 200, { profiles: out, max: rules.MAX_SOURCES });
+        }
+        readBody(req, function (raw) {
+            var b, source, ps, p, genKey = '';
+            try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
+            source = rules.cleanSource(b && b.source);
+            if (!source) { return sendJson(res, 400, { error: 'source must be 1-32 characters: a-z, 0-9, . _ -' }); }
+            ps = cfgGet().profiles || {};
+            if (b.delete === true) { saveCfg(function (c) { c.profiles = c.profiles || {}; delete c.profiles[source]; }); return sendJson(res, 200, { ok: true, deleted: source }); }
+            if (!ps[source] && Object.keys(ps).length >= rules.MAX_SOURCES) { return sendJson(res, 400, { error: 'at most ' + rules.MAX_SOURCES + ' sources' }); }
+            if (b.genKey === true) { genKey = require('crypto').randomBytes(16).toString('hex'); b.key = genKey; }
+            p = rules.sanitizeProfile(b, cleanIcon, ps[source]);
+            if (p.error) { return sendJson(res, 400, { error: p.error }); }
+            saveCfg(function (c) { c.profiles = c.profiles || {}; c.profiles[source] = p; });
+            sendJson(res, 200, genKey ? { ok: true, source: source, profile: rules.publicProfile(p), key: genKey } : { ok: true, source: source, profile: rules.publicProfile(p) });
+        });
+    }
+    function handleSettings(req, res) {
+        if (req.method === 'GET') { return sendJson(res, 200, { settings: settingsNow() }); }
+        readBody(req, function (raw) {
+            var b;
+            try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
+            var s = rules.sanitizeSettings(b && b.settings || b, settingsNow());
+            saveCfg(function (c) { c.settings = s; });
+            sendJson(res, 200, { ok: true, settings: s });
+        });
+    }
+    function handleHooks(req, res) {
+        if (req.method === 'GET') { return sendJson(res, 200, { hooks: cfgGet().hooks || {}, max: rules.MAX_HOOKS, base: 'hook/<name>' }); }
+        readBody(req, function (raw) {
+            var b, name, hs;
+            try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
+            name = rules.cleanHookName(b && b.name);
+            if (!name) { return sendJson(res, 400, { error: 'name must be 1-24 characters: a-z, 0-9, -' }); }
+            hs = cfgGet().hooks || {};
+            if (b.delete === true) { saveCfg(function (c) { c.hooks = c.hooks || {}; delete c.hooks[name]; }); return sendJson(res, 200, { ok: true, deleted: name }); }
+            if (!hs[name] && Object.keys(hs).length >= rules.MAX_HOOKS) { return sendJson(res, 400, { error: 'at most ' + rules.MAX_HOOKS + ' hooks' }); }
+            var h = rules.sanitizeHook(b);
+            if (!h.message) { return sendJson(res, 400, { error: 'message template is required' }); }
+            saveCfg(function (c) { c.hooks = c.hooks || {}; c.hooks[name] = h; });
+            sendJson(res, 200, { ok: true, name: name, hook: h, url: 'hook/' + name });
         });
     }
 
@@ -347,6 +458,10 @@ module.exports = function (ctx) {
             if (sub === 'status' && req.method === 'GET') { statusInfo(function (o) { sendJson(res, 200, o); }); return true; }
             if (sub === 'img' && req.method === 'GET') { serveImage(req, res); return true; }
             if (sub === 'ntfy' && req.method === 'POST') { handleNtfy(req, res); return true; }
+            if (sub === 'profiles' && (req.method === 'GET' || req.method === 'POST')) { handleProfiles(req, res); return true; }
+            if (sub === 'settings' && (req.method === 'GET' || req.method === 'POST')) { handleSettings(req, res); return true; }
+            if (sub === 'hooks' && (req.method === 'GET' || req.method === 'POST')) { handleHooks(req, res); return true; }
+            if (/^hook\/[^\/]+$/.test(sub) && req.method === 'POST') { handleHook(req, res, sub.slice(5)); return true; }
             if (sub === 'emoji' && req.method === 'GET') { sendFile(res, 'emoji.json', 'application/json; charset=utf-8'); return true; }
             if (sub === 'nt.js' && req.method === 'GET') { sendFile(res, 'nt.js', 'application/javascript; charset=utf-8'); return true; }
             if (sub === 'notify' && req.method === 'POST') { handleNotify(req, res); return true; }

@@ -13,6 +13,10 @@ a few seconds. Everything runs on the TV.
 returns the same description as JSON. Apps that already publish to [ntfy](https://ntfy.sh) can point at `POST .../api/ntfy` instead (headers `Title`,
 `Priority`, `Tags`).
 
+**Sources and rules** (tab in the panel, and the routes `profiles`, `settings`, `hooks` in [API.md](API.md)): each sender can have its own defaults, on/off switch,
+rate limit and key (`X-NC-Key`); quiet hours hold back everything below a chosen level; identical repeats are counted instead of shown again; and **webhooks**
+(`POST hook/<name>`) turn any JSON, such as a GitHub or Home Assistant payload, into a notification with `{{path}}` templates.
+
 The panel (tab **Notifications**) is bilingual (English by default, Portuguese optional) and has a form, a request generator, an API explorer, an icon
 picker (emoji list bundled in `emoji.json`: Unicode CLDR data from [emojibase-data](https://github.com/milesj/emojibase), MIT, no network) and an
 installation status card.
