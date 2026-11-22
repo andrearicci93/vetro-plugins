@@ -168,7 +168,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         <h2 data-t="sec_msg">Message</h2>
         <input type="text" id="title" maxlength="40" data-p="ph_title">
         <input type="text" id="message" maxlength="200" data-p="ph_msg">
-        <div class="row"><input type="text" id="icon" maxlength="8" data-p="ph_icon" style="flex:1;min-width:150px"><button type="button" class="ghost" id="pick" data-t="pick">Choose icon</button><button type="button" class="ghost" id="noicon" data-t="noicon">Level icon</button></div>
+        <div class="row"><input type="text" id="icon" maxlength="8" data-p="ph_icon" style="flex:1;min-width:150px"><button type="button" class="ghost" id="pick" data-t="pick">Choose icon</button></div>
         <div class="picker" id="picker" hidden><input type="text" id="esearch" data-p="ph_search"><div class="ecats" id="ecats"></div><div class="egrid" id="egrid"></div><div class="msg" id="esrc" style="padding:6px 0 0"></div></div>
       </div>
     </section>
@@ -249,7 +249,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     en: { title: "Notification Center", send: "Send a notification", secs: "Show for (s)", open: "Show on TV now", btn: "Send", preview: "Preview",
       prevnote: "The TV shows its own native banner; this is only an approximation.", recent: "Recently sent", refresh: "Refresh", app: "Companion app",
       appnote: "Launches NotifCtr01.NotifCenter (fixed id). It must be installed on the TV, see the README.", curl: "Send from another device",
-      ph_title: "Title (optional)", ph_msg: "Message", st_title: "Status", tab_main: "Notifications", sec_msg: "Message", sec_pics: "Pictures for the full-screen card", c_app: "App", c_svc: "Banner service", c_pair_on: "Pairing on", c_pair_off: "Pairing off", st_shard: "Notification Center Shard", st_app: "Companion app installed", st_appfix: "Install the .wgt with Apps2Samsung or TV-Store", st_svc: "Banner service installed", st_svcfix: "Reinstall the app (version 0.2 or newer)", st_pair: "Vetro pairing", st_pair_on: "On: other devices need a key", st_pair_off: "Off: any device on the network can send", st_pair_unknown: "Could not tell", st_tb: "Test banner", st_tc: "Test card", st_tboth: "Test both", rq_title: "Request for other apps and Shards", copy: "Copy", api_title: "API", api_try: "Try it", send_btn: "Send", sent_ok: "Sent.",
+      ph_title: "Title (optional)", ph_msg: "Message", st_title: "Status", ph_auto: "\u00cdcone autom\u00e1tico:", tab_main: "Notifications", ph_auto: "Automatic icon:", sec_msg: "Message", sec_pics: "Pictures for the full-screen card", c_app: "App", c_svc: "Banner service", c_pair_on: "Pairing on", c_pair_off: "Pairing off", st_shard: "Notification Center Shard", st_app: "Companion app installed", st_appfix: "Install the .wgt with Apps2Samsung or TV-Store", st_svc: "Banner service installed", st_svcfix: "Reinstall the app (version 0.2 or newer)", st_pair: "Vetro pairing", st_pair_on: "On: other devices need a key", st_pair_off: "Off: any device on the network can send", st_pair_unknown: "Could not tell", st_tb: "Test banner", st_tc: "Test card", st_tboth: "Test both", rq_title: "Request for other apps and Shards", copy: "Copy", api_title: "API", api_try: "Try it", send_btn: "Send", sent_ok: "Sent.",
       ph_wall: "Wallpaper URL, full-screen background (optional)", ph_image: "Image URL for the full-screen card (optional)", ph_icon: "Icon (emoji, optional; default by level)", pick: "Choose icon", noicon: "Level icon", ph_search: "Search icons...", groups: "Smileys,People,Animals,Food,Travel,Activities,Objects,Symbols,Flags", sending: "Sending...", queued: "Sent to the TV", queuedq: "Queued (TV not launched)", none: "Nothing sent yet.", notitle: "Notification",
       info: "Info", ok: "Done", warn: "Warning", alert: "Alert", sample: "Your message appears here", back: "Returning to the previous app in",
       mode: "Show as", m_both: "Both", m_banner: "Samsung banner", m_full: "Full screen", resend: "Resend", resent: "Sent again" },
@@ -313,6 +313,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     var dur = parseInt($("secs").value, 10) || 8, h = "";
     var wall = urlOk($("wallpaper").value), pic = urlOk($("image").value);
     var bhead = $("icon").value || LEVEL_EMOJI[level];
+    $("icon").placeholder = tr("ph_auto") + " " + LEVEL_EMOJI[level];   // the icon follows the level by itself; type or pick one only to override
     if (mode !== "banner") {
       h += '<g class="sc-card">' + (wall ? '<image x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice" href="img?url=' + encodeURIComponent(wall) + '"/>' : "") +
         '<rect width="1920" height="1080" fill="#07090f" fill-opacity="' + (wall ? ".6" : ".55") + '"/>' +
@@ -397,7 +398,6 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     if (EMOJI) { return eRender(); }
     api("emoji").then(function (d) { EMOJI = d; $("esrc").textContent = d.source; eRender(); }).catch(function (e) { say(e.message, "err"); });
   });
-  $("noicon").addEventListener("click", function () { $("icon").value = ""; preview(); });
   $("esearch").addEventListener("input", eRender);
   // The language is a Shard setting (default English); it also decides the language of the app screen on the TV.
   function setLang(l) { lang = l; applyLang(); api("lang", { lang: l }).catch(function (e) { say(e.message, "err"); }); }
