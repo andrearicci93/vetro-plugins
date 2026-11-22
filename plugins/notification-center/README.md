@@ -40,7 +40,7 @@ None. It does not use `exec`.
 - **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `ntfy`, `notifications`, `img`, `recent`, `lang`, `emoji`, `ui`, `nt.js`),
   open to every device that can reach Vetro, like the rest of Vetro when pairing is off.
 - **Outgoing:** one call, to Vetro itself on `127.0.0.1:8099` (`POST /apps/launch`, body `{"appId": "..."}`), to start the companion app or its service.
-  The app is launched at most once every 10 seconds. It downloads no code. **The one exception is the optional `image` and `wallpaper` fields:** when a sender gives an image URL, the Shard fetches that URL once (HTTP or HTTPS GET, up to 3 redirects,
+  The app screen is launched when a `full` or `both` notification is queued and the app is not already open (the app announces itself every 2 s while it is open and says goodbye when it leaves), never more than once every 2 seconds; a notification queued while it is open is simply picked up, and its stay is extended. It downloads no code. **The one exception is the optional `image` and `wallpaper` fields:** when a sender gives an image URL, the Shard fetches that URL once (HTTP or HTTPS GET, up to 3 redirects,
   8 s, at most 3 MB, only png/jpeg/gif/webp/bmp, kept in memory while the notification is queued) and serves it to the app from its own address, because the app may only load origins
   it declares. Whoever can send notifications can therefore make the TV fetch an image URL, including one on your LAN (that is how a doorbell snapshot works); with pairing on, they need a key.
 - The companion app's service reads this Shard on the TV's own LAN address, port 8099 (`GET notifications`). Nothing leaves the TV.
@@ -236,7 +236,7 @@ add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matchi
 - The TV refuses to run **unsigned script files** ("the file is NOT signed"); inline commands through Vetro still work. This Shard needs neither.
 - Whether the previous screen comes back cleanly after the app exits was tested only from the launcher, not yet over
   every kind of source (live TV, HDMI).
-- With pairing off, any device that can reach Vetro's port can send notifications and make Vetro launch the companion app (at most once every 10 s); with pairing on, senders need a key (see above).
+- With pairing off, any device that can reach Vetro's port can send notifications and make Vetro launch the companion app (at most once every 2 s); with pairing on, senders need a key (see above).
 
 ## Tested on
 

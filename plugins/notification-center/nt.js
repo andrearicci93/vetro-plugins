@@ -12,7 +12,7 @@
     if (o && BASES.indexOf(o[1]) < 0) { BASES.push(o[1]); }
   } catch (e) { /* ignore */ }
   var NOTES_PATH = '/plugins/notification-center/api/notifications';
-  var SEEN_KEY = 'nc_seen', WATCH_MS = 5000;
+  var SEEN_KEY = 'nc_seen', WATCH_MS = 2000;
   var logEl = document.getElementById('log');
   var apiGood = null, busy = false;
 
@@ -106,7 +106,7 @@
     var x = new XMLHttpRequest(), done = false;
     function end(err, text) { if (!done) { done = true; cb(err, text); } }
     try {
-      x.open('GET', base + NOTES_PATH); x.timeout = 4000;
+      x.open('GET', base + NOTES_PATH + '?src=app'); x.timeout = 4000;
       x.onload = function () { if (x.status === 200) { end(null, x.responseText); } else { end('http ' + x.status); } };
       x.onerror = function () { end('network'); };
       x.ontimeout = function () { end('timeout'); };
@@ -124,7 +124,7 @@
     window.__ncNotes = function (d) { end(null, d); };
     s.onerror = function () { end('network'); };
     t = setTimeout(function () { end('timeout'); }, 5000);
-    s.src = base + NOTES_PATH + '?js=1&t=' + new Date().getTime();
+    s.src = base + NOTES_PATH + '?js=1&src=app&t=' + new Date().getTime();
     (document.head || document.documentElement).appendChild(s);
   }
   function fetchQueue(done) {
@@ -152,10 +152,25 @@
     } catch (e) { cb(e.message); }
   }
 
-  var cdTimer = null;
+  // Leaving: tell the Shard first (so the next notification launches the app again at once), then exit.
+  function leave() {
+    var done = false;
+    function go() { if (!done) { done = true; try { tizen.application.getCurrentApplication().exit(); } catch (x) { /* not on a TV */ } } }
+    try { var im = new Image(); im.onload = go; im.onerror = go; im.src = (apiGood || BASES[0]) + NOTES_PATH + '?src=app&bye=1&t=' + new Date().getTime(); } catch (e) { go(); }
+    setTimeout(go, 600);
+  }
+  // A notification that arrives while the app is open extends the stay instead of being cut short by the first one's exit timer.
+  var exitTimer = null, exitAt = 0;
+  function scheduleExit(ms) {
+    var at = new Date().getTime() + ms;
+    if (at > exitAt) { exitAt = at; clearTimeout(exitTimer); exitTimer = setTimeout(leave, ms); }
+  }
+  var cdTimer = null, cdEl = null;
   function countdown(sec) {
-    if (!cardEl || cdTimer) { return; }
-    var el = document.createElement('div');
+    if (!cardEl) { return; }
+    clearTimeout(cdTimer);
+    if (cdEl && cdEl.parentNode) { cdEl.parentNode.removeChild(cdEl); }
+    var el = cdEl = document.createElement('div');
     el.style.cssText = 'margin-top:48px;color:#8b96ab;font-size:34px';
     cardEl.appendChild(el);
     (function tick() {
@@ -194,9 +209,10 @@
           pending -= 1;
           if (pending) { return; }
           try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (x) { /* storage unavailable */ }
-          busy = false; countdown(Math.round(stayMs / 1000));
+          busy = false;
           // Leaving too early hides the banner: stay open while it is on screen.
-          setTimeout(function () { try { tizen.application.getCurrentApplication().exit(); } catch (x) { /* not on a TV */ } }, stayMs);
+          scheduleExit(stayMs);
+          countdown(Math.max(1, Math.round((exitAt - new Date().getTime()) / 1000)));
         });
       });
     });
@@ -206,6 +222,6 @@
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { check('resume'); } });
   setInterval(function () { if (document.visibilityState !== 'hidden') { check('watch'); } }, WATCH_MS);
   document.addEventListener('keydown', function (e) {
-    if (e.keyCode === 10009 || e.keyCode === 27) { try { tizen.application.getCurrentApplication().exit(); } catch (x) { /* not on a TV */ } }
+    if (e.keyCode === 10009 || e.keyCode === 27) { leave(); }
   });
 })();

@@ -42,7 +42,7 @@ Notes:
 - `image` and `wallpaper` are fetched **by the Shard** (the app may only load origins it declares) and served back to the app. Up to 3 redirects, 8 s, 3 MB, png/jpeg/gif/webp/bmp only.
   The URL may be on your LAN (a camera snapshot). A picture that cannot be fetched shows "FAILED to load" with its address on the card.
 - The native banner (`mode: banner`) takes plain text and a duration only: no image, no colour. Use `full` or `both` for pictures.
-- The queue holds up to 5 active notifications; the app is launched at most once every 10 s (the banner service has no such limit).
+- The queue holds up to 5 active notifications; the full-screen app is launched when it is not already open (it announces itself while open and when it leaves), at most once every 2 s, and a notification queued while it is open extends its stay; the banner service has no such limit.
 
 ```
 curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify \

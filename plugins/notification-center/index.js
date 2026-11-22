@@ -10,7 +10,7 @@ var urlmod = require('url');
 var os = require('os');
 
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
-var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
+var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, MIN_RELAUNCH_MS = 2000, APP_ACTIVE_MS = 3500;
 // The banner service reads the queue from this file, so it needs no network and no Vetro key (it still works with pairing on).
 var QUEUE_FILE = '/tmp/notification-center-queue.json';
 var DEFAULT_APP = 'NotifCtr01.NotifCenter';   // the companion app (screen: full-screen card, native banner)
@@ -25,7 +25,7 @@ module.exports = function (ctx) {
     try { var saved = (ctx.config.get() || {}).recent; if (Array.isArray(saved)) { recent = saved.slice(0, MAX_RECENT); } } catch (e) { recent = []; }
     function saveRecent() { try { var c = ctx.config.get() || {}; c.recent = recent; ctx.config.set(c); } catch (e) { /* storage unavailable */ } }
     var seq = 0;
-    var lastOpen = 0;
+    var lastOpen = 0, appPoll = 0;   // appPoll: when the app screen last asked for the queue (0 = it is closed)
 
     // Display language of the app screen and the panel: 'en' (default) or 'pt'. The only thing kept in ctx.config.
     function getLang() { var c = ctx.config.get() || {}; return c.lang === 'pt' ? 'pt' : 'en'; }
@@ -63,7 +63,10 @@ module.exports = function (ctx) {
     function openApp(service) {
         var now = Date.now();
         if (!service) {
-            if (now - lastOpen < OPEN_EVERY_MS) { return 'skipped (less than 10 s since the last launch)'; }
+            // The app screen announces itself while it is open (it polls every 2 s and says goodbye when it leaves), so a notification
+            // queued while it is open is simply picked up, and one queued while it is closed launches it again right away.
+            if (now - appPoll < APP_ACTIVE_MS) { return 'app is open: it will pick it up'; }
+            if (now - lastOpen < MIN_RELAUNCH_MS) { return 'skipped (launched less than 2 s ago)'; }
             lastOpen = now;
         }
         var body = JSON.stringify({ appId: service ? SERVICE_APP : appId() });
@@ -197,7 +200,7 @@ module.exports = function (ctx) {
             base: '/plugins/notification-center/api/',
             auth: 'Same as the rest of Vetro: no key with pairing off; with pairing on, other devices send "Authorization: Bearer <key>". Shards on the same TV call http://127.0.0.1:8099 and need no key.',
             enums: { level: Object.keys(LEVELS), mode: Object.keys(MODES) },
-            limits: { title: MAX_TITLE, message: MAX_MESSAGE, queue: MAX_QUEUE, recent: MAX_RECENT, durationSeconds: [MIN_DURATION, MAX_DURATION], queueSeconds: [MIN_SECONDS, MAX_SECONDS], image: '3 MB, png/jpeg/gif/webp/bmp, http(s) URL up to 290 characters', launchEverySeconds: OPEN_EVERY_MS / 1000 },
+            limits: { title: MAX_TITLE, message: MAX_MESSAGE, queue: MAX_QUEUE, recent: MAX_RECENT, durationSeconds: [MIN_DURATION, MAX_DURATION], queueSeconds: [MIN_SECONDS, MAX_SECONDS], image: '3 MB, png/jpeg/gif/webp/bmp, http(s) URL up to 290 characters', relaunchAfterSeconds: MIN_RELAUNCH_MS / 1000 },
             fields: {
                 message: { type: 'string', required: true, max: MAX_MESSAGE, note: 'The text of the notification.' },
                 title: { type: 'string', max: MAX_TITLE },
@@ -327,6 +330,7 @@ module.exports = function (ctx) {
             if (sub === 'nt.js' && req.method === 'GET') { sendFile(res, 'nt.js', 'application/javascript; charset=utf-8'); return true; }
             if (sub === 'notify' && req.method === 'POST') { handleNotify(req, res); return true; }
             if (sub === 'notifications' && req.method === 'GET') {
+                if (/[?&]src=app(&|$)/.test(String(req.url || ''))) { appPoll = /[?&]bye=1(&|$)/.test(String(req.url || '')) ? 0 : Date.now(); }
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {
