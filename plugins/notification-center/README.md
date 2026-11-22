@@ -35,8 +35,8 @@ None. It does not use `exec`.
 - **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `ntfy`, `notifications`, `img`, `recent`, `lang`, `emoji`, `ui`, `nt.js`),
   open to every device that can reach Vetro, like the rest of Vetro when pairing is off.
 - **Outgoing:** one call, to Vetro itself on `127.0.0.1:8099` (`POST /apps/launch`, body `{"appId": "..."}`), to start the companion app or its service.
-  The app is launched at most once every 10 seconds. It downloads no code. **The one exception is the optional `image` field:** when a sender gives an image URL, the Shard fetches that URL once (HTTP or HTTPS GET, up to 3 redirects,
-  8 s, at most 1.5 MB, only png/jpeg/gif/webp/bmp, kept in memory while the notification is queued) and serves it to the app from its own address, because the app may only load origins
+  The app is launched at most once every 10 seconds. It downloads no code. **The one exception is the optional `image` and `wallpaper` fields:** when a sender gives an image URL, the Shard fetches that URL once (HTTP or HTTPS GET, up to 3 redirects,
+  8 s, at most 3 MB, only png/jpeg/gif/webp/bmp, kept in memory while the notification is queued) and serves it to the app from its own address, because the app may only load origins
   it declares. Whoever can send notifications can therefore make the TV fetch an image URL, including one on your LAN (that is how a doorbell snapshot works); with pairing on, they need a key.
 - The companion app's service reads this Shard on the TV's own LAN address, port 8099 (`GET notifications`). Nothing leaves the TV.
 
@@ -85,7 +85,7 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify -H "Auth
 
 The companion app on the TV itself (127.0.0.1) needs no key. With pairing off (Vetro's "Disable pairing mode") any device on the LAN can send notifications.
 
-Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `icon` (an emoji, up to 8 characters: in front of the title on the native banner and in the card; default by level: ℹ️ ✅ ⚠️ 🔴), `image` (an http/https URL, up to 290 characters: a picture under the message on the full-screen card; the native banner has no image), `mode` (`banner` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
+Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `icon` (an emoji, up to 8 characters: in front of the title on the native banner and in the card; default by level: ℹ️ ✅ ⚠️ 🔴), `image` (an http/https URL, up to 290 characters: a picture under the message on the full-screen card) and `wallpaper` (the same kind of URL, shown as a darkened full-screen background behind the card; use both together if you like; the native banner has neither), `mode` (`banner` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
 (`false` only queues it, without launching the app). The page of this Shard (tab **Notifications**) has a form for it.
 
 ## Install the companion app (required)

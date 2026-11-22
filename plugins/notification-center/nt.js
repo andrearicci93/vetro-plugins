@@ -76,6 +76,18 @@
       im.src = (apiGood || BASES[0]) + '/plugins/notification-center/api/img?id=' + encodeURIComponent(n.id);
       b.appendChild(im); b.appendChild(cap);
     }
+    if (n.wallpaper) {   // optional full-screen wallpaper behind the card, darkened so the text stays readable
+      var wsrc = (apiGood || BASES[0]) + '/plugins/notification-center/api/img?kind=wallpaper&id=' + encodeURIComponent(n.id), wcap = document.createElement('div'), pre = new Image();
+      wcap.style.cssText = 'font-size:18px;color:#8b96ab;margin-top:8px;word-break:break-all';
+      wcap.textContent = 'Wallpaper: ' + n.wallpaper + ' (fetched by the Shard)';
+      pre.onload = function () {
+        document.body.style.background = 'linear-gradient(rgba(7,9,15,.5),rgba(7,9,15,.72)), url("' + wsrc + '") center / cover no-repeat fixed';
+        wcap.textContent += ' - loaded ' + pre.naturalWidth + 'x' + pre.naturalHeight;
+      };
+      pre.onerror = function () { wcap.textContent += ' - FAILED to load'; };
+      pre.src = wsrc;
+      b.appendChild(wcap);
+    }
     d.appendChild(ic); d.appendChild(b);
     var host = document.getElementById('ncl'); host.appendChild(d);
     cardEl.getElementsByTagName('p')[0].textContent = TX.sent;

@@ -50,7 +50,7 @@ module.exports = function (ctx) {
         queue = queue.filter(function (n) { return n.expires > now; });
         var keep = {};
         queue.forEach(function (n) { keep[n.id] = 1; });
-        Object.keys(imgCache).forEach(function (k) { if (!keep[k]) { delete imgCache[k]; } });
+        Object.keys(imgCache).forEach(function (k) { if (!keep[k.split(':')[0]]) { delete imgCache[k]; } });
     }
 
     // Asks Vetro to launch the companion app (at most once every 10 s), or its background service (every time: it is
@@ -76,7 +76,7 @@ module.exports = function (ctx) {
     }
 
     // The app may only load resources from the addresses its config.xml declares, so the Shard fetches the picture and serves it itself.
-    var imgCache = {}, MAX_IMG = 1500000;
+    var imgCache = {}, MAX_IMG = 3000000;
     function fetchImage(url, cb, hops) {
         var u = urlmod.parse(url), lib = u.protocol === 'https:' ? https : http, done = false;
         function end(e, r) { if (!done) { done = true; cb(e, r); } }
@@ -89,7 +89,7 @@ module.exports = function (ctx) {
                 var type = String(r.headers['content-type'] || '').split(';')[0];
                 if (r.statusCode !== 200 || !/^image\/(png|jpe?g|gif|webp|bmp)$/i.test(type)) { r.resume(); return end('not an image (http ' + r.statusCode + ' ' + type + ')'); }
                 var chunks = [], n = 0;
-                r.on('data', function (d) { n += d.length; if (n > MAX_IMG) { r.destroy(); end('image is larger than 1.5 MB'); } else { chunks.push(d); } });
+                r.on('data', function (d) { n += d.length; if (n > MAX_IMG) { r.destroy(); end('image is larger than 3 MB'); } else { chunks.push(d); } });
                 r.on('end', function () { end(null, { type: type, buf: Buffer.concat(chunks) }); });
             });
             rq.on('error', function (e) { end(String(e && e.code || e && e.message || e)); });
@@ -99,16 +99,17 @@ module.exports = function (ctx) {
     function serveImage(req, res) {
         var m = /[?&]id=([^&]+)/.exec(String(req.url || '')), id = m && decodeURIComponent(m[1]), info = /[?&]info=1(&|$)/.test(String(req.url || '')), note = null, i;
         for (i = 0; i < queue.length; i++) { if (queue[i].id === id) { note = queue[i]; } }
-        if (!note || !note.image) { return sendJson(res, 404, { error: 'no image for that notification' }); }
+        var kind = /[?&]kind=wallpaper(&|$)/.test(String(req.url || '')) ? 'wallpaper' : 'image', src = note && note[kind], key = id + ':' + kind;
+        if (!src) { return sendJson(res, 404, { error: 'no ' + kind + ' for that notification' }); }
         function out(hit) {
             if (info) { return sendJson(res, 200, { ok: true, type: hit.type, bytes: hit.buf.length }); }
             res.writeHead(200, { 'Content-Type': hit.type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': hit.buf.length });
             res.end(hit.buf);
         }
-        if (imgCache[id]) { return out(imgCache[id]); }
-        fetchImage(note.image, function (err, hit) {
+        if (imgCache[key]) { return out(imgCache[key]); }
+        fetchImage(src, function (err, hit) {
             if (err) { return sendJson(res, 502, { ok: false, error: err }); }
-            imgCache[id] = hit;
+            imgCache[key] = hit;
             out(hit);
         });
     }
@@ -164,6 +165,7 @@ module.exports = function (ctx) {
                 title: clean(b.title, MAX_TITLE),
                 icon: clean(b.icon, 8),
                 image: cleanUrl(b.image),
+                wallpaper: cleanUrl(b.wallpaper),
                 message: message,
                 level: LEVELS[b.level] ? b.level : 'info',
                 mode: MODES[b.mode] ? b.mode : 'banner',
@@ -202,7 +204,7 @@ module.exports = function (ctx) {
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {
-                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, image: n.image, seconds: Math.ceil((n.expires - now) / 1000) };
+                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, image: n.image, wallpaper: n.wallpaper, seconds: Math.ceil((n.expires - now) / 1000) };
                 }) };
                 if (wantsScript(req)) { sendScript(res, out); } else { sendJson(res, 200, out); }
                 return true;

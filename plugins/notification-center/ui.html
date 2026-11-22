@@ -86,6 +86,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     <input type="text" id="title" maxlength="40" data-p="ph_title">
     <input type="text" id="message" maxlength="200" data-p="ph_msg">
     <input type="text" id="image" maxlength="290" data-p="ph_image">
+    <input type="text" id="wallpaper" maxlength="290" data-p="ph_wall">
     <div class="row" style="margin-bottom:10px"><input type="text" id="icon" maxlength="8" data-p="ph_icon" style="flex:1;min-width:150px;margin:0"><button type="button" class="ghost" id="pick" style="margin:0" data-t="pick">Choose icon</button><button type="button" class="ghost" id="noicon" style="margin:0" data-t="noicon">Level icon</button></div>
     <div class="picker" id="picker" hidden><input type="text" id="esearch" data-p="ph_search" style="margin-bottom:0"><div class="ecats" id="ecats"></div><div class="egrid" id="egrid"></div><div class="msg" id="esrc"></div></div>
     <div class="row">
@@ -137,13 +138,13 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
     en: { title: "Notification Center", send: "Send a notification", secs: "Show for (s)", open: "Show on TV now", btn: "Send", preview: "Preview",
       prevnote: "The TV shows its own native banner; this is only an approximation.", recent: "Recently sent", refresh: "Refresh", app: "Companion app",
       appnote: "Launches NotifCtr01.NotifCenter (fixed id). It must be installed on the TV, see the README.", curl: "Send from another device",
-      ph_title: "Title (optional)", ph_msg: "Message", ph_image: "Image URL for the full-screen card (optional)", ph_icon: "Icon (emoji, optional; default by level)", pick: "Choose icon", noicon: "Level icon", ph_search: "Search icons...", groups: "Smileys,People,Animals,Food,Travel,Activities,Objects,Symbols,Flags", sending: "Sending...", queued: "Sent to the TV", queuedq: "Queued (TV not launched)", none: "Nothing sent yet.", notitle: "Notification",
+      ph_title: "Title (optional)", ph_msg: "Message", ph_wall: "Wallpaper URL, full-screen background (optional)", ph_image: "Image URL for the full-screen card (optional)", ph_icon: "Icon (emoji, optional; default by level)", pick: "Choose icon", noicon: "Level icon", ph_search: "Search icons...", groups: "Smileys,People,Animals,Food,Travel,Activities,Objects,Symbols,Flags", sending: "Sending...", queued: "Sent to the TV", queuedq: "Queued (TV not launched)", none: "Nothing sent yet.", notitle: "Notification",
       info: "Info", ok: "Done", warn: "Warning", alert: "Alert", sample: "Your message appears here", back: "Returning to the previous app in",
       mode: "Show as", m_both: "Both", m_banner: "Samsung banner", m_full: "Full screen", resend: "Resend", resent: "Sent again" },
     pt: { title: "Centro de Notifica\u00E7\u00F5es", send: "Enviar notifica\u00E7\u00E3o", secs: "Mostrar durante (s)", open: "Mostrar na TV agora", btn: "Enviar", preview: "Pr\u00E9-visualiza\u00E7\u00E3o",
       prevnote: "A TV mostra o seu pr\u00F3prio aviso nativo; isto \u00E9 s\u00F3 uma aproxima\u00E7\u00E3o.", recent: "Enviadas recentemente", refresh: "Atualizar", app: "App companheira",
       appnote: "Lan\u00E7a NotifCtr01.NotifCenter (id fixo). Tem de estar instalada na TV, ver o README.", curl: "Enviar a partir de outro dispositivo",
-      ph_title: "T\u00EDtulo (opcional)", ph_msg: "Mensagem", ph_image: "URL da imagem para o cart\u00E3o de ecr\u00E3 inteiro (opcional)", ph_icon: "\u00CDcone (emoji, opcional; por defeito pelo n\u00EDvel)", pick: "Escolher \u00EDcone", noicon: "\u00CDcone do n\u00EDvel", ph_search: "Pesquisar \u00EDcones...", groups: "Smileys,Pessoas,Animais,Comida,Viagens,Atividades,Objetos,S\u00EDmbolos,Bandeiras", sending: "A enviar...", queued: "Enviada para a TV", queuedq: "Em fila (TV n\u00E3o lan\u00E7ada)", none: "Ainda nada enviado.", notitle: "Notifica\u00E7\u00E3o",
+      ph_title: "T\u00EDtulo (opcional)", ph_msg: "Mensagem", ph_wall: "URL do wallpaper de fundo em ecr\u00E3 inteiro (opcional)", ph_image: "URL da imagem para o cart\u00E3o de ecr\u00E3 inteiro (opcional)", ph_icon: "\u00CDcone (emoji, opcional; por defeito pelo n\u00EDvel)", pick: "Escolher \u00EDcone", noicon: "\u00CDcone do n\u00EDvel", ph_search: "Pesquisar \u00EDcones...", groups: "Smileys,Pessoas,Animais,Comida,Viagens,Atividades,Objetos,S\u00EDmbolos,Bandeiras", sending: "A enviar...", queued: "Enviada para a TV", queuedq: "Em fila (TV n\u00E3o lan\u00E7ada)", none: "Ainda nada enviado.", notitle: "Notifica\u00E7\u00E3o",
       info: "Info", ok: "Conclu\u00EDdo", warn: "Aviso", alert: "Alerta", sample: "A sua mensagem aparece aqui", back: "A voltar \u00E0 aplica\u00E7\u00E3o anterior em",
       mode: "Mostrar como", m_both: "Ambos", m_banner: "Aviso Samsung", m_full: "Ecr\u00E3 inteiro", resend: "Reenviar", resent: "Enviada de novo" }
   };
@@ -242,7 +243,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
         rb[k].addEventListener("click", function () {
           var n = lastRecent[parseInt(this.getAttribute("data-i"), 10)];
           if (!n) { return; }
-          act(this, api("notify", { title: n.title, message: n.message, level: n.level, icon: n.icon, image: n.image, mode: n.mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
+          act(this, api("notify", { title: n.title, message: n.message, level: n.level, icon: n.icon, image: n.image, wallpaper: n.wallpaper, mode: n.mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
             .then(function () { say(tr("resent"), "ok"); recent(); })
             .catch(function (e) { say(e.message, "err"); throw e; }));
         });
@@ -286,7 +287,7 @@ pre { background: #0f131c; border-radius: 12px; padding: 10px; font-size: 12px; 
   // The dashboard frame has no allow-forms: use buttons and the Enter key, not <form>.
   $("send").addEventListener("click", function () {
     say(tr("sending"));
-    act(this, api("notify", { title: $("title").value, message: $("message").value, level: level, icon: $("icon").value, image: $("image").value, mode: mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
+    act(this, api("notify", { title: $("title").value, message: $("message").value, level: level, icon: $("icon").value, image: $("image").value, wallpaper: $("wallpaper").value, mode: mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
       .then(function (r) { say(r.open === "not requested" ? tr("queuedq") : tr("queued"), "ok"); $("message").value = ""; preview(); recent().catch(function () {}); })
       .catch(function (e) { say(e.message, "err"); throw e; }));
   });
