@@ -9,7 +9,7 @@ var https = require('https');
 var urlmod = require('url');
 var os = require('os');
 
-var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
+var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192, MAX_ICON = 16;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, MIN_RELAUNCH_MS = 2000, APP_ACTIVE_MS = 3500;
 // The banner service reads the queue from this file, so it needs no network and no Vetro key (it still works with pairing on).
 var QUEUE_FILE = '/tmp/notification-center-queue.json';
@@ -76,6 +76,7 @@ module.exports = function (ctx) {
                 headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
             }, function (r) { r.resume(); });
             rq.on('error', function () { /* Vetro busy or app not installed */ });
+            rq.setTimeout(5000);   // the timeout option alone is ignored before Node 6.8
             rq.on('timeout', function () { rq.destroy(); });
             rq.write(body);
             rq.end();
@@ -101,6 +102,7 @@ module.exports = function (ctx) {
                 r.on('end', function () { end(null, { type: type, buf: Buffer.concat(chunks) }); });
             });
             rq.on('error', function (e) { end(String(e && e.code || e && e.message || e)); });
+            rq.setTimeout(8000);
             rq.on('timeout', function () { rq.destroy(); end('timeout'); });
         } catch (e) { end('request failed'); }
     }
@@ -148,6 +150,7 @@ module.exports = function (ctx) {
                 });
             });
             rq.on('error', d1);
+            rq.setTimeout(5000);
             rq.on('timeout', function () { rq.destroy(); });
         } catch (e) { d1(); }
         // Pairing: ask this TV on its own LAN address without a key; 401 means pairing is on.
@@ -161,6 +164,7 @@ module.exports = function (ctx) {
                 d2();
             });
             rq2.on('error', d2);
+            rq2.setTimeout(4000);
             rq2.on('timeout', function () { rq2.destroy(); });
         } catch (e) { d2(); }
     }
@@ -207,7 +211,7 @@ module.exports = function (ctx) {
                 level: { type: 'string', enum: Object.keys(LEVELS), default: 'info', note: 'Colours the card and the panel; the native banner shows the level emoji.' },
                 mode: { type: 'string', enum: Object.keys(MODES), default: 'banner', note: 'banner = native Samsung banner over the running app (no app switch); full = full-screen card; both = card and banner.' },
                 duration: { type: 'integer', min: MIN_DURATION, max: MAX_DURATION, default: DEFAULT_DURATION, note: 'Seconds on screen.' },
-                icon: { type: 'string', max: 8, note: 'One emoji in front of the title; default by level.' },
+                icon: { type: 'string', max: MAX_ICON, note: 'One emoji (or an emoji sequence) in front of the title; default by level. Cut at whole emoji, never in the middle of one.' },
                 image: { type: 'url', note: 'http/https picture under the message on the full-screen card. The Shard fetches it.' },
                 wallpaper: { type: 'url', note: 'http/https full-screen background behind the card. The Shard fetches it.' },
                 seconds: { type: 'integer', min: MIN_SECONDS, max: MAX_SECONDS, default: DEFAULT_SECONDS, note: 'How long it waits in the queue (always at least duration + 20).' },
@@ -237,6 +241,23 @@ module.exports = function (ctx) {
                 return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, expires: n.expires };
             }) }), { mode: 420 });
         } catch (e) { /* /tmp not writable: the service falls back to asking the Shard over the network */ }
+    }
+
+    // An emoji or emoji sequence of at most MAX_ICON UTF-16 units. It is cut only between whole characters (never inside a surrogate pair) and never
+    // left ending on a joiner or variation selector that belonged to a sequence that did not fit.
+    function cleanIcon(v) {
+        var t = String(v == null ? '' : v).replace(/[\x00-\x1f]/g, '').replace(/^\s+|\s+$/g, ''), out = '', i = 0, step, c;
+        while (i < t.length) {
+            c = t.charCodeAt(i);
+            step = (c >= 0xD800 && c <= 0xDBFF && i + 1 < t.length) ? 2 : 1;
+            if (out.length + step > MAX_ICON) { break; }
+            out += t.substr(i, step);
+            i += step;
+        }
+        if (i < t.length) {
+            while (out.length && /[\u200D\uFE0F]$/.test(out)) { out = out.slice(0, -1); }
+        }
+        return out;
     }
 
     // Image for the full-screen card: an http(s) URL only.
@@ -288,7 +309,7 @@ module.exports = function (ctx) {
             var note = {
                 id: seq + '-' + Date.now().toString(36),
                 title: clean(b.title, MAX_TITLE),
-                icon: clean(b.icon, 8),
+                icon: cleanIcon(b.icon),
                 image: cleanUrl(b.image),
                 wallpaper: cleanUrl(b.wallpaper),
                 message: message,

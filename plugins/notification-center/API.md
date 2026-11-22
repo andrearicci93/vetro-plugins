@@ -30,7 +30,7 @@ JSON body. Only `message` is required.
 | `level` | `info` `ok` `warn` `alert` | `info` | Colours the card and the panel; the native banner gets the level's emoji. |
 | `mode` | `banner` `full` `both` | `banner` | `banner`: the native Samsung banner over whatever is running, no app switch. `full`: a full-screen card (the companion app comes to the front). `both`: card and banner. |
 | `duration` | integer 1-60 | `8` | Seconds on screen. |
-| `icon` | string, max 8 | by level | One emoji in front of the title (e.g. a goal: the ball). |
+| `icon` | string, max 16 | by level | One emoji (or emoji sequence) in front of the title, e.g. the ball for a goal. Cut at whole emoji only. |
 | `image` | http/https URL, max 290 | none | A picture under the message on the **full-screen card**. |
 | `wallpaper` | http/https URL, max 290 | none | A darkened full-screen background behind the card. Can be combined with `image`. |
 | `seconds` | integer 5-300 | `30` | How long it may wait in the queue (always at least `duration` + 20). |

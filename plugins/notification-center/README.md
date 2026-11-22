@@ -90,7 +90,7 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/notify -H "Auth
 
 The companion app on the TV itself (127.0.0.1) needs no key. With pairing off (Vetro's "Disable pairing mode") any device on the LAN can send notifications.
 
-Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `icon` (an emoji, up to 8 characters: in front of the title on the native banner and in the card; default by level: ℹ️ ✅ ⚠️ 🔴), `image` (an http/https URL, up to 290 characters: a picture under the message on the full-screen card) and `wallpaper` (the same kind of URL, shown as a darkened full-screen background behind the card; use both together if you like; the native banner has neither), `mode` (`banner` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
+Fields: `message` (required, 200 characters), `title` (40), `level` (`info`, `ok`, `warn`, `alert`; colours the card on the app screen and the panel, default `info`), `duration` (1-60, default 8: seconds the notification stays on the TV screen before the app returns to the previous one; very short values may cut the native banner short), `icon` (an emoji or emoji sequence, up to 16 characters: in front of the title on the native banner and in the card; default by level: ℹ️ ✅ ⚠️ 🔴), `image` (an http/https URL, up to 290 characters: a picture under the message on the full-screen card) and `wallpaper` (the same kind of URL, shown as a darkened full-screen background behind the card; use both together if you like; the native banner has neither), `mode` (`banner` default, `banner` = native Samsung banner only, `full` = full-screen card only), `seconds` (5-300, how long it waits in the queue), `open`
 (`false` only queues it, without launching the app). The page of this Shard (tab **Notifications**) has a form for it.
 
 ## Install the companion app (required)
@@ -223,6 +223,11 @@ Add any 512x512 `icon.png`, zip the files as `.wgt`, sign it and install it (App
 `nt.js` also tries the address it was loaded from. If the app shows "nt.js failed" (loopback does not answer on some TVs), build the app with the TV's LAN address too:
 add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matching `<access origin="...">` to `config.xml`.
 
+## Compatibility
+
+- **Vetro / Node:** the Shard is plain ES5 and uses only Node 4.4 APIs (request timeouts are set with `setTimeout`, since the `timeout` option only exists from Node 6.8). It was checked with an ES5-only parser and its lifecycle test passes on a current Node. The Node 4.4.7 binary itself could not be run on the machine used for the work (it crashes at start on Windows 11), so that exact version has not been run.
+- **Samsung TVs:** the companion app declares `required_version="6.0"`, so it needs **Tizen 6.0 or newer (2021 models and later)**; the banner uses a web *service* and `webapis.postPlainNotification`, which were found on Tizen 9.0. Everything was tested on one TV only: **Samsung Q70C (TQ55Q70CATXXC), Tizen 9.0, Vetro 0.7.0**. Older TVs and Smart Monitors have not been tried.
+
 ## Limitations (all measured on a real TV)
 
 - **Banner mode** uses Samsung's `webapis.postPlainNotification(title, message, seconds)`, which exists only inside a web *service* (a background
@@ -240,8 +245,8 @@ add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matchi
 
 ## Tested on
 
-Samsung Q70C (TQ55Q70CATXXC), Tizen 9.0, Vetro 0.6.9, Shard 0.1.0 installed from the bundle as a file (Developer mode), with the companion
-app `NotifCtr01.NotifCenter` 0.1.0 installed on the TV.
+Samsung Q70C (TQ55Q70CATXXC), Tizen 9.0, Vetro 0.7.0, Shard 0.2.0 installed from the bundle as a file (Developer mode), with the companion
+app `NotifCtr01.NotifCenter` 0.2.2 installed on the TV.
 
 **Pairing off (Vetro's "Disable pairing mode" on): tested on the TV.** Notifications sent with `curl` from a PC on the LAN: native banner top-right
 (`mode: banner`), full-screen card (`mode: full`) and both (`mode: both`); English and Portuguese (`lang`); the four levels (`info`, `ok`, `warn`,
