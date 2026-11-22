@@ -42,6 +42,19 @@
       "size": 65608
     },
     {
+      "id": "elm-leak-fix",
+      "name": "EFL leak fix",
+      "version": "1.0.0",
+      "author": "elmasevmem",
+      "description": "Stops msf-server rewriting the Elementary config every second (pw-show-lastset), which leaks memory in every EFL app and freezes the UI.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/elm-leak-fix-1.0.0.vplugin",
+      "sha256": "c5c39d6474e528f2d6aee275c240e70bcc8cdfd9779371c4b0a593f5ae5bd053",
+      "size": 10717
+    },
+    {
       "id": "home-assistant",
       "name": "Home Assistant",
       "version": "0.1.0",
