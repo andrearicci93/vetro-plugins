@@ -16,7 +16,7 @@ h1 { font-size: 20px; margin: 0; flex: 1; font-weight: 600; }
 .lang button { border: 0; background: none; color: var(--dim); padding: 6px 12px; cursor: pointer; font: inherit; }
 .lang button.on { background: var(--acc); color: #fff; }
 /* Two columns: the form on the left; the preview with the recently sent list below it on the right. */
-.grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); align-items: start; }
 .grid > .card:nth-child(1) { grid-row: span 2; }
 @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } .grid > .card:nth-child(1) { grid-row: auto; } }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; }
