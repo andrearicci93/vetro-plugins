@@ -7,6 +7,7 @@ var path = require('path');
 var http = require('http');
 var https = require('https');
 var urlmod = require('url');
+var os = require('os');
 
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
@@ -96,7 +97,74 @@ module.exports = function (ctx) {
             rq.on('timeout', function () { rq.destroy(); end('timeout'); });
         } catch (e) { end('request failed'); }
     }
+    // Any http(s) image by URL (used by the panel's live preview); kept for 2 minutes, at most 8 at a time.
+    var urlCache = {};
+    function serveUrl(src, info, res) {
+        var hit = urlCache[src];
+        function out(h) {
+            if (info) { return sendJson(res, 200, { ok: true, type: h.type, bytes: h.buf.length }); }
+            res.writeHead(200, { 'Content-Type': h.type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': h.buf.length });
+            res.end(h.buf);
+        }
+        if (hit && Date.now() - hit.at < 120000) { return out(hit); }
+        fetchImage(src, function (err, h) {
+            if (err) { return sendJson(res, 502, { ok: false, error: err }); }
+            h.at = Date.now();
+            var keys = Object.keys(urlCache);
+            if (keys.length >= 8) { delete urlCache[keys[0]]; }
+            urlCache[src] = h;
+            out(h);
+        });
+    }
+
+    // Installation status for the panel: is the companion app (and its service) installed, is Vetro pairing on, which Shard version.
+    function statusInfo(cb) {
+        var out = { version: '', app: false, appVersion: '', service: false, pairing: 'unknown' }, left = 2;
+        try { out.version = require('./manifest.json').version; } catch (e) { /* manifest not readable */ }
+        function once() { var d = false; return function () { if (!d) { d = true; left -= 1; if (!left) { cb(out); } } }; }
+        var d1 = once(), d2 = once();
+        try {
+            var rq = http.get({ host: '127.0.0.1', port: 8099, path: '/apps', timeout: 5000 }, function (r) {
+                var s = '';
+                r.setEncoding('utf8');
+                r.on('data', function (d) { s += d; if (s.length > 3000000) { r.destroy(); } });
+                r.on('end', function () {
+                    try {
+                        var j = JSON.parse(s), list = Array.isArray(j) ? j : (j.apps || []), i;
+                        for (i = 0; i < list.length; i++) {
+                            if (list[i].appId === DEFAULT_APP) { out.app = true; out.appVersion = String(list[i].version || ''); }
+                            if (list[i].appId === SERVICE_APP) { out.service = true; }
+                        }
+                    } catch (e) { /* leave unknown */ }
+                    d1();
+                });
+            });
+            rq.on('error', d1);
+            rq.on('timeout', function () { rq.destroy(); });
+        } catch (e) { d1(); }
+        // Pairing: ask this TV on its own LAN address without a key; 401 means pairing is on.
+        var ip = null, ifs = os.networkInterfaces(), k, j2;
+        for (k in ifs) { if (ifs.hasOwnProperty(k)) { for (j2 = 0; j2 < ifs[k].length; j2++) { if (ifs[k][j2].family === 'IPv4' && !ifs[k][j2].internal && !ip) { ip = ifs[k][j2].address; } } } }
+        if (!ip) { return d2(); }
+        try {
+            var rq2 = http.get({ host: ip, port: 8099, path: '/plugins/notification-center/api/lang', timeout: 4000 }, function (r) {
+                r.resume();
+                out.pairing = r.statusCode === 401 ? 'on' : r.statusCode === 200 ? 'off' : 'unknown';
+                d2();
+            });
+            rq2.on('error', d2);
+            rq2.on('timeout', function () { rq2.destroy(); });
+        } catch (e) { d2(); }
+    }
+
     function serveImage(req, res) {
+        var um = /[?&]url=([^&]+)/.exec(String(req.url || ''));
+        if (um) {
+            var pu = '';
+            try { pu = cleanUrl(decodeURIComponent(um[1])); } catch (e) { pu = ''; }
+            if (!pu) { return sendJson(res, 400, { error: 'not an http(s) URL' }); }
+            return serveUrl(pu, /[?&]info=1(&|$)/.test(String(req.url || '')), res);
+        }
         var m = /[?&]id=([^&]+)/.exec(String(req.url || '')), id = m && decodeURIComponent(m[1]), info = /[?&]info=1(&|$)/.test(String(req.url || '')), note = null, i;
         for (i = 0; i < queue.length; i++) { if (queue[i].id === id) { note = queue[i]; } }
         var kind = /[?&]kind=wallpaper(&|$)/.test(String(req.url || '')) ? 'wallpaper' : 'image', src = note && note[kind], key = id + ':' + kind;
@@ -143,6 +211,8 @@ module.exports = function (ctx) {
                 { method: 'GET', path: 'notifications', summary: 'The active queue (used by the app and its service); add ?js=1 for the script form.', returns: '{lang, notifications:[...]}' },
                 { method: 'GET', path: 'recent', summary: 'The last notifications sent.', returns: '{recent:[...]}' },
                 { method: 'GET', path: 'img?id=<id>[&kind=wallpaper][&info=1]', summary: 'The picture of a queued notification, fetched and served by the Shard; info=1 returns {ok,type,bytes}.', returns: 'image bytes or JSON' },
+                { method: 'GET', path: 'img?url=<encoded URL>[&info=1]', summary: 'Fetch and serve any http(s) image by URL (used by the panel preview); info=1 returns {ok,type,bytes}.', returns: 'image bytes or JSON' },
+                { method: 'GET', path: 'status', summary: 'Installation status: companion app, its service, Vetro pairing, Shard version.', returns: '{version, app, appVersion, service, pairing}' },
                 { method: 'GET', path: 'lang', summary: 'Display language (en or pt).', returns: '{lang}' },
                 { method: 'POST', path: 'lang', summary: 'Set the display language.', body: '{lang: "en"|"pt"}', returns: '{lang}' },
                 { method: 'GET', path: 'emoji', summary: 'The bundled emoji list used by the icon picker.', returns: '{source, groups, list}' },
@@ -234,6 +304,7 @@ module.exports = function (ctx) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
             if (sub === 'ui' && req.method === 'GET') { sendFile(res, 'ui.html', 'text/html; charset=utf-8'); return true; }
             if (sub === 'api' && req.method === 'GET') { sendJson(res, 200, describe()); return true; }
+            if (sub === 'status' && req.method === 'GET') { statusInfo(function (o) { sendJson(res, 200, o); }); return true; }
             if (sub === 'img' && req.method === 'GET') { serveImage(req, res); return true; }
             if (sub === 'ntfy' && req.method === 'POST') { handleNtfy(req, res); return true; }
             if (sub === 'emoji' && req.method === 'GET') { sendFile(res, 'emoji.json', 'application/json; charset=utf-8'); return true; }
