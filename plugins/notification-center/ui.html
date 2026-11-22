@@ -110,6 +110,14 @@ button:focus-visible, .tab:focus-visible { outline: 2px solid var(--acc); outlin
 .egrid button { font-size: 22px; background: none; border: 0; border-radius: 8px; cursor: pointer; padding: 4px; }
 .egrid button:hover { background: var(--s3); }
 
+/* icon popup */
+.modal { position: fixed; inset: 0; background: rgba(4, 6, 10, .74); display: grid; place-items: center; padding: 20px; z-index: 50; }
+.dlg { background: var(--s1); border: 1px solid var(--line2); border-radius: 16px; padding: 18px; width: min(760px, 100%); max-height: 90vh; overflow: auto; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
+.dhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dhead h2 { margin: 0; }
+.egrid { grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); }
+.egrid button { font-size: 26px; padding: 6px; }
+
 /* developer area */
 .dev { margin-top: 0; }
 [hidden] { display: none !important; }
@@ -168,8 +176,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         <h2 data-t="sec_msg">Message</h2>
         <input type="text" id="title" maxlength="40" data-p="ph_title">
         <input type="text" id="message" maxlength="200" data-p="ph_msg">
-        <div class="row"><input type="text" id="icon" maxlength="8" data-p="ph_icon" style="flex:1;min-width:150px"><button type="button" class="ghost" id="pick" data-t="pick">Choose icon</button></div>
-        <div class="picker" id="picker" hidden><input type="text" id="esearch" data-p="ph_search"><div class="ecats" id="ecats"></div><div class="egrid" id="egrid"></div><div class="msg" id="esrc" style="padding:6px 0 0"></div></div>
+        <input type="text" id="icon" maxlength="8" data-p="ph_icon">
       </div>
     </section>
     <section class="col">
@@ -240,6 +247,15 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     </div>
   </section>
 </div>
+<div class="modal" id="picker" hidden>
+  <div class="dlg" role="dialog" aria-modal="true">
+    <div class="dhead"><h2 data-t="pick_title">Choose an icon</h2><button type="button" class="ghost" id="pclose" data-t="close">Close</button></div>
+    <input type="text" id="esearch" data-p="ph_search">
+    <div class="ecats" id="ecats"></div>
+    <div class="egrid" id="egrid"></div>
+    <div class="msg" id="esrc" style="padding:8px 0 0"></div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -249,7 +265,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     en: { title: "Notification Center", send: "Send a notification", secs: "Show for (s)", open: "Show on TV now", btn: "Send", preview: "Preview",
       prevnote: "The TV shows its own native banner; this is only an approximation.", recent: "Recently sent", refresh: "Refresh", app: "Companion app",
       appnote: "Launches NotifCtr01.NotifCenter (fixed id). It must be installed on the TV, see the README.", curl: "Send from another device",
-      ph_title: "Title (optional)", ph_msg: "Message", st_title: "Status", ph_auto: "\u00cdcone autom\u00e1tico:", tab_main: "Notifications", ph_auto: "Automatic icon:", sec_msg: "Message", sec_pics: "Pictures for the full-screen card", c_app: "App", c_svc: "Banner service", c_pair_on: "Pairing on", c_pair_off: "Pairing off", st_shard: "Notification Center Shard", st_app: "Companion app installed", st_appfix: "Install the .wgt with Apps2Samsung or TV-Store", st_svc: "Banner service installed", st_svcfix: "Reinstall the app (version 0.2 or newer)", st_pair: "Vetro pairing", st_pair_on: "On: other devices need a key", st_pair_off: "Off: any device on the network can send", st_pair_unknown: "Could not tell", st_tb: "Test banner", st_tc: "Test card", st_tboth: "Test both", rq_title: "Request for other apps and Shards", copy: "Copy", api_title: "API", api_try: "Try it", send_btn: "Send", sent_ok: "Sent.",
+      ph_title: "Title (optional)", ph_msg: "Message", st_title: "Status", ph_auto: "\u00cdcone autom\u00e1tico:", pick_title: "Escolher um \u00edcone", close: "Fechar", tab_main: "Notifications", pick_title: "Choose an icon", close: "Close", ph_auto: "Automatic icon:", sec_msg: "Message", sec_pics: "Pictures for the full-screen card", c_app: "App", c_svc: "Banner service", c_pair_on: "Pairing on", c_pair_off: "Pairing off", st_shard: "Notification Center Shard", st_app: "Companion app installed", st_appfix: "Install the .wgt with Apps2Samsung or TV-Store", st_svc: "Banner service installed", st_svcfix: "Reinstall the app (version 0.2 or newer)", st_pair: "Vetro pairing", st_pair_on: "On: other devices need a key", st_pair_off: "Off: any device on the network can send", st_pair_unknown: "Could not tell", st_tb: "Test banner", st_tc: "Test card", st_tboth: "Test both", rq_title: "Request for other apps and Shards", copy: "Copy", api_title: "API", api_try: "Try it", send_btn: "Send", sent_ok: "Sent.",
       ph_wall: "Wallpaper URL, full-screen background (optional)", ph_image: "Image URL for the full-screen card (optional)", ph_icon: "Icon (emoji, optional; default by level)", pick: "Choose icon", noicon: "Level icon", ph_search: "Search icons...", groups: "Smileys,People,Animals,Food,Travel,Activities,Objects,Symbols,Flags", sending: "Sending...", queued: "Sent to the TV", queuedq: "Queued (TV not launched)", none: "Nothing sent yet.", notitle: "Notification",
       info: "Info", ok: "Done", warn: "Warning", alert: "Alert", sample: "Your message appears here", back: "Returning to the previous app in",
       mode: "Show as", m_both: "Both", m_banner: "Samsung banner", m_full: "Full screen", resend: "Resend", resent: "Sent again" },
@@ -284,11 +300,18 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
   }
   function icon(l) { return iconSvg(l, 24); }
   function paintLevels() {
-    $("levels").innerHTML = LEVELS.map(function (l) {
+    var custom = $("icon").value, shown = ["info", "warn", "alert"];
+    $("levels").innerHTML = shown.map(function (l) {
       return '<button type="button" class="lv' + (l === level ? " on" : "") + '" data-l="' + l + '" style="--c:' + COLORS[l] + '"><i style="background:' + COLORS[l] + '">' + iconSvg(l, 22) + "</i>" + esc(tr(l)) + "</button>";
-    }).join("");
+    }).join("") + '<button type="button" class="lv' + (custom ? " on" : "") + '" id="lvpick" style="--c:#8fa3c8"><i style="background:' + (custom ? "transparent" : "#2a3550") + '">' +
+      (custom ? '<span style="font-size:15px">' + esc(custom) + "</span>" : '<svg width="14" height="14" viewBox="0 0 14 14" fill="#fff"><rect x="1" y="1" width="5" height="5" rx="1.5"/><rect x="8" y="1" width="5" height="5" rx="1.5"/><rect x="1" y="8" width="5" height="5" rx="1.5"/><rect x="8" y="8" width="5" height="5" rx="1.5"/></svg>') + "</i>" + esc(tr("pick")) + "</button>";
     var b = $("levels").getElementsByTagName("button"), i;
-    for (i = 0; i < b.length; i++) { b[i].addEventListener("click", function () { level = this.getAttribute("data-l"); paintLevels(); preview(); }); }
+    for (i = 0; i < b.length; i++) {
+      b[i].addEventListener("click", function () {
+        if (this.id === "lvpick") { openPicker(); return; }
+        level = this.getAttribute("data-l"); paintLevels(); preview();
+      });
+    }
   }
   function paintModes() {
     var MODES = ["banner", "full", "both"];
@@ -390,14 +413,16 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     $("egrid").innerHTML = out.map(function (e) { return '<button type="button" data-c="' + esc(e[0]) + '" title="' + esc(lang === "pt" ? e[3] : e[2]) + '">' + e[0] + "</button>"; }).join("");
     var cb = $("ecats").getElementsByTagName("button"), gb = $("egrid").getElementsByTagName("button"), j;
     for (j = 0; j < cb.length; j++) { cb[j].addEventListener("click", function () { ecat = parseInt(this.getAttribute("data-g"), 10); $("esearch").value = ""; eRender(); }); }
-    for (j = 0; j < gb.length; j++) { gb[j].addEventListener("click", function () { $("icon").value = this.getAttribute("data-c"); $("picker").hidden = true; preview(); }); }
+    for (j = 0; j < gb.length; j++) { gb[j].addEventListener("click", function () { $("icon").value = this.getAttribute("data-c"); $("picker").hidden = true; paintLevels(); preview(); }); }
   }
-  $("pick").addEventListener("click", function () {
-    $("picker").hidden = !$("picker").hidden;
-    if ($("picker").hidden) { return; }
-    if (EMOJI) { return eRender(); }
-    api("emoji").then(function (d) { EMOJI = d; $("esrc").textContent = d.source; eRender(); }).catch(function (e) { say(e.message, "err"); });
-  });
+  function openPicker() {
+    $("picker").hidden = false;
+    if (EMOJI) { eRender(); $("esearch").focus(); return; }
+    api("emoji").then(function (d) { EMOJI = d; $("esrc").textContent = d.source; eRender(); $("esearch").focus(); }).catch(function (e) { say(e.message, "err"); });
+  }
+  $("pclose").addEventListener("click", function () { $("picker").hidden = true; });
+  $("picker").addEventListener("click", function (e) { if (e.target === this) { this.hidden = true; } });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { $("picker").hidden = true; } });
   $("esearch").addEventListener("input", eRender);
   // The language is a Shard setting (default English); it also decides the language of the app screen on the TV.
   function setLang(l) { lang = l; applyLang(); api("lang", { lang: l }).catch(function (e) { say(e.message, "err"); }); }
@@ -409,7 +434,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
       .catch(function (e) { say(e.message, "err"); throw e; }));
   });
   $("message").addEventListener("keydown", function (e) { if (e.key === "Enter") { $("send").click(); } });
-  $("message").addEventListener("input", preview); $("icon").addEventListener("input", preview); $("title").addEventListener("input", preview);
+  $("message").addEventListener("input", preview); $("icon").addEventListener("input", function () { paintLevels(); preview(); }); $("title").addEventListener("input", preview);
   $("secs").addEventListener("input", function () { $("secsv").textContent = this.value + " s"; preview(); });
   $("refresh").addEventListener("click", function () { act(this, recent()); });
   $("l-en").addEventListener("click", function () { setLang("en"); });
