@@ -114,6 +114,44 @@ module.exports = function (ctx) {
         });
     }
 
+    // Self-description of the API, built from the same constants that validate the requests, so it cannot drift from the code.
+    // Keep it in step with API.md: every new field, mode or route is added in code, here, and in API.md together.
+    function describe() {
+        var ver = '';
+        try { ver = require('./manifest.json').version; } catch (e) { /* manifest not readable */ }
+        return {
+            name: 'notification-center', version: ver, apiVersion: 1,
+            base: '/plugins/notification-center/api/',
+            auth: 'Same as the rest of Vetro: no key with pairing off; with pairing on, other devices send "Authorization: Bearer <key>". Shards on the same TV call http://127.0.0.1:8099 and need no key.',
+            enums: { level: Object.keys(LEVELS), mode: Object.keys(MODES) },
+            limits: { title: MAX_TITLE, message: MAX_MESSAGE, queue: MAX_QUEUE, recent: MAX_RECENT, durationSeconds: [MIN_DURATION, MAX_DURATION], queueSeconds: [MIN_SECONDS, MAX_SECONDS], image: '3 MB, png/jpeg/gif/webp/bmp, http(s) URL up to 290 characters', launchEverySeconds: OPEN_EVERY_MS / 1000 },
+            fields: {
+                message: { type: 'string', required: true, max: MAX_MESSAGE, note: 'The text of the notification.' },
+                title: { type: 'string', max: MAX_TITLE },
+                level: { type: 'string', enum: Object.keys(LEVELS), default: 'info', note: 'Colours the card and the panel; the native banner shows the level emoji.' },
+                mode: { type: 'string', enum: Object.keys(MODES), default: 'banner', note: 'banner = native Samsung banner over the running app (no app switch); full = full-screen card; both = card and banner.' },
+                duration: { type: 'integer', min: MIN_DURATION, max: MAX_DURATION, default: DEFAULT_DURATION, note: 'Seconds on screen.' },
+                icon: { type: 'string', max: 8, note: 'One emoji in front of the title; default by level.' },
+                image: { type: 'url', note: 'http/https picture under the message on the full-screen card. The Shard fetches it.' },
+                wallpaper: { type: 'url', note: 'http/https full-screen background behind the card. The Shard fetches it.' },
+                seconds: { type: 'integer', min: MIN_SECONDS, max: MAX_SECONDS, default: DEFAULT_SECONDS, note: 'How long it waits in the queue (always at least duration + 20).' },
+                open: { type: 'boolean', default: true, note: 'false only queues it, without launching the app or its service.' }
+            },
+            endpoints: [
+                { method: 'POST', path: 'notify', summary: 'Send a notification (JSON body with the fields above).', returns: '{ok, id, open}' },
+                { method: 'POST', path: 'ntfy', summary: 'ntfy-compatible publish: body = message; headers Title, Priority (5 alert, 4 warning), Tags; or JSON {message,title,priority,tags}.', returns: '{ok, id, open}' },
+                { method: 'GET', path: 'notifications', summary: 'The active queue (used by the app and its service); add ?js=1 for the script form.', returns: '{lang, notifications:[...]}' },
+                { method: 'GET', path: 'recent', summary: 'The last notifications sent.', returns: '{recent:[...]}' },
+                { method: 'GET', path: 'img?id=<id>[&kind=wallpaper][&info=1]', summary: 'The picture of a queued notification, fetched and served by the Shard; info=1 returns {ok,type,bytes}.', returns: 'image bytes or JSON' },
+                { method: 'GET', path: 'lang', summary: 'Display language (en or pt).', returns: '{lang}' },
+                { method: 'POST', path: 'lang', summary: 'Set the display language.', body: '{lang: "en"|"pt"}', returns: '{lang}' },
+                { method: 'GET', path: 'emoji', summary: 'The bundled emoji list used by the icon picker.', returns: '{source, groups, list}' },
+                { method: 'GET', path: 'api', summary: 'This description.', returns: 'JSON' }
+            ],
+            docs: 'API.md in the Shard folder'
+        };
+    }
+
     // Image for the full-screen card: an http(s) URL only.
     function cleanUrl(u) { u = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s"'<>]{4,290}$/.test(u) ? u : ''; }
 
@@ -195,6 +233,7 @@ module.exports = function (ctx) {
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
             if (sub === 'ui' && req.method === 'GET') { sendFile(res, 'ui.html', 'text/html; charset=utf-8'); return true; }
+            if (sub === 'api' && req.method === 'GET') { sendJson(res, 200, describe()); return true; }
             if (sub === 'img' && req.method === 'GET') { serveImage(req, res); return true; }
             if (sub === 'ntfy' && req.method === 'POST') { handleNtfy(req, res); return true; }
             if (sub === 'emoji' && req.method === 'GET') { sendFile(res, 'emoji.json', 'application/json; charset=utf-8'); return true; }

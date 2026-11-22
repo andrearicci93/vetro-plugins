@@ -26,6 +26,11 @@ Apps and scripts that already publish to [ntfy](https://ntfy.sh) can point at `P
 curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title: Oven" -H "Priority: 4" -H "Tags: tada" -d "Dinner is ready"
 ```
 
+## API for other apps and Shards
+
+Everything above can be sent from any source (another Shard, a PC, Home Assistant, a script, any ntfy client). **[API.md](API.md)** documents every field, route, limit and
+example, and `GET /plugins/notification-center/api/api` returns the same description as JSON. New features are always added to the code, that description and `API.md` together.
+
 ## Permissions
 
 None. It does not use `exec`.
