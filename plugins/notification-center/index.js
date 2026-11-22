@@ -1,6 +1,8 @@
 'use strict';
 // Notification Center: queue notifications from any device on the LAN and show them as native TV banners
-// through a small companion web app (see README). It talks only to Vetro on 127.0.0.1:8099 (to launch that app).
+// through a small companion web app (see README). It talks to Vetro on 127.0.0.1:8099 (to launch that app); the one other thing it does on the
+// network is to fetch an http(s) image URL when a sender gives an `image` or `wallpaper` (at most 2 at a time, 10 s each, 3 MB).
+// Everything that arrives from the LAN is untrusted JSON: values are type-checked (str/num/has from rules.js) before they are used.
 // Plain ES5: older TVs run Node 4.4.
 var fs = require('fs');
 var path = require('path');
@@ -44,16 +46,39 @@ module.exports = function (ctx) {
         send(res, 200, 'application/javascript; charset=utf-8', 'window.__ncNotes&&window.__ncNotes(' + json + ');');
     }
     function wantsScript(req) { return /[?&]js=1(&|$)/.test(String(req.url || '')); }
+    // The body is collected as bytes and decoded once at the end, so a multi-byte character split between two chunks stays intact.
+    function toBuf(d) { return Buffer.isBuffer(d) ? d : (Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(String(d), 'utf8') : new Buffer(String(d), 'utf8')); }
     function readBody(req, cb, max) {
-        var s = '', limit = max || MAX_BODY;
-        req.on('data', function (d) { s += d; if (s.length > limit) { req.destroy(); } });
-        req.on('end', function () { cb(s); });
+        var chunks = [], n = 0, limit = max || MAX_BODY, over = false;
+        req.on('data', function (d) {
+            if (over) { return; }
+            var b = toBuf(d);
+            n += b.length;
+            if (n > limit) {
+                // Too large: answer 413 and drop the rest of the body without buffering it.
+                over = true; chunks = [];
+                if (cb.res) { try { sendJson(cb.res, 413, { error: 'request body too large' }); } catch (e) { /* already answered */ } }
+                return;
+            }
+            chunks.push(b);
+        });
+        req.on('end', function () { if (!over) { cb(Buffer.concat(chunks).toString('utf8')); } });
     }
+    // A body handler that throws must never take the Shard down: answer 500 instead of letting the exception reach Vetro.
+    function guard(res, fn) {
+        var f = function (raw) {
+            try { fn(raw); } catch (e) { try { sendJson(res, 500, { error: 'internal error' }); } catch (e2) { /* the answer was already sent */ } }
+        };
+        f.res = res;   // readBody answers 413 on this response when the body is too large
+        return f;
+    }
+    function readBodyG(req, res, cb, max) { readBody(req, guard(res, cb), max); }
     var limiter = rules.makeLimiter(), groups = {};   // per-source rate windows and recently seen repeats (memory only)
+    var str = rules.str, num = rules.num, has = rules.has;
     function cfgGet() { return ctx.config.get() || {}; }
     function settingsNow() { return rules.sanitizeSettings(cfgGet().settings, {}); }
     function clean(text, max) {
-        return String(text == null ? '' : text).replace(/[\x00-\x1f]/g, ' ').slice(0, max).trim();
+        return str(text).replace(/[\x00-\x1f]/g, ' ').slice(0, max).trim();
     }
     function prune() {
         var now = Date.now();
@@ -90,45 +115,63 @@ module.exports = function (ctx) {
     }
 
     // The app may only load resources from the addresses its config.xml declares, so the Shard fetches the picture and serves it itself.
-    var imgCache = {}, MAX_IMG = 3000000;
-    function fetchImage(url, cb, hops) {
-        var u = urlmod.parse(url), lib = u.protocol === 'https:' ? https : http, done = false;
-        function end(e, r) { if (!done) { done = true; cb(e, r); } }
-        try {
-            var rq = lib.get({ host: u.hostname, port: u.port, path: u.path, headers: { 'User-Agent': 'vetro-notification-center', 'Accept': 'image/*' }, timeout: 8000 }, function (r) {
-                if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 3) {
-                    r.resume();
-                    return fetchImage(urlmod.resolve(url, r.headers.location), end, (hops || 0) + 1);
-                }
-                var type = String(r.headers['content-type'] || '').split(';')[0];
-                if (r.statusCode !== 200 || !/^image\/(png|jpe?g|gif|webp|bmp)$/i.test(type)) { r.resume(); return end('not an image (http ' + r.statusCode + ' ' + type + ')'); }
-                var chunks = [], n = 0;
-                r.on('data', function (d) { n += d.length; if (n > MAX_IMG) { r.destroy(); end('image is larger than 3 MB'); } else { chunks.push(d); } });
-                r.on('end', function () { end(null, { type: type, buf: Buffer.concat(chunks) }); });
-            });
-            rq.on('error', function (e) { end(String(e && e.code || e && e.message || e)); });
-            rq.setTimeout(8000);
-            rq.on('timeout', function () { rq.destroy(); end('timeout'); });
-        } catch (e) { end('request failed'); }
+    // Only a notification's own `image` / `wallpaper` URL is ever fetched (there is no route that fetches an arbitrary URL). Limits: 2 fetches at once
+    // (the others wait, at most 8 waiting, then "busy"), 10 s in total per fetch however slowly the server sends, 3 MB, 3 redirects; stop() aborts them all.
+    var imgCache = {}, MAX_IMG = 3000000, MAX_FETCHES = 2, MAX_WAITING = 8, FETCH_DEADLINE_MS = 10000;
+    var running = [], waiting = [];
+    function pump() {
+        while (running.length < MAX_FETCHES && waiting.length) { var w = waiting.shift(); startFetch(w.url, w.cb); }
     }
-    // Any http(s) image by URL (used by the panel's live preview); kept for 2 minutes, at most 8 at a time.
-    var urlCache = {};
-    function serveUrl(src, info, res) {
-        var hit = urlCache[src];
-        function out(h) {
-            if (info) { return sendJson(res, 200, { ok: true, type: h.type, bytes: h.buf.length }); }
-            res.writeHead(200, { 'Content-Type': h.type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': h.buf.length });
-            res.end(h.buf);
+    function fetchImage(url, cb) {
+        if (running.length >= MAX_FETCHES) {
+            if (waiting.length >= MAX_WAITING) { return cb('busy: too many picture downloads'); }
+            waiting.push({ url: url, cb: cb });
+            return;
         }
-        if (hit && Date.now() - hit.at < 120000) { return out(hit); }
-        fetchImage(src, function (err, h) {
-            if (err) { return sendJson(res, 502, { ok: false, error: err }); }
-            h.at = Date.now();
-            var keys = Object.keys(urlCache);
-            if (keys.length >= 8) { delete urlCache[keys[0]]; }
-            urlCache[src] = h;
-            out(h);
-        });
+        startFetch(url, cb);
+    }
+    function startFetch(url, cb) {
+        var job = { reqs: [], done: false, timer: null };
+        function end(e, r) {
+            if (job.done) { return; }
+            job.done = true;
+            clearTimeout(job.timer);
+            job.reqs.forEach(function (q) { try { q.destroy(); } catch (x) { /* already closed */ } });
+            running = running.filter(function (j) { return j !== job; });
+            try { cb(e, r); } catch (x) { /* the caller's answer failed: nothing to do */ }
+            pump();
+        }
+        job.end = end;
+        running.push(job);
+        job.timer = setTimeout(function () { end('timeout (10 s)'); }, FETCH_DEADLINE_MS);
+        get(url, 0);
+        function get(u0, hops) {
+            var u = urlmod.parse(u0), lib = u.protocol === 'https:' ? https : http;
+            try {
+                var rq = lib.get({ host: u.hostname, port: u.port, path: u.path, headers: { 'User-Agent': 'vetro-notification-center', 'Accept': 'image/*' }, timeout: 8000 }, function (r) {
+                    if (job.done) { r.resume(); return; }
+                    if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && hops < 3) {
+                        r.resume();
+                        return get(urlmod.resolve(u0, r.headers.location), hops + 1);
+                    }
+                    var type = str(r.headers['content-type']).split(';')[0];
+                    if (r.statusCode !== 200 || !/^image\/(png|jpe?g|gif|webp|bmp)$/i.test(type)) { r.resume(); return end('not an image (http ' + r.statusCode + ' ' + type + ')'); }
+                    var chunks = [], n = 0;
+                    r.on('data', function (d) { n += d.length; if (n > MAX_IMG) { r.destroy(); end('image is larger than 3 MB'); } else { chunks.push(d); } });
+                    r.on('end', function () { end(null, { type: type, buf: Buffer.concat(chunks) }); });
+                    r.on('error', function () { end('download failed'); });
+                });
+                job.reqs.push(rq);
+                rq.on('error', function (e) { end(str(e && e.code || e && e.message)); });
+                rq.setTimeout(8000);
+                rq.on('timeout', function () { end('timeout'); });
+            } catch (e) { end('request failed'); }
+        }
+    }
+    function abortFetches() {
+        var w = waiting; waiting = [];
+        running.slice().forEach(function (j) { j.end('stopped'); });
+        w.forEach(function (x) { try { x.cb('stopped'); } catch (e) { /* ignore */ } });
     }
 
     // Installation status for the panel: is the companion app (and its service) installed, is Vetro pairing on, which Shard version.
@@ -147,7 +190,7 @@ module.exports = function (ctx) {
                     try {
                         var j = JSON.parse(s), list = Array.isArray(j) ? j : (j.apps || []), i;
                         for (i = 0; i < list.length; i++) {
-                            if (list[i].appId === DEFAULT_APP) { out.app = true; out.appVersion = String(list[i].version || ''); }
+                            if (list[i].appId === DEFAULT_APP) { out.app = true; out.appVersion = str(list[i].version); }
                             if (list[i].appId === SERVICE_APP) { out.service = true; }
                         }
                     } catch (e) { /* leave unknown */ }
@@ -175,14 +218,8 @@ module.exports = function (ctx) {
     }
 
     function serveImage(req, res) {
-        var um = /[?&]url=([^&]+)/.exec(String(req.url || ''));
-        if (um) {
-            var pu = '';
-            try { pu = cleanUrl(decodeURIComponent(um[1])); } catch (e) { pu = ''; }
-            if (!pu) { return sendJson(res, 400, { error: 'not an http(s) URL' }); }
-            return serveUrl(pu, /[?&]info=1(&|$)/.test(String(req.url || '')), res);
-        }
-        var m = /[?&]id=([^&]+)/.exec(String(req.url || '')), id = m && decodeURIComponent(m[1]), info = /[?&]info=1(&|$)/.test(String(req.url || '')), note = null, i;
+        var m = /[?&]id=([^&]+)/.exec(String(req.url || '')), id = '', info = /[?&]info=1(&|$)/.test(String(req.url || '')), note = null, i;
+        try { id = m ? decodeURIComponent(m[1]) : ''; } catch (e) { id = ''; }
         for (i = 0; i < queue.length; i++) { if (queue[i].id === id) { note = queue[i]; } }
         var kind = /[?&]kind=wallpaper(&|$)/.test(String(req.url || '')) ? 'wallpaper' : 'image', src = note && note[kind], key = id + ':' + kind;
         if (!src) { return sendJson(res, 404, { error: 'no ' + kind + ' for that notification' }); }
@@ -229,7 +266,6 @@ module.exports = function (ctx) {
                 { method: 'GET', path: 'notifications', summary: 'The active queue (used by the app and its service); add ?js=1 for the script form.', returns: '{lang, notifications:[...]}' },
                 { method: 'GET', path: 'recent', summary: 'The last notifications sent.', returns: '{recent:[...]}' },
                 { method: 'GET', path: 'img?id=<id>[&kind=wallpaper][&info=1]', summary: 'The picture of a queued notification, fetched and served by the Shard; info=1 returns {ok,type,bytes}.', returns: 'image bytes or JSON' },
-                { method: 'GET', path: 'img?url=<encoded URL>[&info=1]', summary: 'Fetch and serve any http(s) image by URL (used by the panel preview); info=1 returns {ok,type,bytes}.', returns: 'image bytes or JSON' },
                 { method: 'GET', path: 'status', summary: 'Installation status: companion app, its service, Vetro pairing, Shard version.', returns: '{version, app, appVersion, service, pairing}' },
                 { method: 'GET', path: 'lang', summary: 'Display language (en or pt).', returns: '{lang}' },
                 { method: 'POST', path: 'lang', summary: 'Set the display language.', body: '{lang: "en"|"pt"}', returns: '{lang}' },
@@ -248,18 +284,25 @@ module.exports = function (ctx) {
     }
 
     // Hands the queue to the banner service through a file (world-readable: the service runs as another user). Written before the service is launched.
+    // Written under a new name with 'wx' (fails if the name exists, never follows a planted symlink) and then renamed over the target,
+    // so a symlink left at the target path is replaced, not written through.
     function writeQueueFile() {
+        var tmp = QUEUE_FILE + '.' + process.pid + '.' + Date.now().toString(36) + '.tmp';
         try {
-            fs.writeFileSync(QUEUE_FILE, JSON.stringify({ at: Date.now(), notifications: queue.map(function (n) {
+            fs.writeFileSync(tmp, JSON.stringify({ at: Date.now(), notifications: queue.map(function (n) {
                 return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, expires: n.expires };
-            }) }), { mode: 420 });
-        } catch (e) { /* /tmp not writable: the service falls back to asking the Shard over the network */ }
+            }) }), { mode: 420, flag: 'wx' });
+            fs.renameSync(tmp, QUEUE_FILE);
+        } catch (e) {
+            try { fs.unlinkSync(tmp); } catch (e2) { /* nothing to remove */ }
+            /* /tmp not writable: the service falls back to asking the Shard over the network */
+        }
     }
 
     // An emoji or emoji sequence of at most MAX_ICON UTF-16 units. It is cut only between whole characters (never inside a surrogate pair) and never
     // left ending on a joiner or variation selector that belonged to a sequence that did not fit.
     function cleanIcon(v) {
-        var t = String(v == null ? '' : v).replace(/[\x00-\x1f]/g, '').replace(/^\s+|\s+$/g, ''), out = '', i = 0, step, c;
+        var t = str(v).replace(/[\x00-\x1f]/g, '').replace(/^\s+|\s+$/g, ''), out = '', i = 0, step, c;
         while (i < t.length) {
             c = t.charCodeAt(i);
             step = (c >= 0xD800 && c <= 0xDBFF && i + 1 < t.length) ? 2 : 1;
@@ -274,23 +317,26 @@ module.exports = function (ctx) {
     }
 
     // Image for the full-screen card: an http(s) URL only.
-    function cleanUrl(u) { u = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s"'<>]{4,290}$/.test(u) ? u : ''; }
+    function cleanUrl(u) { u = str(u).trim(); return /^https?:\/\/[^\s"'<>]{4,290}$/.test(u) ? u : ''; }
 
     // ntfy-compatible publish: POST .../ntfy with the message as the body (headers Title, Priority, Tags) or JSON {message,title,priority,tags}.
     var NTFY_TAGS = { warning: '\u26A0\uFE0F', rotating_light: '\uD83D\uDEA8', white_check_mark: '\u2705', heavy_check_mark: '\u2714\uFE0F', tada: '\uD83C\uDF89',
         fire: '\uD83D\uDD25', soccer: '\u26BD', bell: '\uD83D\uDD14', skull: '\uD83D\uDC80', house: '\uD83C\uDFE0', package: '\uD83D\uDCE6', sunny: '\u2600\uFE0F' };
     function handleNtfy(req, res) {
-        readBody(req, function (raw) {
+        readBody(req, guard(res, function (raw) {
             var b = {}, h = req.headers || {}, j = null, i, t;
-            if (/json/i.test(String(h['content-type'] || ''))) { try { j = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); } }
-            if (j && typeof j === 'object') { b.message = j.message; b.title = j.title; } else { b.message = raw; }
+            if (/json/i.test(str(h['content-type']))) { try { j = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); } }
+            if (rules.isObj(j)) { b.message = j.message; b.title = j.title; } else { b.message = raw; j = null; }
             b.title = b.title || h.title || h.t;
-            var p = parseInt((j && j.priority) || h.priority || h.p, 10), tags = (j && j.tags) || h.tags || h.ta || '';
-            if (typeof tags === 'string') { tags = tags.split(','); }
+            var p = j ? num(j.priority) : NaN, tags;
+            if (!(p >= 0)) { p = num(str(h.priority || h.p)); }
+            tags = j && j.tags != null ? j.tags : (h.tags || h.ta || '');
+            // Never loop over something the sender controls: only a real array, or a comma list, and at most 10 entries.
+            tags = (Array.isArray(tags) ? tags : str(tags).split(',')).slice(0, 10);
             b.level = p >= 5 ? 'alert' : p === 4 ? 'warn' : 'info';
             for (i = 0; i < tags.length; i++) {
-                t = String(tags[i]).trim().toLowerCase();
-                if (NTFY_TAGS.hasOwnProperty(t)) {
+                t = str(tags[i]).trim().toLowerCase();
+                if (has(NTFY_TAGS, t)) {
                     b.icon = NTFY_TAGS[t];
                     if (t === 'rotating_light' || t === 'skull') { b.level = 'alert'; }
                     else if (t === 'warning' && b.level === 'info') { b.level = 'warn'; }
@@ -299,36 +345,36 @@ module.exports = function (ctx) {
                 }
             }
             submit(b, h, res);
-        });
+        }));
     }
 
     function handleNotify(req, res) {
-        readBody(req, function (raw) {
+        readBody(req, guard(res, function (raw) {
             var b;
             try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
             submit(b, req.headers || {}, res);
-        });
+        }));
     }
 
     // Webhook: POST hook/<name> with any JSON. The hook's templates turn it into a notification ({{a.b}} = that value of the posted JSON).
     function handleHook(req, res, rawName) {
-        var name = rules.cleanHookName(rawName), hook = name ? (cfgGet().hooks || {})[name] : null;
+        var name = rules.cleanHookName(rawName), hooks = cfgGet().hooks || {}, hook = name && has(hooks, name) ? hooks[name] : null;
         if (!hook) { return sendJson(res, 404, { error: 'no such hook' }); }
-        readBody(req, function (raw) {
+        readBody(req, guard(res, function (raw) {
             var data;
             try { data = JSON.parse(raw); } catch (e) { data = { text: raw }; }
-            if (!data || typeof data !== 'object') { data = { text: String(raw) }; }
+            if (!data || typeof data !== 'object') { data = { text: raw }; }
             submit(rules.buildFromHook(hook, data), req.headers || {}, res, hook.source || name);
-        }, MAX_HOOK_BODY);
+        }), MAX_HOOK_BODY);
     }
 
     // The one way into the queue: applies the source's profile (key, enabled, rate, defaults), then validates, then quiet hours and grouping.
     function submit(b, headers, res, forcedSource) {
-        b = b && typeof b === 'object' ? b : {};
+        b = rules.isObj(b) ? b : {};
         {
             var settings = settingsNow(), profiles = cfgGet().profiles || {};
             var source = forcedSource || rules.cleanSource(b.source || headers['x-nc-source']);
-            var profile = source ? profiles[source] : null;
+            var profile = source && has(profiles, source) ? profiles[source] : null;
             if (settings.strict && !profile) { return sendJson(res, 403, { error: source ? 'unknown source' : 'source is required' }); }
             if (profile) {
                 if (profile.enabled === false) { return sendJson(res, 403, { error: 'source is disabled' }); }
@@ -338,11 +384,11 @@ module.exports = function (ctx) {
             b = rules.applyProfile(b, profile);
             var message = clean(b.message, MAX_MESSAGE);
             if (!message) { return sendJson(res, 400, { error: 'message is required' }); }
-            var secs = parseInt(b.seconds, 10);
+            var secs = num(b.seconds);
             if (!(secs >= MIN_SECONDS)) { secs = DEFAULT_SECONDS; }
             if (secs > MAX_SECONDS) { secs = MAX_SECONDS; }
             // duration = how long the notification stays on the TV screen (the app shows it, then returns to the previous app).
-            var dur = parseInt(b.duration, 10);
+            var dur = num(b.duration);
             if (!(dur >= MIN_DURATION)) { dur = DEFAULT_DURATION; }
             if (dur > MAX_DURATION) { dur = MAX_DURATION; }
             if (secs < dur + 20) { secs = dur + 20; }
@@ -355,13 +401,13 @@ module.exports = function (ctx) {
                 image: cleanUrl(b.image),
                 wallpaper: cleanUrl(b.wallpaper),
                 message: message,
-                level: LEVELS[b.level] ? b.level : 'info',
-                mode: MODES[b.mode] ? b.mode : 'banner',
+                level: has(LEVELS, b.level) ? b.level : 'info',
+                mode: has(MODES, b.mode) ? b.mode : 'banner',
                 duration: dur,
                 source: source,
                 expires: Date.now() + secs * 1000
             };
-            var entry = { id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, source: source, at: Date.now() };
+            var entry = { id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, wallpaper: note.wallpaper, source: source, at: Date.now() };
             // Quiet hours: below the allowed level the notification is only recorded, never shown.
             if (rules.isQuiet(settings, note.level, new Date())) {
                 entry.suppressed = true;
@@ -398,16 +444,16 @@ module.exports = function (ctx) {
             Object.keys(ps).forEach(function (k) { out[k] = rules.publicProfile(ps[k]); });
             return sendJson(res, 200, { profiles: out, max: rules.MAX_SOURCES });
         }
-        readBody(req, function (raw) {
+        readBodyG(req, res, function (raw) {
             var b, source, ps, p, genKey = '';
             try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
             source = rules.cleanSource(b && b.source);
             if (!source) { return sendJson(res, 400, { error: 'source must be 1-32 characters: a-z, 0-9, . _ -' }); }
             ps = cfgGet().profiles || {};
             if (b.delete === true) { saveCfg(function (c) { c.profiles = c.profiles || {}; delete c.profiles[source]; }); return sendJson(res, 200, { ok: true, deleted: source }); }
-            if (!ps[source] && Object.keys(ps).length >= rules.MAX_SOURCES) { return sendJson(res, 400, { error: 'at most ' + rules.MAX_SOURCES + ' sources' }); }
+            if (!has(ps, source) && Object.keys(ps).length >= rules.MAX_SOURCES) { return sendJson(res, 400, { error: 'at most ' + rules.MAX_SOURCES + ' sources' }); }
             if (b.genKey === true) { genKey = require('crypto').randomBytes(16).toString('hex'); b.key = genKey; }
-            p = rules.sanitizeProfile(b, cleanIcon, ps[source]);
+            p = rules.sanitizeProfile(b, cleanIcon, has(ps, source) ? ps[source] : null);
             if (p.error) { return sendJson(res, 400, { error: p.error }); }
             saveCfg(function (c) { c.profiles = c.profiles || {}; c.profiles[source] = p; });
             sendJson(res, 200, genKey ? { ok: true, source: source, profile: rules.publicProfile(p), key: genKey } : { ok: true, source: source, profile: rules.publicProfile(p) });
@@ -415,7 +461,7 @@ module.exports = function (ctx) {
     }
     function handleSettings(req, res) {
         if (req.method === 'GET') { return sendJson(res, 200, { settings: settingsNow() }); }
-        readBody(req, function (raw) {
+        readBodyG(req, res, function (raw) {
             var b;
             try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
             var s = rules.sanitizeSettings(b && b.settings || b, settingsNow());
@@ -425,14 +471,14 @@ module.exports = function (ctx) {
     }
     function handleHooks(req, res) {
         if (req.method === 'GET') { return sendJson(res, 200, { hooks: cfgGet().hooks || {}, max: rules.MAX_HOOKS, base: 'hook/<name>' }); }
-        readBody(req, function (raw) {
+        readBodyG(req, res, function (raw) {
             var b, name, hs;
             try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
             name = rules.cleanHookName(b && b.name);
             if (!name) { return sendJson(res, 400, { error: 'name must be 1-24 characters: a-z, 0-9, -' }); }
             hs = cfgGet().hooks || {};
             if (b.delete === true) { saveCfg(function (c) { c.hooks = c.hooks || {}; delete c.hooks[name]; }); return sendJson(res, 200, { ok: true, deleted: name }); }
-            if (!hs[name] && Object.keys(hs).length >= rules.MAX_HOOKS) { return sendJson(res, 400, { error: 'at most ' + rules.MAX_HOOKS + ' hooks' }); }
+            if (!has(hs, name) && Object.keys(hs).length >= rules.MAX_HOOKS) { return sendJson(res, 400, { error: 'at most ' + rules.MAX_HOOKS + ' hooks' }); }
             var h = rules.sanitizeHook(b);
             if (!h.message) { return sendJson(res, 400, { error: 'message template is required' }); }
             saveCfg(function (c) { c.hooks = c.hooks || {}; c.hooks[name] = h; });
@@ -449,10 +495,11 @@ module.exports = function (ctx) {
 
     return {
         start: function () {},
-        stop: function () { queue = []; writeQueueFile(); },
+        stop: function () { abortFetches(); queue = []; writeQueueFile(); },
         status: function () { prune(); return { queued: queue.length, appId: appId() }; },
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
+            try {
             if (sub === 'ui' && req.method === 'GET') { sendFile(res, 'ui.html', 'text/html; charset=utf-8'); return true; }
             if (sub === 'api' && req.method === 'GET') { sendJson(res, 200, describe()); return true; }
             if (sub === 'status' && req.method === 'GET') { statusInfo(function (o) { sendJson(res, 200, o); }); return true; }
@@ -477,7 +524,7 @@ module.exports = function (ctx) {
             }
             if (sub === 'lang' && req.method === 'GET') { sendJson(res, 200, { lang: getLang() }); return true; }
             if (sub === 'lang' && req.method === 'POST') {
-                readBody(req, function (raw) {
+                readBodyG(req, res, function (raw) {
                     var b;
                     try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
                     if (!b || (b.lang !== 'en' && b.lang !== 'pt')) { return sendJson(res, 400, { error: 'lang must be en or pt' }); }
@@ -490,6 +537,7 @@ module.exports = function (ctx) {
             }
             if (sub === 'recent' && req.method === 'GET') { sendJson(res, 200, { recent: recent }); return true; }
             return false;
+            } catch (e) { try { sendJson(res, 500, { error: 'internal error' }); } catch (e2) { /* the answer was already sent */ } return true; }
         }
     };
 };

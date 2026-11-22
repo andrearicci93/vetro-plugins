@@ -30,9 +30,9 @@ None. It does not use `exec`.
 - **Incoming:** HTTP routes under `/plugins/notification-center/api/` (`notify`, `ntfy`, `notifications`, `img`, `recent`, `lang`, `emoji`, `status`,
   `api`, `ui`, `nt.js`), open to every device that can reach Vetro (with pairing on, senders need a key).
 - **Outgoing, Vetro:** `POST 127.0.0.1:8099/apps/launch` with `{"appId": "..."}` to start the companion app or its service. The app id is fixed in the
-  code, so no route can point the Shard at another app. Launches are limited to one every 2 seconds.
+  code, so no route can point the Shard at another app. Launches of the app screen are limited to one every 2 seconds; the banner service is launched for every notification in banner mode (limit a noisy sender with its per-minute rate in "Sources").
 - **Outgoing, images:** no code is downloaded. The one exception is the optional `image` and `wallpaper` fields: the Shard fetches that URL once (GET, up
-  to 3 redirects, 8 s, at most 3 MB, only png/jpeg/gif/webp/bmp, kept in memory while queued) and serves it to the app from its own address, because the
+  to 3 redirects, at most 2 downloads at once, 10 s in total each, at most 3 MB, only png/jpeg/gif/webp/bmp, kept in memory while queued) and serves it to the app from its own address, because the
   app may only load origins it declares. Whoever can send notifications can therefore make the TV fetch an image URL, including one on your LAN (that is
   how a doorbell snapshot works).
 - The companion app's service reads the queue from a file the Shard writes (`/tmp/notification-center-queue.json`), and falls back to the TV's own LAN
