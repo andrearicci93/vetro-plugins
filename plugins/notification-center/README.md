@@ -47,8 +47,8 @@ None. It does not use `exec`.
 
 ## Data it keeps
 
-Only the display language (`lang`, `en` or `pt`) is kept in `ctx.config`. The id of the companion app is fixed in the code (`NotifCtr01.NotifCenter`), so no route can point the Shard at another app.
-The queue (up to 5 active notifications) and the list of the last 20 sent are kept in memory only and are cleared when the Shard stops.
+The display language (`lang`, `en` or `pt`) and the last-20 list (`recent`) are kept in `ctx.config`. The id of the companion app is fixed in the code (`NotifCtr01.NotifCenter`), so no route can point the Shard at another app.
+The queue (up to 5 active notifications) is kept in memory and cleared when the Shard stops. The list of the **last 20 sent** (title, message, level, mode, icon, image and wallpaper URLs, time) is kept in `ctx.config`, so "Recently sent" and Resend survive a restart or an update; nothing else about a message is stored.
 
 ## How it works
 

@@ -115,4 +115,4 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title:
 
 - With pairing off, anyone who can reach the TV's port 8099 can send notifications and make the Shard fetch an image URL. Turn pairing on for shared networks.
 - The Shard only fetches `http`/`https` URLs, never `file:` or other schemes, and serves only image types.
-- Nothing sent here is stored outside memory: the queue (5) and the recent list (20) are lost when the Shard stops. Only the display language is kept in `ctx.config`.
+- The active queue (5) is kept in memory only. The list of the last 20 sent (`GET recent`) is kept in `ctx.config` on the TV so it survives restarts and updates; it holds the fields you sent, including any image or wallpaper URL. The display language is also kept there.

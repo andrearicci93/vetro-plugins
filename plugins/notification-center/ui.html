@@ -110,8 +110,9 @@ button:focus-visible, .tab:focus-visible { outline: 2px solid var(--acc); outlin
 .egrid button:hover { background: var(--s3); }
 
 /* developer area */
-.dev { margin-top: 20px; }
-.dtabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.dev { margin-top: 0; }
+[hidden] { display: none !important; }
+.dtabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 0; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
 .dtabs button { background: none; border: 0; color: var(--dim); padding: 13px 14px; font-weight: 600; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .dtabs button.on { color: var(--txt); border-bottom-color: var(--acc); }
 .pane { padding: 18px 20px; }
@@ -148,7 +149,14 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     <div class="lang"><button type="button" id="l-en">EN</button><button type="button" id="l-pt">PT</button></div>
   </header>
 
-  <main class="layout">
+  <nav class="dtabs">
+    <button type="button" class="on" data-pane="p-main" data-t="tab_main">Notifications</button>
+    <button type="button" data-pane="p-req" data-t="rq_title">Request for other apps and Shards</button>
+    <button type="button" data-pane="p-api" data-t="api_title">API</button>
+    <button type="button" data-pane="p-app" data-t="app">Companion app</button>
+  </nav>
+
+  <main class="layout" id="p-main">
     <section class="col">
       <div class="sec">
         <h2 data-t="send">Send a notification</h2>
@@ -197,13 +205,8 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     </aside>
   </main>
 
-  <section class="dev">
-    <div class="dtabs">
-      <button type="button" class="on" data-pane="p-req" data-t="rq_title">Request for other apps and Shards</button>
-      <button type="button" data-pane="p-api" data-t="api_title">API</button>
-      <button type="button" data-pane="p-app" data-t="app">Companion app</button>
-    </div>
-    <div class="pane" id="p-req">
+  <section class="dev" id="devwrap" hidden>
+    <div class="pane" id="p-req" hidden>
       <div class="tabs" id="reqtabs"></div>
       <pre id="reqcode"></pre>
       <div class="row" style="margin-top:10px"><button type="button" class="ghost" id="reqcopy" data-t="copy">Copy</button></div>
@@ -245,14 +248,14 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     en: { title: "Notification Center", send: "Send a notification", secs: "Show for (s)", open: "Show on TV now", btn: "Send", preview: "Preview",
       prevnote: "The TV shows its own native banner; this is only an approximation.", recent: "Recently sent", refresh: "Refresh", app: "Companion app",
       appnote: "Launches NotifCtr01.NotifCenter (fixed id). It must be installed on the TV, see the README.", curl: "Send from another device",
-      ph_title: "Title (optional)", ph_msg: "Message", st_title: "Status", sec_msg: "Message", sec_pics: "Pictures for the full-screen card", c_app: "App", c_svc: "Banner service", c_pair_on: "Pairing on", c_pair_off: "Pairing off", st_shard: "Notification Center Shard", st_app: "Companion app installed", st_appfix: "Install the .wgt with Apps2Samsung or TV-Store", st_svc: "Banner service installed", st_svcfix: "Reinstall the app (version 0.2 or newer)", st_pair: "Vetro pairing", st_pair_on: "On: other devices need a key", st_pair_off: "Off: any device on the network can send", st_pair_unknown: "Could not tell", st_tb: "Test banner", st_tc: "Test card", st_tboth: "Test both", rq_title: "Request for other apps and Shards", copy: "Copy", api_title: "API", api_try: "Try it", send_btn: "Send", sent_ok: "Sent.",
+      ph_title: "Title (optional)", ph_msg: "Message", st_title: "Status", tab_main: "Notifications", sec_msg: "Message", sec_pics: "Pictures for the full-screen card", c_app: "App", c_svc: "Banner service", c_pair_on: "Pairing on", c_pair_off: "Pairing off", st_shard: "Notification Center Shard", st_app: "Companion app installed", st_appfix: "Install the .wgt with Apps2Samsung or TV-Store", st_svc: "Banner service installed", st_svcfix: "Reinstall the app (version 0.2 or newer)", st_pair: "Vetro pairing", st_pair_on: "On: other devices need a key", st_pair_off: "Off: any device on the network can send", st_pair_unknown: "Could not tell", st_tb: "Test banner", st_tc: "Test card", st_tboth: "Test both", rq_title: "Request for other apps and Shards", copy: "Copy", api_title: "API", api_try: "Try it", send_btn: "Send", sent_ok: "Sent.",
       ph_wall: "Wallpaper URL, full-screen background (optional)", ph_image: "Image URL for the full-screen card (optional)", ph_icon: "Icon (emoji, optional; default by level)", pick: "Choose icon", noicon: "Level icon", ph_search: "Search icons...", groups: "Smileys,People,Animals,Food,Travel,Activities,Objects,Symbols,Flags", sending: "Sending...", queued: "Sent to the TV", queuedq: "Queued (TV not launched)", none: "Nothing sent yet.", notitle: "Notification",
       info: "Info", ok: "Done", warn: "Warning", alert: "Alert", sample: "Your message appears here", back: "Returning to the previous app in",
       mode: "Show as", m_both: "Both", m_banner: "Samsung banner", m_full: "Full screen", resend: "Resend", resent: "Sent again" },
     pt: { title: "Centro de Notifica\u00E7\u00F5es", send: "Enviar notifica\u00E7\u00E3o", secs: "Mostrar durante (s)", open: "Mostrar na TV agora", btn: "Enviar", preview: "Pr\u00E9-visualiza\u00E7\u00E3o",
       prevnote: "A TV mostra o seu pr\u00F3prio aviso nativo; isto \u00E9 s\u00F3 uma aproxima\u00E7\u00E3o.", recent: "Enviadas recentemente", refresh: "Atualizar", app: "App companheira",
       appnote: "Lan\u00E7a NotifCtr01.NotifCenter (id fixo). Tem de estar instalada na TV, ver o README.", curl: "Enviar a partir de outro dispositivo",
-      ph_title: "T\u00EDtulo (opcional)", ph_msg: "Mensagem", st_title: "Estado", sec_msg: "Mensagem", sec_pics: "Imagens para o cart\u00e3o de ecr\u00e3 inteiro", c_app: "App", c_svc: "Servi\u00e7o", c_pair_on: "Emparelhamento ligado", c_pair_off: "Emparelhamento desligado", st_shard: "Shard Notification Center", st_app: "App companheira instalada", st_appfix: "Instala o .wgt com o Apps2Samsung ou o TV-Store", st_svc: "Servi\u00E7o de banners instalado", st_svcfix: "Reinstala a app (vers\u00E3o 0.2 ou mais recente)", st_pair: "Emparelhamento do Vetro", st_pair_on: "Ligado: os outros dispositivos precisam de chave", st_pair_off: "Desligado: qualquer dispositivo da rede pode enviar", st_pair_unknown: "N\u00E3o consegui saber", st_tb: "Testar banner", st_tc: "Testar cart\u00E3o", st_tboth: "Testar ambos", rq_title: "Pedido para outras apps e Shards", copy: "Copiar", api_title: "API", api_try: "Experimentar", send_btn: "Enviar", sent_ok: "Enviado.",
+      ph_title: "T\u00EDtulo (opcional)", ph_msg: "Mensagem", st_title: "Estado", tab_main: "Notifica\u00e7\u00f5es", sec_msg: "Mensagem", sec_pics: "Imagens para o cart\u00e3o de ecr\u00e3 inteiro", c_app: "App", c_svc: "Servi\u00e7o", c_pair_on: "Emparelhamento ligado", c_pair_off: "Emparelhamento desligado", st_shard: "Shard Notification Center", st_app: "App companheira instalada", st_appfix: "Instala o .wgt com o Apps2Samsung ou o TV-Store", st_svc: "Servi\u00E7o de banners instalado", st_svcfix: "Reinstala a app (vers\u00E3o 0.2 ou mais recente)", st_pair: "Emparelhamento do Vetro", st_pair_on: "Ligado: os outros dispositivos precisam de chave", st_pair_off: "Desligado: qualquer dispositivo da rede pode enviar", st_pair_unknown: "N\u00E3o consegui saber", st_tb: "Testar banner", st_tc: "Testar cart\u00E3o", st_tboth: "Testar ambos", rq_title: "Pedido para outras apps e Shards", copy: "Copiar", api_title: "API", api_try: "Experimentar", send_btn: "Enviar", sent_ok: "Enviado.",
       ph_wall: "URL do wallpaper de fundo em ecr\u00E3 inteiro (opcional)", ph_image: "URL da imagem para o cart\u00E3o de ecr\u00E3 inteiro (opcional)", ph_icon: "\u00CDcone (emoji, opcional; por defeito pelo n\u00EDvel)", pick: "Escolher \u00EDcone", noicon: "\u00CDcone do n\u00EDvel", ph_search: "Pesquisar \u00EDcones...", groups: "Smileys,Pessoas,Animais,Comida,Viagens,Atividades,Objetos,S\u00EDmbolos,Bandeiras", sending: "A enviar...", queued: "Enviada para a TV", queuedq: "Em fila (TV n\u00E3o lan\u00E7ada)", none: "Ainda nada enviado.", notitle: "Notifica\u00E7\u00E3o",
       info: "Info", ok: "Conclu\u00EDdo", warn: "Aviso", alert: "Alerta", sample: "A sua mensagem aparece aqui", back: "A voltar \u00E0 aplica\u00E7\u00E3o anterior em",
       mode: "Mostrar como", m_both: "Ambos", m_banner: "Aviso Samsung", m_full: "Ecr\u00E3 inteiro", resend: "Reenviar", resent: "Enviada de novo" }
@@ -507,6 +510,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
       tb[i].addEventListener("click", function () {
         var id = this.getAttribute("data-pane"), j, p;
         for (j = 0; j < tb.length; j++) { tb[j].className = tb[j] === this ? "on" : ""; p = $(tb[j].getAttribute("data-pane")); p.hidden = tb[j] !== this; }
+        $("devwrap").hidden = id === "p-main";
       });
     }
   })();

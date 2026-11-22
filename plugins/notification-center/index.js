@@ -19,7 +19,9 @@ var MODES = { both: 1, banner: 1, full: 1 };   // banner (default) = native bann
 
 module.exports = function (ctx) {
     var queue = [];      // active notifications (memory only)
-    var recent = [];     // last ones sent, for the page (memory only)
+    var recent = [];     // last ones sent, for the page; kept in ctx.config so they survive a restart or an update
+    try { var saved = (ctx.config.get() || {}).recent; if (Array.isArray(saved)) { recent = saved.slice(0, MAX_RECENT); } } catch (e) { recent = []; }
+    function saveRecent() { try { var c = ctx.config.get() || {}; c.recent = recent; ctx.config.set(c); } catch (e) { /* storage unavailable */ } }
     var seq = 0;
     var lastOpen = 0;
 
@@ -284,6 +286,7 @@ module.exports = function (ctx) {
             if (queue.length > MAX_QUEUE) { queue.shift(); }
             recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
+            saveRecent();
             var opened = b.open === false ? 'not requested' : openApp(note.mode === 'banner');
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
         });
@@ -298,7 +301,7 @@ module.exports = function (ctx) {
 
     return {
         start: function () {},
-        stop: function () { queue = []; recent = []; },
+        stop: function () { queue = []; },
         status: function () { prune(); return { queued: queue.length, appId: appId() }; },
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
