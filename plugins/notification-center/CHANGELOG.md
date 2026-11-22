@@ -8,7 +8,8 @@
 - ntfy-compatible route (`POST ntfy`) and a documented API: `API.md`, `GET api` (self-description), `GET status`.
 - Panel: three columns with a live preview, request generator, API explorer, installation status, English and Portuguese, recently sent list kept across restarts with Resend.
 - The full-screen app is relaunched as soon as it has left; a notification queued while it is open extends its stay; a restarted banner service never repeats a banner.
-- Node 4 compatibility: explicit request timeouts.
+- Node 4 compatibility: explicit request timeouts; run on a real Node 4.9.1.
+- Tests: Shard behaviour, the banner service (in a sandbox) and a check that `GET api`, `API.md`, this changelog and the manifest agree.
 
 ## 0.1.0
 - First version: queue notifications over HTTP and show them as the native banner through a companion app that comes to the foreground.

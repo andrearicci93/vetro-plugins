@@ -79,8 +79,8 @@ self-contained.
 ## Compatibility
 
 - **Vetro / Node:** the Shard is plain ES5 and uses only Node 4.4 APIs (request timeouts are set with `setTimeout`, because the `timeout` option only exists
-  from Node 6.8). It was checked with an ES5-only parser and its lifecycle test passes on a current Node. The Node 4.4.7 binary itself could not be run on the
-  machine used for the work (it crashes at start on Windows 11), so that exact version has not been run.
+  from Node 6.8). It was checked with an ES5-only parser, and the runtime lifecycle test (`npm run test:runtime`) plus a request/queue/icon test pass on a **real
+  Node 4.9.1** (the last 4.x release). The Node 4.4.7 binary itself crashes at start on the Windows 11 machine used for the work, so 4.4.7 exactly has not been run.
 - **Samsung TVs:** the app declares `required_version="6.0"`, so it needs **Tizen 6.0 or newer (2021 models and later)**. Everything was tested on one TV
   only: **Samsung Q70C, Tizen 9.0, Vetro 0.7.0**. Older TVs and Smart Monitors have not been tried.
 
