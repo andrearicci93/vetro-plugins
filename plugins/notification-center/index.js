@@ -5,6 +5,8 @@
 var fs = require('fs');
 var path = require('path');
 var http = require('http');
+var https = require('https');
+var urlmod = require('url');
 
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
@@ -46,6 +48,9 @@ module.exports = function (ctx) {
     function prune() {
         var now = Date.now();
         queue = queue.filter(function (n) { return n.expires > now; });
+        var keep = {};
+        queue.forEach(function (n) { keep[n.id] = 1; });
+        Object.keys(imgCache).forEach(function (k) { if (!keep[k]) { delete imgCache[k]; } });
     }
 
     // Asks Vetro to launch the companion app (at most once every 10 s), or its background service (every time: it is
@@ -70,6 +75,73 @@ module.exports = function (ctx) {
         } catch (e) { return 'error'; }
     }
 
+    // The app may only load resources from the addresses its config.xml declares, so the Shard fetches the picture and serves it itself.
+    var imgCache = {}, MAX_IMG = 1500000;
+    function fetchImage(url, cb, hops) {
+        var u = urlmod.parse(url), lib = u.protocol === 'https:' ? https : http, done = false;
+        function end(e, r) { if (!done) { done = true; cb(e, r); } }
+        try {
+            var rq = lib.get({ host: u.hostname, port: u.port, path: u.path, headers: { 'User-Agent': 'vetro-notification-center', 'Accept': 'image/*' }, timeout: 8000 }, function (r) {
+                if (r.statusCode >= 300 && r.statusCode < 400 && r.headers.location && (hops || 0) < 3) {
+                    r.resume();
+                    return fetchImage(urlmod.resolve(url, r.headers.location), end, (hops || 0) + 1);
+                }
+                var type = String(r.headers['content-type'] || '').split(';')[0];
+                if (r.statusCode !== 200 || !/^image\/(png|jpe?g|gif|webp|bmp)$/i.test(type)) { r.resume(); return end('not an image (http ' + r.statusCode + ' ' + type + ')'); }
+                var chunks = [], n = 0;
+                r.on('data', function (d) { n += d.length; if (n > MAX_IMG) { r.destroy(); end('image is larger than 1.5 MB'); } else { chunks.push(d); } });
+                r.on('end', function () { end(null, { type: type, buf: Buffer.concat(chunks) }); });
+            });
+            rq.on('error', function (e) { end(String(e && e.code || e && e.message || e)); });
+            rq.on('timeout', function () { rq.destroy(); end('timeout'); });
+        } catch (e) { end('request failed'); }
+    }
+    function serveImage(req, res) {
+        var m = /[?&]id=([^&]+)/.exec(String(req.url || '')), id = m && decodeURIComponent(m[1]), info = /[?&]info=1(&|$)/.test(String(req.url || '')), note = null, i;
+        for (i = 0; i < queue.length; i++) { if (queue[i].id === id) { note = queue[i]; } }
+        if (!note || !note.image) { return sendJson(res, 404, { error: 'no image for that notification' }); }
+        function out(hit) {
+            if (info) { return sendJson(res, 200, { ok: true, type: hit.type, bytes: hit.buf.length }); }
+            res.writeHead(200, { 'Content-Type': hit.type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': hit.buf.length });
+            res.end(hit.buf);
+        }
+        if (imgCache[id]) { return out(imgCache[id]); }
+        fetchImage(note.image, function (err, hit) {
+            if (err) { return sendJson(res, 502, { ok: false, error: err }); }
+            imgCache[id] = hit;
+            out(hit);
+        });
+    }
+
+    // Image for the full-screen card: an http(s) URL only.
+    function cleanUrl(u) { u = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s"'<>]{4,290}$/.test(u) ? u : ''; }
+
+    // ntfy-compatible publish: POST .../ntfy with the message as the body (headers Title, Priority, Tags) or JSON {message,title,priority,tags}.
+    var NTFY_TAGS = { warning: '\u26A0\uFE0F', rotating_light: '\uD83D\uDEA8', white_check_mark: '\u2705', heavy_check_mark: '\u2714\uFE0F', tada: '\uD83C\uDF89',
+        fire: '\uD83D\uDD25', soccer: '\u26BD', bell: '\uD83D\uDD14', skull: '\uD83D\uDC80', house: '\uD83C\uDFE0', package: '\uD83D\uDCE6', sunny: '\u2600\uFE0F' };
+    function handleNtfy(req, res) {
+        readBody(req, function (raw) {
+            var b = {}, h = req.headers || {}, j = null, i, t;
+            if (/json/i.test(String(h['content-type'] || ''))) { try { j = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); } }
+            if (j && typeof j === 'object') { b.message = j.message; b.title = j.title; } else { b.message = raw; }
+            b.title = b.title || h.title || h.t;
+            var p = parseInt((j && j.priority) || h.priority || h.p, 10), tags = (j && j.tags) || h.tags || h.ta || '';
+            if (typeof tags === 'string') { tags = tags.split(','); }
+            b.level = p >= 5 ? 'alert' : p === 4 ? 'warn' : 'info';
+            for (i = 0; i < tags.length; i++) {
+                t = String(tags[i]).trim().toLowerCase();
+                if (NTFY_TAGS.hasOwnProperty(t)) {
+                    b.icon = NTFY_TAGS[t];
+                    if (t === 'rotating_light' || t === 'skull') { b.level = 'alert'; }
+                    else if (t === 'warning' && b.level === 'info') { b.level = 'warn'; }
+                    else if ((t === 'white_check_mark' || t === 'heavy_check_mark' || t === 'tada') && b.level === 'info') { b.level = 'ok'; }
+                    break;
+                }
+            }
+            handleNotify({ on: function (ev, f) { if (ev === 'data') { f(JSON.stringify(b)); } if (ev === 'end') { f(); } } }, res);
+        });
+    }
+
     function handleNotify(req, res) {
         readBody(req, function (raw) {
             var b;
@@ -91,6 +163,7 @@ module.exports = function (ctx) {
                 id: seq + '-' + Date.now().toString(36),
                 title: clean(b.title, MAX_TITLE),
                 icon: clean(b.icon, 8),
+                image: cleanUrl(b.image),
                 message: message,
                 level: LEVELS[b.level] ? b.level : 'info',
                 mode: MODES[b.mode] ? b.mode : 'banner',
@@ -99,7 +172,7 @@ module.exports = function (ctx) {
             };
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
-            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, at: Date.now() });
+            recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
             var opened = b.open === false ? 'not requested' : openApp(note.mode === 'banner');
             sendJson(res, 200, { ok: true, id: note.id, open: opened });
@@ -120,6 +193,8 @@ module.exports = function (ctx) {
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
             if (sub === 'ui' && req.method === 'GET') { sendFile(res, 'ui.html', 'text/html; charset=utf-8'); return true; }
+            if (sub === 'img' && req.method === 'GET') { serveImage(req, res); return true; }
+            if (sub === 'ntfy' && req.method === 'POST') { handleNtfy(req, res); return true; }
             if (sub === 'emoji' && req.method === 'GET') { sendFile(res, 'emoji.json', 'application/json; charset=utf-8'); return true; }
             if (sub === 'nt.js' && req.method === 'GET') { sendFile(res, 'nt.js', 'application/javascript; charset=utf-8'); return true; }
             if (sub === 'notify' && req.method === 'POST') { handleNotify(req, res); return true; }
@@ -127,7 +202,7 @@ module.exports = function (ctx) {
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {
-                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, seconds: Math.ceil((n.expires - now) / 1000) };
+                    return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, image: n.image, seconds: Math.ceil((n.expires - now) / 1000) };
                 }) };
                 if (wantsScript(req)) { sendScript(res, out); } else { sendJson(res, 200, out); }
                 return true;

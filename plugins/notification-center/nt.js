@@ -64,7 +64,19 @@
     var ic = document.createElement('div'); ic.className = 'ic'; if (n.icon) { ic.textContent = n.icon; ic.style.fontSize = '48px'; } else { ic.innerHTML = iconSvg(n.level, 56); }
     var b = document.createElement('div'), t = document.createElement('div'), m = document.createElement('div');
     t.className = 't'; t.textContent = n.title || ''; m.className = 'm'; m.textContent = n.message || '';
-    b.appendChild(t); b.appendChild(m); d.appendChild(ic); d.appendChild(b);
+    b.appendChild(t); b.appendChild(m);
+    if (n.image) {   // optional picture: the Shard fetches it and serves it from its own address (the app may only load declared origins)
+      var im = document.createElement('img'), cap = document.createElement('div');
+      im.alt = '';
+      im.style.cssText = 'max-height:260px;max-width:100%;border-radius:24px;margin-top:16px;display:block';
+      cap.style.cssText = 'font-size:18px;color:#8b96ab;margin-top:8px;word-break:break-all';
+      cap.textContent = 'Image: ' + n.image + ' (fetched by the Shard)';
+      im.onload = function () { cap.textContent += ' - loaded ' + im.naturalWidth + 'x' + im.naturalHeight; };
+      im.onerror = function () { cap.textContent += ' - FAILED to load'; };
+      im.src = (apiGood || BASES[0]) + '/plugins/notification-center/api/img?id=' + encodeURIComponent(n.id);
+      b.appendChild(im); b.appendChild(cap);
+    }
+    d.appendChild(ic); d.appendChild(b);
     var host = document.getElementById('ncl'); host.appendChild(d);
     cardEl.getElementsByTagName('p')[0].textContent = TX.sent;
   }
