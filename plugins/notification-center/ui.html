@@ -7,7 +7,8 @@
 <title>Notification Center</title>
 <style>
 :root { --bg: #0a0d12; --s1: #10151e; --s2: #151b27; --s3: #1c2434; --line: #222b3d; --line2: #2f3a52; --txt: #e8edf6; --dim: #8794ab; --acc: #3d8bff; --ok: #34c78f; --warn: #f1a73a; --alert: #ee5a74; --info: #3d8bff; --r: 14px; }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
 html { color-scheme: dark; }
 body { margin: 0; background: var(--bg); color: var(--txt); font: 14px/1.5 "Segoe UI", "SamsungOne", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 .app { max-width: 1240px; margin: 0 auto; padding: 20px 24px 44px; }
