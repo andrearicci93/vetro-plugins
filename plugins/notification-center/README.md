@@ -104,7 +104,7 @@ Sign it with your own certificate and install it with Apps2Samsung, TV-Store or 
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://localhost/notifcenter" version="0.2.1" viewmodes="maximized">
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://localhost/notifcenter" version="0.2.2" viewmodes="maximized">
   <tizen:application id="NotifCtr01.NotifCenter" package="NotifCtr01" required_version="6.0"/>
   <name>Notification Center</name>
   <icon src="icon.png"/>
@@ -157,33 +157,60 @@ Sign it with your own certificate and install it with Apps2Samsung, TV-Store or 
 
 ```js
 // Background service of the Notification Center companion app (Node.js in the TV's web service runtime).
-// Vetro starts it (POST /apps/launch) each time a notification is queued in "banner" mode; it reads the Shard's queue and posts the native
-// Samsung banner with webapis.postPlainNotification, without opening any app.
-// The Shard is reached on the TV's own LAN address (found here), because loopback is not reachable from the service on every TV.
+// Vetro starts it (POST /apps/launch) each time a notification is queued in "banner" mode; it posts the native Samsung banner with
+// webapis.postPlainNotification, without opening any app.
+// It reads the queue from a file the Shard writes (no network, no Vetro key: it works with pairing on). If that file is missing it asks the
+// Shard over the network, on the TV's own LAN address (loopback is not reachable from the service on every TV).
+// The ids it has already shown are kept in a file of its own, so a restarted service never shows the same banner twice.
+var QUEUE_FILE = '/tmp/notification-center-queue.json';
+var SEEN_FILE = '/tmp/notification-center-seen.json';
 var HOSTS = ['127.0.0.1'];
 try {
   var ifs = require('os').networkInterfaces();
   Object.keys(ifs).forEach(function (k) { ifs[k].forEach(function (i) { if (i.family === 'IPv4' && !i.internal && HOSTS.indexOf(i.address) < 0) { HOSTS.push(i.address); } }); });
 } catch (e) { /* keep loopback only */ }
 var PATH = '/plugins/notification-center/api/notifications';
-var seen = {};
 var EMOJI = { info: '\u2139\uFE0F', ok: '\u2705', warn: '\u26A0\uFE0F', alert: '\uD83D\uDD34' };
-function check() {
+var seen = {};
+try { seen = JSON.parse(require('fs').readFileSync(SEEN_FILE, 'utf8')) || {}; } catch (e) { seen = {}; }
+
+function saveSeen() {
+  try {
+    var keys = Object.keys(seen);
+    if (keys.length > 60) { keys.slice(0, keys.length - 60).forEach(function (k) { delete seen[k]; }); }
+    require('fs').writeFileSync(SEEN_FILE, JSON.stringify(seen));
+  } catch (e) { /* not writable: duplicates are possible only if the service restarts while a notification is still queued */ }
+}
+function show(n) {
+  // The native banner takes plain text only, but it draws emoji: the icon (or the level's emoji) goes in front of the title.
+  var head = n.icon || EMOJI[n.level] || '';
+  var title = (head ? head + ' ' : '') + (n.title || 'Notification');
+  try { webapis.postPlainNotification(title, n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
+}
+function handle(list) {
+  var changed = false;
+  list.forEach(function (n) {
+    if (seen[n.id]) { return; }
+    seen[n.id] = 1; changed = true;
+    if (n.mode !== 'banner') { return; }                          // "full" and "both" are shown by the companion app screen
+    if (n.expires && n.expires < Date.now()) { return; }          // too old to be worth showing
+    show(n);
+  });
+  if (changed) { saveSeen(); }
+}
+function fromNetwork() {
   var i = 0;
   (function next() {
     if (i >= HOSTS.length) { return; }
     fetch('http://' + HOSTS[i++] + ':8099' + PATH + '?t=' + Date.now()).then(function (r) { if (!r.ok) { throw new Error('http ' + r.status); } return r.json(); }).then(function (d) {
-      (d.notifications || []).forEach(function (n) {
-        if (seen[n.id]) { return; }
-        seen[n.id] = 1;
-        if (n.mode !== 'banner') { return; }   // "full" and "both" are shown by the companion app screen
-        // The native banner takes plain text only, but it draws emoji: the icon (or the level's emoji) goes in front of the title.
-        var head = n.icon || EMOJI[n.level] || '';
-        var title = (head ? head + ' ' : '') + (n.title || 'Notification');
-        try { webapis.postPlainNotification(title, n.message || '', parseInt(n.duration, 10) || 8); } catch (e) { /* API not available */ }
-      });
+      handle(d.notifications || []);
     }).catch(function () { next(); });
   })();
+}
+function check() {
+  var d = null;
+  try { d = JSON.parse(require('fs').readFileSync(QUEUE_FILE, 'utf8')); } catch (e) { d = null; }
+  if (d && Array.isArray(d.notifications)) { handle(d.notifications); } else { fromNetwork(); }
 }
 module.exports.onStart = check;
 module.exports.onRequest = check;
@@ -203,6 +230,7 @@ add the TV's own LAN address to `BASES` in `js/app.js` and `nt.js`, and a matchi
   banner (the level only colours the panel and the full-screen card).
 - **Full-screen card / both**: the web `Notification` API only works while the web app is on screen, so the companion app comes to the front, shows
   the card for `duration` seconds and exits; what was playing is interrupted briefly. `tizen.notification` does not exist in the app (UI) context.
+- **Pairing on:** banner mode does not depend on a Vetro key: the Shard writes the queue to `/tmp/notification-center-queue.json` and the service reads it from the file (it falls back to the network only if the file is missing). The service keeps the ids it has shown in `/tmp/notification-center-seen.json`, so a restarted service never repeats a banner. The full-screen app (modes `full` and `both`) still reads the Shard over the network and needs Vetro pairing off, or a TV where loopback answers.
 - The service reaches the Shard through the TV's own LAN address (loopback is not reachable from the service on the TV I tested, `EHOSTUNREACH`).
 - Plain `notification_test`, `libnotification` sockets, D-Bus and writing the notification database were all dead ends (see the repository's `docs/NATIVE-NOTIFICATIONS.md`).
 - The TV refuses to run **unsigned script files** ("the file is NOT signed"); inline commands through Vetro still work. This Shard needs neither.
@@ -220,8 +248,6 @@ app `NotifCtr01.NotifCenter` 0.1.0 installed on the TV.
 `alert`) with their icons; `duration` (a 3 s card stayed 3 s); Resend from "Recently sent" in the panel; the app's loader falling back to the
 address nt.js was loaded from. The TV returned to the previous app after each notification.
 
-**Pairing on: NOT tested on a TV.** The Bearer-token flow above is the one documented in Vetro's `SIGN-IN.md` (`/auth/pair`, `/auth/confirm`,
-`Authorization: Bearer`); the Shard adds no sign-in of its own and relies on Vetro's. With pairing on, Vetro answers unpaired LAN requests with `401`;
-that was seen on this TV, but a paired `notify` and the TV-side app (127.0.0.1) were not exercised. Please report if it behaves differently.
+**Pairing on (Vetro 0.7.0 "Require pairing" on): banner mode tested on the TV.** After pairing a script with the 6-digit code, a notification sent with `Authorization: Bearer <key>` appeared as a native banner over the running app: the Shard wrote the queue to `/tmp/notification-center-queue.json` and the service read it from the file, with no network and no key. An unpaired request got `401`. **Not tested with pairing on:** the full-screen modes (`full`, `both`), because the app screen still reads the Shard over the network.
 
 Not tested: live TV and HDMI sources as the "previous screen", other TV models, other Tizen versions.

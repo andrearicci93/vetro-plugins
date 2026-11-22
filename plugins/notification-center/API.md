@@ -107,7 +107,7 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title:
 | `GET recent` | `{recent:[{id,title,message,level,mode,duration,icon,image,wallpaper,at}]}` (the last 20 sent). |
 | `GET img?id=<id>[&kind=wallpaper][&info=1]` | The picture of a queued notification; `info=1` returns `{ok,type,bytes}` or `{ok:false,error}` (use it to check a URL). |
 | `GET img?url=<encoded URL>[&info=1]` | Fetch and serve any http(s) image by URL (the panel's live preview uses it); `info=1` returns `{ok,type,bytes}`. Kept 2 minutes, 8 at a time. |
-| `GET status` | `{version, app, appVersion, service, pairing:"on"\|"off"\|"unknown"}`: is the companion app and its banner service installed, is Vetro pairing on. |
+| `GET status` | `{version, app, appVersion, service, handoff, pairing:"on"\|"off"\|"unknown"}`: is the companion app and its banner service installed, is Vetro pairing on, did the Shard write the queue file the banner service reads (`handoff`). |
 | `GET lang` / `POST lang` | Display language `{lang:"en"|"pt"}`, shared by the panel and the TV screen. |
 | `GET emoji` | The bundled emoji list (Unicode CLDR, MIT) used by the panel's icon picker. |
 

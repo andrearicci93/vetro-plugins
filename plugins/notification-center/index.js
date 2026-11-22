@@ -11,6 +11,8 @@ var os = require('os');
 
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, OPEN_EVERY_MS = 10000;
+// The banner service reads the queue from this file, so it needs no network and no Vetro key (it still works with pairing on).
+var QUEUE_FILE = '/tmp/notification-center-queue.json';
 var DEFAULT_APP = 'NotifCtr01.NotifCenter';   // the companion app (screen: full-screen card, native banner)
 var SERVICE_APP = 'NotifCtr01.Svc';           // its background service (native banner over the running app, no app switch)
 var LEVELS = { info: 1, ok: 1, warn: 1, alert: 1 };
@@ -121,7 +123,8 @@ module.exports = function (ctx) {
 
     // Installation status for the panel: is the companion app (and its service) installed, is Vetro pairing on, which Shard version.
     function statusInfo(cb) {
-        var out = { version: '', app: false, appVersion: '', service: false, pairing: 'unknown' }, left = 2;
+        var out = { version: '', app: false, appVersion: '', service: false, pairing: 'unknown', handoff: false }, left = 2;
+        try { out.handoff = fs.existsSync(QUEUE_FILE); } catch (e) { /* unknown */ }
         try { out.version = require('./manifest.json').version; } catch (e) { /* manifest not readable */ }
         function once() { var d = false; return function () { if (!d) { d = true; left -= 1; if (!left) { cb(out); } } }; }
         var d1 = once(), d2 = once();
@@ -224,6 +227,15 @@ module.exports = function (ctx) {
         };
     }
 
+    // Hands the queue to the banner service through a file (world-readable: the service runs as another user). Written before the service is launched.
+    function writeQueueFile() {
+        try {
+            fs.writeFileSync(QUEUE_FILE, JSON.stringify({ at: Date.now(), notifications: queue.map(function (n) {
+                return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, expires: n.expires };
+            }) }), { mode: 420 });
+        } catch (e) { /* /tmp not writable: the service falls back to asking the Shard over the network */ }
+    }
+
     // Image for the full-screen card: an http(s) URL only.
     function cleanUrl(u) { u = String(u == null ? '' : u).trim(); return /^https?:\/\/[^\s"'<>]{4,290}$/.test(u) ? u : ''; }
 
@@ -284,6 +296,7 @@ module.exports = function (ctx) {
             };
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
+            writeQueueFile();
             recent.unshift({ id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, at: Date.now() });
             if (recent.length > MAX_RECENT) { recent.pop(); }
             saveRecent();
@@ -301,7 +314,7 @@ module.exports = function (ctx) {
 
     return {
         start: function () {},
-        stop: function () { queue = []; },
+        stop: function () { queue = []; writeQueueFile(); },
         status: function () { prune(); return { queued: queue.length, appId: appId() }; },
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
