@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.1
+Follow-ups from the catalog review of 0.3.1 (versions 0.4.0 to 0.6.0 were only published in the author's own repository).
+- The grouping memory is bounded: nothing is stored when grouping is off, entries older than the window are dropped, and at most 200 are kept (a flood of distinct notifications no longer slows every request).
+- New field `group` (`false` = never merge): the panel's Resend and test buttons send it, so they always show instead of answering `merged` while the panel says "Sent again".
+- README "Data it keeps" lists the sources (with their keys, stored as text), settings and webhooks; API.md says that a source key stops misconfigured senders, not hostile ones.
+
+## 0.6.0
+- **Volume setting:** `soundVolume` (10-100 %, default 100) replaces the old boost (`soundGain`); a slider next to the sound selector in the send form and in the Testing tab. The `volume` of a request is a share of it.
+- **The sound is in time with the banner:** `soundDelayMs` (default 3000 ms) is how long after the request the sound starts; tune it by ear in the Testing tab (the banner service cannot tell the Shard when the banner appears). If the banner is recorded in the file the Shard reads, the sound starts as soon as it is seen. `GET sounds` has a `trace` of the last timing.
+- **Goodie** in the Testing tab (`POST play` with `song`): about 10 seconds of a well-known tune made only of the notification sounds (*We Will Rock You*, the start of Beethoven's 5th), recognised by the rhythm. One song at a time, fixed in the code, same fixed command.
+
+## 0.5.0
+- **Sounds are part of this Shard now** (they were a separate notification-sound Shard in 0.4.0, which is no longer needed). The Shard asks for the `exec` permission for exactly one command, `paplay` on a fixed list of the TV's system sounds; the sound is chosen from a closed list and the volume is a clamped integer, so nothing from a request reaches the command. At most one sound every 0.8 s.
+- The sound goes with the banner: it plays when the banner service has shown it (the Shard reads the file the service writes), when the app screen asks for a card, or after 5 s at the latest; with `open: false` at once.
+- `sound` and `volume` on `notify`, ntfy, webhooks and source defaults; routes `GET sounds` and `POST play`; the boost is the setting `soundGain` (100-300 %, default 200) in `POST settings`; `GET status` reports `sound`.
+- Panel: the Testing tab has the boost slider next to the sound tests.
+- Tests with a fake `ctx.execute` that records every command and checks its shape.
+
+## 0.4.0
+- **Sounds:** any app can choose one of the TV's system sounds with `sound` (and `volume`) on `notify`, ntfy, webhooks and source defaults. In 0.4.0 the sound was played by a separate notification-sound Shard (merged into this one in 0.5.0). No sound unless one is asked for, and none for a notification held back by quiet hours or merged as a repeat. Routes `GET sounds` and `POST play`; `GET status` reports `sound`.
+- Panel: new **Testing** tab (test banner/card/both, the API "Try it" form and sound tests); a sound selector in the send form and in the source and webhook forms.
+- Tests with a fake Vetro for all of the above (`tests/notification-center-sound.test.cjs`).
+
 ## 0.3.1
 Fixes from the catalog review.
 - A request can no longer make the Shard fail: every value from the network is type-checked before it is converted (`{"message":{"toString":1}}` and similar threw), every body handler and the router catch errors, names are looked up with `hasOwnProperty` (`__proto__` and `constructor` are not levels, modes or sources).

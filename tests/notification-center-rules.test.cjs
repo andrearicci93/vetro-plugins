@@ -78,7 +78,7 @@ function start(seed) {
     const shard = create({
         id: 'notification-center', dir: fs.mkdtempSync(path.join(os.tmpdir(), 'nc-rules-')),
         config: {get: () => JSON.parse(JSON.stringify(config)), set: v => { config = JSON.parse(JSON.stringify(v)); }},
-        execute: () => Promise.reject(new Error('no exec'))
+        execute: () => Promise.reject(new Error('no exec')), queueFile: path.join(os.tmpdir(), 'nc-q-' + process.pid + '-' + Math.random().toString(36).slice(2) + '.json')
     });
     if (shard.start) shard.start();
     return shard;
@@ -213,5 +213,41 @@ test('a webhook uses its name as the source, so that source\'s key protects it',
         const r = await call(s, 'POST', 'hook/ha', 'plain text body', {'x-nc-key': 'ha-secret-key-1'});
         assert.equal(r.code, 200);
         assert.equal((await queued(s))[0].message, 'plain text body');
+    } finally { if (s.stop) s.stop(); }
+});
+
+test('group:false never merges (the panel Resend and test buttons use it)', async () => {
+    const s = start();
+    try {
+        const a = await call(s, 'POST', 'notify', {title: 'T', message: 'same', open: false});
+        const b = await call(s, 'POST', 'notify', {title: 'T', message: 'same', open: false, group: false});
+        const c = await call(s, 'POST', 'notify', {title: 'T', message: 'same', open: false});
+        assert.equal(a.json.merged, undefined);
+        assert.equal(b.json.merged, undefined, 'group:false is shown');
+        assert.equal(c.json.merged, true, 'without it the repeat is merged with the first');
+        assert.equal(c.json.id, a.json.id);
+    } finally { if (s.stop) s.stop(); }
+});
+
+test('the grouping memory is bounded: at most 200 entries, the oldest are forgotten, and nothing is kept when grouping is off', async () => {
+    const s = start();
+    try {
+        for (let i = 0; i < 260; i++) await call(s, 'POST', 'notify', {message: 'distinct ' + i, open: false});
+        assert.equal((await call(s, 'POST', 'notify', {message: 'distinct 259', open: false})).json.merged, true, 'a recent one is still remembered');
+        assert.notEqual((await call(s, 'POST', 'notify', {message: 'distinct 0', open: false})).json.merged, true, 'the oldest was forgotten');
+        await call(s, 'POST', 'settings', {groupSeconds: 0});
+        await call(s, 'POST', 'notify', {message: 'off 1', open: false});
+        assert.notEqual((await call(s, 'POST', 'notify', {message: 'off 1', open: false})).json.merged, true, 'grouping off: never merged');
+    } finally { if (s.stop) s.stop(); }
+});
+
+test('an entry is forgotten once the grouping window has passed', async () => {
+    const s = start();
+    try {
+        await call(s, 'POST', 'settings', {groupSeconds: 1});
+        await call(s, 'POST', 'notify', {message: 'window', open: false});
+        assert.equal((await call(s, 'POST', 'notify', {message: 'window', open: false})).json.merged, true);
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        assert.notEqual((await call(s, 'POST', 'notify', {message: 'window', open: false})).json.merged, true, 'after the window it is shown again');
     } finally { if (s.stop) s.stop(); }
 });

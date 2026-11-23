@@ -14,7 +14,7 @@ function start() {
     const shard = create({
         id: 'notification-center', dir: fs.mkdtempSync(path.join(os.tmpdir(), 'nc-hard-')),
         config: {get: () => JSON.parse(JSON.stringify(config)), set: v => { config = JSON.parse(JSON.stringify(v)); }},
-        execute: () => Promise.reject(new Error('no exec'))
+        execute: () => Promise.reject(new Error('no exec')), queueFile: path.join(os.tmpdir(), 'nc-q-' + process.pid + '-' + Math.random().toString(36).slice(2) + '.json')
     });
     if (shard.start) shard.start();
     return shard;
@@ -182,14 +182,17 @@ test('at most 2 picture downloads run at once, the rest wait, and stop() aborts 
     } finally { slow.close(); }
 });
 
-test('the queue file is written under a temporary name and renamed, leaving no temp files', async t => {
-    if (!fs.existsSync('/tmp')) return t.skip('no /tmp on this machine');
-    const s = start();
+test('the queue file is written under a temporary name and renamed, leaving no temp files', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-qf-'));
+    const target = path.join(dir, 'queue.json');
+    let config = {};
+    const s = create({id: 'notification-center', dir, config: {get: () => config, set: v => { config = v; }}, execute: () => Promise.reject(new Error('no exec')), queueFile: target});
+    if (s.start) s.start();
     try {
         await call(s, 'POST', 'notify', {message: 'file', open: false});
-        const target = '/tmp/notification-center-queue.json';
         assert.ok(fs.existsSync(target));
         assert.match(JSON.parse(fs.readFileSync(target, 'utf8')).notifications[0].message, /file/);
-        assert.deepEqual(fs.readdirSync('/tmp').filter(f => /^notification-center-queue\.json\..+\.tmp$/.test(f)), []);
+        assert.deepEqual(fs.readdirSync(dir).filter(f => /\.tmp$/.test(f)), [], 'no temp file is left behind');
+        if (process.platform !== 'win32') assert.equal(fs.statSync(target).mode & 0o022, 0, 'not writable by group or others');
     } finally { if (s.stop) s.stop(); }
 });

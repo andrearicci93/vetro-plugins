@@ -167,6 +167,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
   <nav class="dtabs">
     <button type="button" class="on" data-pane="p-main" data-t="tab_main">Notifications</button>
     <button type="button" data-pane="p-rules" data-t="rules_tab">Sources and rules</button>
+    <button type="button" data-pane="p-test" data-t="test_tab">Testing</button>
     <button type="button" data-pane="p-req" data-t="rq_title">Request for other apps and Shards</button>
     <button type="button" data-pane="p-api" data-t="api_title">API</button>
     <button type="button" data-pane="p-app" data-t="app">Companion app</button>
@@ -178,6 +179,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         <h2 data-t="send">Send a notification</h2>
         <div class="levels" id="levels"></div>
         <div class="modes" id="modes"></div>
+        <div class="row" style="margin-top:12px"><span class="lab" style="margin:0" data-t="f_sound">Sound</span><select id="sound" style="width:auto;margin:0"></select><span class="lab" style="margin:0 0 0 14px" data-t="f_mvol">Sound volume (%)</span><input type="range" id="mvol" min="10" max="100" step="5" value="100" style="width:140px"><b id="mvolv">100%</b></div>
       </div>
       <div class="sec">
         <h2 data-t="sec_msg">Message</h2>
@@ -234,6 +236,8 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
             <div><div class="lab" data-t="f_mode">Show as</div><select id="s_mode"><option value=""></option><option>banner</option><option>full</option><option>both</option></select></div>
             <div><div class="lab" data-t="f_dur">Duration (s)</div><input type="text" id="s_dur" maxlength="2"></div>
             <div><div class="lab" data-t="f_rate">Max per minute (0 = no limit)</div><input type="text" id="s_rate" maxlength="3"></div>
+            <div><div class="lab" data-t="f_sound">Sound</div><select id="s_sound"></select></div>
+            <div><div class="lab" data-t="f_vol">Volume (%)</div><input type="text" id="s_vol" maxlength="3"></div>
           </div>
           <label class="chk" style="margin-bottom:10px"><input type="checkbox" id="s_on" checked> <span data-t="f_enabled">Enabled</span></label>
           <div class="row"><button type="button" class="send" id="s_save" data-t="save">Save</button><button type="button" class="ghost" id="s_key" data-t="gen_key">New key</button><button type="button" class="ghost" id="s_clearkey" data-t="clear_key">Remove key</button><button type="button" class="ghost" id="s_del" data-t="del">Delete</button></div>
@@ -267,10 +271,44 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
           <div class="rulesgrid">
             <div><div class="lab" data-t="f_level">Level</div><input type="text" id="h_level" maxlength="40" placeholder="info"></div>
             <div><div class="lab" data-t="h_src">Source (default: the name)</div><input type="text" id="h_src" maxlength="32"></div>
+            <div><div class="lab" data-t="f_sound">Sound</div><select id="h_sound"></select></div>
           </div>
           <div class="row"><button type="button" class="send" id="h_save" data-t="save">Save</button><button type="button" class="ghost" id="h_del" data-t="del">Delete</button></div>
           <div class="msg" id="hmsg" style="padding:8px 0 0"></div>
           <pre id="hurl" hidden></pre>
+        </div>
+      </div>
+    </div>
+    <div class="pane" id="p-test" hidden>
+      <div class="appcols">
+        <div>
+          <h3 data-t="t_show">Test on the TV</h3>
+          <div class="msg" style="padding:0 0 8px" data-t="t_show_note">Each button sends a real test notification to the TV.</div>
+          <div class="row"><button type="button" class="ghost" data-stm="banner" data-t="st_tb">Test banner</button><button type="button" class="ghost" data-stm="full" data-t="st_tc">Test card</button><button type="button" class="ghost" data-stm="both" data-t="st_tboth">Test both</button></div>
+          <div class="msg" id="stmsg" style="padding:8px 0 0"></div>
+
+          <h3 style="margin-top:22px" data-t="t_sound">Sounds</h3>
+          <div class="msg" id="tsoundnote" style="padding:0 0 8px"></div>
+          <div class="row" id="tsounds"></div>
+          <div class="lab" style="margin-top:12px" data-t="f_mvol">Sound volume (%)</div>
+          <div class="row"><input type="range" id="tmvol" min="10" max="100" step="5" value="100" style="flex:1"><b id="tmvolv">100%</b></div>
+          <div class="lab" style="margin-top:12px" data-t="f_delay">The sound starts this long after the notification is sent (ms)</div>
+          <div class="row"><input type="range" id="tdelay" min="0" max="8000" step="100" value="3000" style="flex:1"><b id="tdelayv">3000 ms</b></div>
+          <div class="msg" style="padding:4px 0 0" data-t="f_delay_note">The banner appears a few seconds after the request. Press "Send a notification with this sound" below and move this slider until the sound and the banner arrive together.</div>
+          <div class="lab" style="margin-top:12px" data-t="f_vol">Volume (%)</div>
+          <div class="row"><input type="range" id="tvol" min="10" max="100" step="5" value="100" style="flex:1"><b id="tvolv">100%</b></div>
+          <div class="row" style="margin-top:12px"><button type="button" class="send" id="tsend" data-t="t_send_sound">Send a notification with this sound</button></div>
+          <div class="msg" id="tsmsg" style="padding:8px 0 0"></div>
+
+          <h3 style="margin-top:22px" data-t="t_goodie">Goodie</h3>
+          <div class="msg" style="padding:0 0 8px" data-t="t_goodie_note">About 10 seconds of a well-known tune, played only with the notification sounds (you recognise it by the rhythm).</div>
+          <div class="row"><span id="tsongs" class="row"></span><button type="button" class="ghost" id="tsongstop" data-t="t_stop">Stop</button></div>
+        </div>
+        <div>
+          <h3 data-t="api_try">Try the API</h3>
+          <div id="apiform" class="apiform"></div>
+          <div class="row" style="margin-bottom:10px"><button type="button" class="send" id="apitry" data-t="send_btn">Send</button></div>
+          <pre id="apiout"></pre>
         </div>
       </div>
     </div>
@@ -283,10 +321,6 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
       <div class="msg" id="apiver" style="padding:0 0 8px"></div>
       <table class="api"><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead><tbody id="apifields"></tbody></table>
       <ul id="apiroutes"></ul>
-      <h2 style="margin-top:18px" data-t="api_try">Try it</h2>
-      <div id="apiform" class="apiform"></div>
-      <div class="row" style="margin-bottom:10px"><button type="button" class="send" id="apitry" data-t="send_btn">Send</button></div>
-      <pre id="apiout"></pre>
       <div class="msg" style="padding:8px 0 0">API.md</div>
     </div>
     <div class="pane" id="p-app" hidden>
@@ -294,8 +328,6 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         <div>
           <h3 data-t="st_title">Status</h3>
           <ul id="statuslist"></ul>
-          <div class="row" style="margin-top:12px"><button type="button" class="ghost" data-stm="banner" data-t="st_tb">Test banner</button><button type="button" class="ghost" data-stm="full" data-t="st_tc">Test card</button><button type="button" class="ghost" data-stm="both" data-t="st_tboth">Test both</button></div>
-          <div class="msg" id="stmsg" style="padding:8px 0 0"></div>
         </div>
         <div>
           <h3 data-t="app">Companion app</h3>
@@ -444,7 +476,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         rb[k].addEventListener("click", function () {
           var n = lastRecent[parseInt(this.getAttribute("data-i"), 10)];
           if (!n) { return; }
-          act(this, api("notify", { title: n.title, message: n.message, level: n.level, icon: n.icon, image: n.image, wallpaper: n.wallpaper, mode: n.mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
+          act(this, api("notify", { title: n.title, message: n.message, level: n.level, icon: n.icon, image: n.image, wallpaper: n.wallpaper, mode: n.mode, sound: n.sound, volume: n.volume, group: false, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
             .then(function () { say(tr("resent"), "ok"); recent(); })
             .catch(function (e) { say(e.message, "err"); throw e; }));
         });
@@ -489,7 +521,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
   // The dashboard frame has no allow-forms: use buttons and the Enter key, not <form>.
   $("send").addEventListener("click", function () {
     say(tr("sending"));
-    act(this, api("notify", { title: $("title").value, message: $("message").value, level: level, icon: $("icon").value, image: $("image").value, wallpaper: $("wallpaper").value, mode: mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked })
+    act(this, api("notify", { title: $("title").value, message: $("message").value, level: level, icon: $("icon").value, image: $("image").value, wallpaper: $("wallpaper").value, mode: mode, duration: parseInt($("secs").value, 10) || 8, open: $("open").checked, sound: $("sound").value, group: false })
       .then(function (r) { say(r.open === "not requested" ? tr("queuedq") : tr("queued"), "ok"); $("message").value = ""; preview(); recent().catch(function () {}); })
       .catch(function (e) { say(e.message, "err"); throw e; }));
   });
@@ -585,7 +617,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     for (i = 0; i < b.length; i++) {
       b[i].addEventListener("click", function () {
         var m = this.getAttribute("data-stm");
-        act(this, api("notify", { title: "Test", message: "Notification Center test (" + m + ")", level: "ok", mode: m, duration: 8 }).then(function () { $("stmsg").textContent = tr("sent_ok"); $("stmsg").className = "msg ok"; }));
+        act(this, api("notify", { title: "Test", message: "Notification Center test (" + m + ")", level: "ok", mode: m, duration: 8, group: false }).then(function () { $("stmsg").textContent = tr("sent_ok"); $("stmsg").className = "msg ok"; }));
       });
     }
   })();
@@ -629,21 +661,21 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         var names = Object.keys(SRC);
         $("srclist").innerHTML = names.length ? names.map(function (n) {
           var p = SRC[n];
-          return '<li class="rl" data-n="' + esc(n) + '"><b>' + esc(n) + "</b><small>" + esc([p.enabled ? "" : tr("off"), p.icon, p.level, p.mode, p.duration ? p.duration + " s" : "", p.rate ? p.rate + "/min" : "", p.hasKey ? tr("haskey") : ""].filter(Boolean).join(" · ")) + "</small></li>";
+          return '<li class="rl" data-n="' + esc(n) + '"><b>' + esc(n) + "</b><small>" + esc([p.enabled ? "" : tr("off"), p.icon, p.level, p.mode, p.duration ? p.duration + " s" : "", p.rate ? p.rate + "/min" : "", p.sound ? "\u266A " + p.sound : "", p.hasKey ? tr("haskey") : ""].filter(Boolean).join(" · ")) + "</small></li>";
         }).join("") : '<li class="empty">' + esc(tr("none")) + "</li>";
         var li = $("srclist").getElementsByClassName("rl"), i;
         for (i = 0; i < li.length; i++) {
           li[i].addEventListener("click", function () {
             var n = this.getAttribute("data-n"), p = SRC[n];
             $("s_name").value = n; $("s_icon").value = p.icon; $("s_level").value = p.level; $("s_mode").value = p.mode;
-            $("s_dur").value = p.duration || ""; $("s_rate").value = p.rate || ""; $("s_on").checked = p.enabled; $("srckey").hidden = true;
+            $("s_dur").value = p.duration || ""; $("s_rate").value = p.rate || ""; $("s_sound").value = p.sound || ""; $("s_vol").value = p.volume || ""; $("s_on").checked = p.enabled; $("srckey").hidden = true;
           });
         }
       }).catch(function (e) { note("srcmsg", e.message, "err"); });
     }
     function srcName() { return $("s_name").value.trim().toLowerCase(); }
     $("s_save").addEventListener("click", function () {
-      act(this, api("profiles", { source: srcName(), icon: $("s_icon").value, level: $("s_level").value, mode: $("s_mode").value, duration: num("s_dur"), rate: num("s_rate"), enabled: $("s_on").checked })
+      act(this, api("profiles", { source: srcName(), icon: $("s_icon").value, level: $("s_level").value, mode: $("s_mode").value, duration: num("s_dur"), rate: num("s_rate"), sound: $("s_sound").value, volume: num("s_vol"), enabled: $("s_on").checked })
         .then(function () { note("srcmsg", tr("saved"), "ok"); return loadSources(); }, fail("srcmsg")));
     });
     $("s_key").addEventListener("click", function () {
@@ -682,7 +714,7 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
         for (i = 0; i < li.length; i++) {
           li[i].addEventListener("click", function () {
             var n = this.getAttribute("data-n"), h = HOOKS[n];
-            $("h_name").value = n; $("h_icon").value = h.icon; $("h_ttl").value = h.title; $("h_msg").value = h.message; $("h_level").value = h.level; $("h_src").value = h.source;
+            $("h_name").value = n; $("h_icon").value = h.icon; $("h_ttl").value = h.title; $("h_msg").value = h.message; $("h_level").value = h.level; $("h_src").value = h.source; $("h_sound").value = h.sound || "";
             $("hurl").hidden = false; $("hurl").textContent = tr("hookurl") + "\n" + BASE + "hook/" + n;
           });
         }
@@ -690,13 +722,80 @@ table.api th { color: var(--dim); font-size: 11px; text-transform: uppercase; le
     }
     function hookName() { return $("h_name").value.trim().toLowerCase(); }
     $("h_save").addEventListener("click", function () {
-      act(this, api("hooks", { name: hookName(), icon: $("h_icon").value, title: $("h_ttl").value, message: $("h_msg").value, level: $("h_level").value, source: $("h_src").value })
+      act(this, api("hooks", { name: hookName(), icon: $("h_icon").value, title: $("h_ttl").value, message: $("h_msg").value, level: $("h_level").value, source: $("h_src").value, sound: $("h_sound").value })
         .then(function (r) { note("hmsg", tr("saved"), "ok"); $("hurl").hidden = false; $("hurl").textContent = tr("hookurl") + "\n" + BASE + r.url; return loadHooks(); }, fail("hmsg")));
     });
     $("h_del").addEventListener("click", function () {
       act(this, api("hooks", { name: hookName(), delete: true }).then(function () { note("hmsg", tr("deleted"), "ok"); $("hurl").hidden = true; $("h_name").value = ""; return loadHooks(); }, fail("hmsg")));
     });
     loadSources(); loadSettings(); loadHooks();
+  })();
+
+  // Sounds: the list comes from the Shard (GET sounds); this Shard plays them with one fixed paplay command. Used by the send form, the source and webhook
+  // forms and the Testing tab.
+  (function () {
+    var X = {
+      en: { test_tab: "Testing", t_show: "Test on the TV", t_show_note: "Each button sends a real test notification to the TV.", t_sound: "Sounds", f_mvol: "Sound volume (%)", f_delay: "The sound starts this long after the notification is sent (ms)", f_delay_note: "The banner appears a few seconds after the request. Press the button \"Send a notification with this sound\" below and move this slider until the sound and the banner arrive together.", t_goodie: "Goodie", t_goodie_note: "About 10 seconds of a well-known tune, played only with the notification sounds (you recognise it by the rhythm).", t_stop: "Stop", f_sound: "Sound", f_vol: "Volume (%)", no_sound: "No sound",
+        t_send_sound: "Send a notification with this sound", t_pick: "Tapping a sound plays it. Then press Send to try it in a notification.", t_missing: "This Shard cannot play sounds (the exec permission was not granted).",
+        t_ready: "Sound Shard found.", t_sent: "Sent", t_none: "Pick a sound first" },
+      pt: { test_tab: "Testes", t_show: "Testar na TV", t_show_note: "Cada botão envia uma notificação de teste real para a TV.", t_sound: "Sons", f_mvol: "Volume do som (%)", f_delay: "O som começa este tempo depois de a notificação ser enviada (ms)", f_delay_note: "O banner aparece alguns segundos depois do pedido. Carregue no botão \"Enviar uma notificação com este som\" e mexa neste controlo até o som e o banner chegarem juntos.", t_goodie: "Surpresa", t_goodie_note: "Cerca de 10 segundos de uma música conhecida, tocada só com os sons de notificação (reconhece-se pelo ritmo).", t_stop: "Parar", f_sound: "Som", f_vol: "Volume (%)", no_sound: "Sem som",
+        t_send_sound: "Enviar uma notificação com este som", t_pick: "Escolha um som e carregue em Enviar. Tocar num som também o reproduz.", t_missing: "Este Shard não pode tocar sons (a permissão exec não foi concedida).",
+        t_ready: "Shard de som encontrado.", t_sent: "Enviado", t_none: "Escolha primeiro um som" }
+    }, k, names = [], installed = null, chosen = "";
+    for (k in X.en) { T.en[k] = X.en[k]; }
+    for (k in X.pt) { T.pt[k] = X.pt[k]; }
+    function options(current) {
+      return '<option value="">' + esc(tr("no_sound")) + "</option>" + names.map(function (n) { return '<option value="' + esc(n) + '"' + (n === current ? " selected" : "") + ">" + esc(n) + "</option>"; }).join("");
+    }
+    function paintSounds() {
+      ["sound", "s_sound", "h_sound"].forEach(function (id) { var cur = $(id).value; $(id).innerHTML = options(cur); });
+      $("tsounds").innerHTML = names.map(function (n) { return '<button type="button" class="ghost' + (n === chosen ? " on" : "") + '" data-snd="' + esc(n) + '">' + esc(n) + "</button>"; }).join("");
+      $("tsoundnote").textContent = installed === false ? tr("t_missing") : (installed ? tr("t_pick") : "");
+      $("tsoundnote").className = "msg" + (installed === false ? " err" : "");
+      var b = $("tsounds").getElementsByTagName("button"), i;
+      for (i = 0; i < b.length; i++) {
+        b[i].addEventListener("click", function () {
+          chosen = this.getAttribute("data-snd"); paintSounds();
+          api("play", { sound: chosen, volume: parseInt($("tvol").value, 10) }).catch(function (e) { $("tsmsg").textContent = e.message; $("tsmsg").className = "msg err"; });
+        });
+      }
+    }
+    var songs = [];
+    function paintSongs() {
+      $("tsongs").innerHTML = songs.map(function (s) { return '<button type="button" class="ghost" data-song="' + esc(s.name) + '">♪ ' + esc(s.title) + "</button>"; }).join("");
+      var b = $("tsongs").getElementsByTagName("button"), i;
+      for (i = 0; i < b.length; i++) {
+        b[i].addEventListener("click", function () {
+          var btn = this;
+          act(btn, api("play", { song: btn.getAttribute("data-song") }).then(function () { $("tsmsg").textContent = ""; }, function (e) { $("tsmsg").textContent = e.message; $("tsmsg").className = "msg err"; throw e; }));
+        });
+      }
+    }
+    // The volume and the timing are Shard settings (POST settings). The two volume sliders (send form and Testing tab) show the same value.
+    function showVolume(v) { ["mvol", "tmvol"].forEach(function (id) { $(id).value = v; }); $("mvolv").textContent = v + "%"; $("tmvolv").textContent = v + "%"; }
+    function loadSounds() {
+      return api("sounds").then(function (d) {
+        names = d.sounds; installed = d.available; songs = d.songs || [];
+        showVolume(d.volume); $("tdelay").value = d.delayMs; $("tdelayv").textContent = d.delayMs + " ms";
+        paintSounds(); paintSongs();
+      }).catch(function () { /* keep the lists empty */ });
+    }
+    $("tvol").addEventListener("input", function () { $("tvolv").textContent = this.value + "%"; });
+    ["mvol", "tmvol"].forEach(function (id) {
+      $(id).addEventListener("input", function () { showVolume(this.value); });
+      $(id).addEventListener("change", function () { api("settings", { soundVolume: parseInt(this.value, 10) }).then(function (r) { showVolume(r.settings.soundVolume); }).catch(function (e) { $("tsmsg").textContent = e.message; $("tsmsg").className = "msg err"; }); });
+    });
+    $("tdelay").addEventListener("input", function () { $("tdelayv").textContent = this.value + " ms"; });
+    $("tdelay").addEventListener("change", function () { api("settings", { soundDelayMs: parseInt(this.value, 10) }).catch(function (e) { $("tsmsg").textContent = e.message; $("tsmsg").className = "msg err"; }); });
+    $("tsongstop").addEventListener("click", function () { act(this, api("play", { song: "stop" })); });
+    $("tsend").addEventListener("click", function () {
+      if (!chosen) { $("tsmsg").textContent = tr("t_none"); $("tsmsg").className = "msg err"; return; }
+      act(this, api("notify", { title: "Sound test", message: "Sound: " + chosen, level: "info", mode: "banner", duration: 6, group: false, sound: chosen, volume: parseInt($("tvol").value, 10) })
+        .then(function () { $("tsmsg").textContent = tr("t_sent"); $("tsmsg").className = "msg ok"; }, function (e) { $("tsmsg").textContent = e.message; $("tsmsg").className = "msg err"; throw e; }));
+    });
+    var baseApplyLang = applyLang;
+    applyLang = function () { baseApplyLang(); paintSounds(); };
+    loadSounds();
   })();
 
   applyLang();

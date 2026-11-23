@@ -17,7 +17,7 @@ function describeApi() {
     let config = {};
     const shard = require(path.join(folder, 'index.js'))({
         id: 'notification-center', dir: fs.mkdtempSync(path.join(os.tmpdir(), 'nc-docs-')),
-        config: {get: () => config, set: v => { config = v; }}, execute: () => Promise.reject(new Error('no exec'))
+        config: {get: () => config, set: v => { config = v; }}, execute: () => Promise.reject(new Error('no exec')), queueFile: path.join(os.tmpdir(), 'nc-q-docs-' + process.pid + '.json')
     });
     let out;
     const req = new EventEmitter(); req.method = 'GET'; req.url = '/api'; req.headers = {};

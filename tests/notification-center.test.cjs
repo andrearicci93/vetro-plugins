@@ -14,7 +14,7 @@ function start() {
     const ctx = {
         id: 'notification-center', dir,
         config: {get: () => JSON.parse(JSON.stringify(config)), set: v => { config = JSON.parse(JSON.stringify(v)); }},
-        execute: () => Promise.reject(new Error('exec was not declared'))
+        execute: () => Promise.reject(new Error('exec was not declared')), queueFile: path.join(dir, 'queue.json')
     };
     const shard = create(ctx);
     if (shard.start) shard.start();

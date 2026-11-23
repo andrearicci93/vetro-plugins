@@ -13,6 +13,24 @@ var os = require('os');
 var rules = require('./rules.js');
 
 var MAX_HOOK_BODY = 65536;
+// The tunes: [milliseconds from the start, sound]. We Will Rock You: stomp, stomp, clap (81 beats per minute). Beethoven's 5th: short, short, short, LONG (twice, then again).
+var SONGS = { rock: { title: 'We Will Rock You', steps: [] }, fate: { title: "Beethoven's 5th", steps: [] } };
+(function () {
+    var i, bar;
+    for (bar = 0; bar < 4; bar++) { for (i = 0; i < 3; i++) { SONGS.rock.steps.push([bar * 2960 + i * 740, i < 2 ? 'soft' : 'success']); } }
+    [0, 3400, 6800].forEach(function (base, n) {
+        [0, 280, 560].forEach(function (d) { SONGS.fate.steps.push([base + d, n === 1 ? 'chime' : 'success']); });
+        SONGS.fate.steps.push([base + 840, n === 1 ? 'alert' : 'rotation']);
+    });
+}());
+var SOUND_DIR = '/usr/share/feedback/sound/operation/', SOUND_GAP_MS = 800;
+// The TV's system sounds are quiet: the volume the user sets (10-100 %) is multiplied by this to get the paplay volume (100 % = 3.0, about +9.5 dB).
+var SOUND_BOOST = 3;
+// The sound waits for the banner: Vetro needs a few seconds to start the banner service, which then records the id in this file (see app/service.js).
+// If the id never shows up there, the sound plays after SOUND_WAIT_MS anyway.
+var SEEN_FILE = '/tmp/notification-center-seen.json', SOUND_WAIT_MS = 10000, SOUND_POLL_MS = 50;
+// The TV's system sounds a request can choose (the names are the closed list in rules.js).
+var SOUND_FILES = { chime: 'normal_noti.wav', soft: 'select.wav', reward: 'vi_reward.wav', success: 'vi_success.wav', alert: 'vi_fail.wav', rotation: 'p_rotation_fail.wav', open: 'home_open.wav', poweron: 'power_on.wav' };
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192, MAX_ICON = 16;
 var DEFAULT_SECONDS = 30, MIN_SECONDS = 5, MAX_SECONDS = 300, MIN_RELAUNCH_MS = 2000, APP_ACTIVE_MS = 3500;
 // The banner service reads the queue from this file, so it needs no network and no Vetro key (it still works with pairing on).
@@ -24,6 +42,18 @@ var MIN_DURATION = 1, MAX_DURATION = 60, DEFAULT_DURATION = 8;
 var MODES = { both: 1, banner: 1, full: 1 };   // banner (default) = native banner over the running app, from the background service; full = full-screen card; both = card + banner
 
 module.exports = function (ctx) {
+    // Where Vetro listens. Only a test passes ctx.vetro; on the TV it is always 127.0.0.1:8099.
+    var vetro = ctx.vetro && typeof ctx.vetro === 'object' ? ctx.vetro : {};
+    var VHOST = typeof vetro.host === 'string' ? vetro.host : '127.0.0.1', VPORT = typeof vetro.port === 'number' ? vetro.port : 8099;
+    var soundLast = null, soundAt = 0, soundTrace = null;   // soundTrace: when the last banner sound started and when its banner was seen (for the panel)
+    var queueFile = QUEUE_FILE, seenFile = SEEN_FILE, soundWaitMs = SOUND_WAIT_MS, waitingSounds = {}, songScale = 1;   // waitingSounds: notification id -> {fire, timer}
+    if (typeof ctx.queueFile === 'string') { queueFile = ctx.queueFile; }   // only a test changes this (each test Shard gets its own file)
+    if (typeof ctx.sound === 'object' && ctx.sound) {   // only a test changes these
+        if (typeof ctx.sound.gapMs === 'number') { SOUND_GAP_MS = ctx.sound.gapMs; }
+        if (typeof ctx.sound.waitMs === 'number') { soundWaitMs = ctx.sound.waitMs; }
+        if (typeof ctx.sound.seenFile === 'string') { seenFile = ctx.sound.seenFile; }
+        if (typeof ctx.sound.songScale === 'number') { songScale = ctx.sound.songScale; }
+    }
     var queue = [];      // active notifications (memory only)
     var recent = [];     // last ones sent, for the page; kept in ctx.config so they survive a restart or an update
     try { var saved = (ctx.config.get() || {}).recent; if (Array.isArray(saved)) { recent = saved.slice(0, MAX_RECENT); } } catch (e) { recent = []; }
@@ -76,6 +106,19 @@ module.exports = function (ctx) {
     var limiter = rules.makeLimiter(), groups = {};   // per-source rate windows and recently seen repeats (memory only)
     var str = rules.str, num = rules.num, has = rules.has;
     function cfgGet() { return ctx.config.get() || {}; }
+    // Drops the grouping entries older than the window, and keeps at most MAX_GROUPS (the oldest go first). It walks the map only once it has grown past
+    // 50 entries, so a flood of distinct notifications cannot make every request slower.
+    var MAX_GROUPS = 200;
+    function pruneGroups(now, windowMs) {
+        var keys = Object.keys(groups);
+        if (keys.length <= 50) { return; }
+        keys.forEach(function (k) { if (now - groups[k].at >= windowMs) { delete groups[k]; } });
+        keys = Object.keys(groups);
+        if (keys.length > MAX_GROUPS) {
+            keys.sort(function (x, y) { return groups[x].at - groups[y].at; }).slice(0, keys.length - MAX_GROUPS).forEach(function (k) { delete groups[k]; });
+        }
+    }
+    function soundVolume(v) { var n = num(v); return n >= 10 ? (n > 100 ? 100 : n) : 0; }
     function settingsNow() { return rules.sanitizeSettings(cfgGet().settings, {}); }
     function clean(text, max) {
         return str(text).replace(/[\x00-\x1f]/g, ' ').slice(0, max).trim();
@@ -102,7 +145,7 @@ module.exports = function (ctx) {
         var body = JSON.stringify({ appId: service ? SERVICE_APP : appId() });
         try {
             var rq = http.request({
-                host: '127.0.0.1', port: 8099, path: '/apps/launch', method: 'POST', timeout: 5000,
+                host: VHOST, port: VPORT, path: '/apps/launch', method: 'POST', timeout: 5000,
                 headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
             }, function (r) { r.resume(); });
             rq.on('error', function () { /* Vetro busy or app not installed */ });
@@ -174,15 +217,85 @@ module.exports = function (ctx) {
         w.forEach(function (x) { try { x.cb('stopped'); } catch (e) { /* ignore */ } });
     }
 
+    // Sound: plays one of the TV's own system sounds. This Shard has the `exec` permission for exactly ONE command shape:
+    //     paplay --volume=<integer> /usr/share/feedback/sound/operation/<one of the fixed files above>
+    // The sound comes from a closed list and the volume is a clamped integer, so no text from a request ever reaches the command.
+    // At most one sound every 0.8 s (a flood of requests cannot make the TV play a flood of sounds).
+    function playSound(name, volume) {
+        if (typeof name !== 'string' || !has(SOUND_FILES, name)) { return 'none'; }
+        var now = Date.now();
+        if (now - soundAt < SOUND_GAP_MS) { return 'skipped'; }
+        soundAt = now;
+        return execSound(name, volume, now);
+    }
+    // The only place that runs a command.
+    function execSound(name, volume, now) {
+        var v = Math.round(65536 * (volume >= 10 && volume <= 100 ? volume : 100) / 100 * settingsNow().soundVolume / 100 * SOUND_BOOST), job;
+        try { job = ctx.execute('paplay --volume=' + v + ' ' + SOUND_DIR + SOUND_FILES[name], 8000); } catch (e) { soundLast = { at: now, ok: false, error: 'exec failed' }; return 'requested'; }
+        if (!job || typeof job.then !== 'function') { soundLast = { at: now, ok: false, error: 'exec unavailable' }; return 'requested'; }
+        job.then(function (r) {
+            soundLast = r && r.exit_code ? { at: now, ok: false, error: 'paplay exit ' + r.exit_code + (r.stderr ? ': ' + str(r.stderr).slice(0, 120) : '') } : { at: now, ok: true };
+        }, function (e) { soundLast = { at: now, ok: false, error: str(e && e.message).slice(0, 160) || 'exec failed' }; });
+        return 'requested';
+    }
+
+    // Goodie: about 10 seconds of a well-known tune made only of the notification sounds. The sounds have fixed pitches, so the tunes are recognised by their
+    // rhythm. The songs are fixed lists in the code (a request only picks a name), every step runs the same paplay command, one song at a time, at most 12 s.
+    var songTimers = [], songEnd = null;
+    function playSong(name) {
+        if (!has(SONGS, name)) { return 'unknown'; }
+        if (songEnd) { return 'busy'; }
+        var steps = SONGS[name].steps, last = 0;
+        steps.forEach(function (s) {
+            last = s[0] > last ? s[0] : last;
+            songTimers.push(setTimeout(function () { execSound(s[1], 100, Date.now()); }, Math.round(s[0] * songScale)));
+        });
+        songEnd = setTimeout(function () { songTimers = []; songEnd = null; }, Math.round((last + 2500) * songScale));
+        return 'playing';
+    }
+    function stopSong() {
+        songTimers.forEach(function (x) { clearTimeout(x); });
+        songTimers = []; clearTimeout(songEnd); songEnd = null;
+    }
+
+    // The sound goes with the banner. The banner appears some seconds after the request (Vetro has to start the banner service) and the Shard cannot see
+    // when: the service has no permission to write back. So the sound starts `soundDelayMs` after the request (a setting you tune by ear, with the test in the
+    // Testing tab); if the banner service did record the id in the file the Shard can read (other TVs), the sound starts as soon as it is seen.
+    // Full and both: the sound plays when the app screen asks for the queue. open:false notifications (never shown) play at once.
+    function scheduleSound(note) {
+        var entry = { timer: null, done: false, fired: false }, started = Date.now();
+        var fireAt = started + Math.min(settingsNow().soundDelayMs, soundWaitMs);
+        var trace = { id: note.id, mode: note.mode, plannedMs: fireAt - started, startedMs: null, seenMs: null };
+        soundTrace = trace;
+        function fire() { if (!entry.fired) { entry.fired = true; trace.startedMs = Date.now() - started; playSound(note.sound, note.volume); } }
+        function finish() { entry.done = true; clearTimeout(entry.timer); delete waitingSounds[note.id]; }
+        entry.fire = function () { fire(); finish(); };
+        waitingSounds[note.id] = entry;
+        function shown() { try { return has(JSON.parse(fs.readFileSync(seenFile, 'utf8')), note.id); } catch (e) { return false; } }
+        function tick() {
+            if (entry.done) { return; }
+            var now = Date.now();
+            if (note.mode === 'banner') {
+                if (shown()) { trace.seenMs = now - started; fire(); return finish(); }
+                if (!entry.fired && now >= fireAt) { fire(); }
+                if (now - started > soundWaitMs + 3000) { return finish(); }
+            } else if (now - started >= soundWaitMs) { fire(); return finish(); }
+            entry.timer = setTimeout(tick, SOUND_POLL_MS);
+        }
+        entry.timer = setTimeout(tick, SOUND_POLL_MS);
+    }
+    function cancelSounds() { Object.keys(waitingSounds).forEach(function (id) { var e = waitingSounds[id]; e.done = true; clearTimeout(e.timer); }); waitingSounds = {}; }
+    function soundAvailable() { return typeof ctx.execute === 'function'; }
+
     // Installation status for the panel: is the companion app (and its service) installed, is Vetro pairing on, which Shard version.
     function statusInfo(cb) {
-        var out = { version: '', app: false, appVersion: '', service: false, pairing: 'unknown', handoff: false }, left = 2;
-        try { out.handoff = fs.existsSync(QUEUE_FILE); } catch (e) { /* unknown */ }
+        var out = { version: '', app: false, appVersion: '', service: false, pairing: 'unknown', handoff: false, sound: soundAvailable() }, left = 2;
+        try { out.handoff = fs.existsSync(queueFile); } catch (e) { /* unknown */ }
         try { out.version = require('./manifest.json').version; } catch (e) { /* manifest not readable */ }
         function once() { var d = false; return function () { if (!d) { d = true; left -= 1; if (!left) { cb(out); } } }; }
         var d1 = once(), d2 = once();
         try {
-            var rq = http.get({ host: '127.0.0.1', port: 8099, path: '/apps', timeout: 5000 }, function (r) {
+            var rq = http.get({ host: VHOST, port: VPORT, path: '/apps', timeout: 5000 }, function (r) {
                 var s = '';
                 r.setEncoding('utf8');
                 r.on('data', function (d) { s += d; if (s.length > 3000000) { r.destroy(); } });
@@ -245,7 +358,7 @@ module.exports = function (ctx) {
             name: 'notification-center', version: ver, apiVersion: 1,
             base: '/plugins/notification-center/api/',
             auth: 'Same as the rest of Vetro: no key with pairing off; with pairing on, other devices send "Authorization: Bearer <key>". Shards on the same TV call http://127.0.0.1:8099 and need no key.',
-            enums: { level: Object.keys(LEVELS), mode: Object.keys(MODES) },
+            enums: { level: Object.keys(LEVELS), mode: Object.keys(MODES), sound: Object.keys(rules.SOUNDS) },
             limits: { title: MAX_TITLE, message: MAX_MESSAGE, queue: MAX_QUEUE, recent: MAX_RECENT, durationSeconds: [MIN_DURATION, MAX_DURATION], queueSeconds: [MIN_SECONDS, MAX_SECONDS], image: '3 MB, png/jpeg/gif/webp/bmp, http(s) URL up to 290 characters', relaunchAfterSeconds: MIN_RELAUNCH_MS / 1000 },
             fields: {
                 message: { type: 'string', required: true, max: MAX_MESSAGE, note: 'The text of the notification.' },
@@ -258,24 +371,29 @@ module.exports = function (ctx) {
                 wallpaper: { type: 'url', note: 'http/https full-screen background behind the card. The Shard fetches it.' },
                 seconds: { type: 'integer', min: MIN_SECONDS, max: MAX_SECONDS, default: DEFAULT_SECONDS, note: 'How long it waits in the queue (always at least duration + 20).' },
                 open: { type: 'boolean', default: true, note: 'false only queues it, without launching the app or its service.' },
+                sound: { type: 'string', enum: Object.keys(rules.SOUNDS), note: 'Plays one of the TV system sounds with the notification. Empty = no sound; one sound at most every 0.8 s. Not played for a notification held back by quiet hours or merged as a repeat.' },
+                volume: { type: 'integer', min: 10, max: 100, default: 100, note: 'Volume of the sound, in percent.' },
+                group: { type: 'boolean', default: true, note: 'false = never merge this notification with an identical recent one (the panel sends false for Resend and the test buttons). Merging only happens while the setting groupSeconds is above 0.' },
                 source: { type: 'string', max: 32, note: 'Who is sending (a-z, 0-9, . _ -), or the header X-NC-Source. If a profile with that name exists, its icon, level, mode and duration fill in what you leave out, and its key (header X-NC-Key), enabled flag and rate limit apply.' }
             },
             endpoints: [
-                { method: 'POST', path: 'notify', summary: 'Send a notification (JSON body with the fields above). With quiet hours it may answer {ok, id, suppressed}; a repeat inside the grouping window answers {ok, id, merged:true, count}.', returns: '{ok, id, open}' },
+                { method: 'POST', path: 'notify', summary: 'Send a notification (JSON body with the fields above). With quiet hours it may answer {ok, id, suppressed}; a repeat inside the grouping window answers {ok, id, merged:true, count}.', returns: '{ok, id, open, sound}' },
                 { method: 'POST', path: 'ntfy', summary: 'ntfy-compatible publish: body = message; headers Title, Priority (5 alert, 4 warning), Tags; or JSON {message,title,priority,tags}.', returns: '{ok, id, open}' },
                 { method: 'GET', path: 'notifications', summary: 'The active queue (used by the app and its service); add ?js=1 for the script form.', returns: '{lang, notifications:[...]}' },
                 { method: 'GET', path: 'recent', summary: 'The last notifications sent.', returns: '{recent:[...]}' },
                 { method: 'GET', path: 'img?id=<id>[&kind=wallpaper][&info=1]', summary: 'The picture of a queued notification, fetched and served by the Shard; info=1 returns {ok,type,bytes}.', returns: 'image bytes or JSON' },
-                { method: 'GET', path: 'status', summary: 'Installation status: companion app, its service, Vetro pairing, Shard version.', returns: '{version, app, appVersion, service, pairing}' },
+                { method: 'GET', path: 'status', summary: 'Installation status: companion app, its service, Vetro pairing, Shard version.', returns: '{version, app, appVersion, service, pairing, sound}' },
                 { method: 'GET', path: 'lang', summary: 'Display language (en or pt).', returns: '{lang}' },
                 { method: 'POST', path: 'lang', summary: 'Set the display language.', body: '{lang: "en"|"pt"}', returns: '{lang}' },
                 { method: 'GET', path: 'profiles', summary: 'The sources (profiles): defaults per sender. Keys are never returned, only hasKey.', returns: '{profiles:{<source>:{enabled,icon,level,mode,duration,rate,hasKey}}, max}' },
                 { method: 'POST', path: 'profiles', summary: 'Create, change or delete a source.', body: '{source, icon?, level?, mode?, duration?, rate? (per minute, 0 = no limit), enabled?, key? ("" clears), genKey? (true returns a new key once), delete?}', returns: '{ok, source, profile, key?}' },
-                { method: 'GET', path: 'settings', summary: 'Quiet hours, grouping of repeats and strict mode.', returns: '{settings:{quiet:{enabled,from,to,allow},groupSeconds,strict}}' },
-                { method: 'POST', path: 'settings', summary: 'Change those settings (send only what changes).', body: '{quiet?:{enabled,from:"22:00",to:"07:00",allow:"alert"|"warn"|"none"}, groupSeconds? (0 = off), strict? (true rejects unknown sources)}', returns: '{ok, settings}' },
+                { method: 'GET', path: 'settings', summary: 'Quiet hours, grouping of repeats and strict mode.', returns: '{settings:{quiet:{enabled,from,to,allow},groupSeconds,strict,soundVolume,soundDelayMs}}' },
+                { method: 'POST', path: 'settings', summary: 'Change those settings (send only what changes).', body: '{quiet?:{enabled,from:"22:00",to:"07:00",allow:"alert"|"warn"|"none"}, groupSeconds? (0 = off), strict? (true rejects unknown sources), soundVolume? (10-100 %, the volume of every sound, default 100), soundDelayMs? (0-10000, how long after the request the sound starts, default 3000)}', returns: '{ok, settings}' },
                 { method: 'GET', path: 'hooks', summary: 'The webhooks (templates that turn any JSON into a notification).', returns: '{hooks, max, base}' },
                 { method: 'POST', path: 'hooks', summary: 'Create, change or delete a webhook.', body: '{name, message (template), title?, level?, icon?, mode?, duration?, source?, delete?}; templates use {{a.b.0.c}} from the posted JSON', returns: '{ok, name, hook, url}' },
                 { method: 'POST', path: 'hook/<name>', summary: 'Send any JSON (up to 64 KB) to a webhook; its templates build the notification. Non-JSON bodies are available as {{text}}.', returns: 'same as notify' },
+                { method: 'POST', path: 'play', summary: 'Play one of the sounds without a notification, or a 10-second tune made of them (song). The sound volume setting applies. Answers 429 if another sound was played less than 0.8 s ago.', body: '{sound, volume?} or {song:"rock"|"fate"|"stop"}', returns: '{ok, sound:"requested"} or {ok, song:"playing"}' },
+                { method: 'GET', path: 'sounds', summary: 'The sounds a request can choose, whether this Shard can play sounds (exec granted), the volume and timing settings, the timing of the last banner sound (trace) and the result of the last attempt.', returns: '{sounds:[...], songs:[{name,title}], available, volume, delayMs, trace, last}' },
                 { method: 'GET', path: 'emoji', summary: 'The bundled emoji list used by the icon picker.', returns: '{source, groups, list}' },
                 { method: 'GET', path: 'api', summary: 'This description.', returns: 'JSON' }
             ],
@@ -287,12 +405,12 @@ module.exports = function (ctx) {
     // Written under a new name with 'wx' (fails if the name exists, never follows a planted symlink) and then renamed over the target,
     // so a symlink left at the target path is replaced, not written through.
     function writeQueueFile() {
-        var tmp = QUEUE_FILE + '.' + process.pid + '.' + Date.now().toString(36) + '.tmp';
+        var tmp = queueFile + '.' + process.pid + '.' + Date.now().toString(36) + '.tmp';
         try {
             fs.writeFileSync(tmp, JSON.stringify({ at: Date.now(), notifications: queue.map(function (n) {
                 return { id: n.id, title: n.title, message: n.message, level: n.level, mode: n.mode, duration: n.duration, icon: n.icon, expires: n.expires };
             }) }), { mode: 420, flag: 'wx' });
-            fs.renameSync(tmp, QUEUE_FILE);
+            fs.renameSync(tmp, queueFile);
         } catch (e) {
             try { fs.unlinkSync(tmp); } catch (e2) { /* nothing to remove */ }
             /* /tmp not writable: the service falls back to asking the Shard over the network */
@@ -344,6 +462,7 @@ module.exports = function (ctx) {
                     break;
                 }
             }
+            b.sound = j ? j.sound : h.sound; b.volume = j ? j.volume : h.volume;
             submit(b, h, res);
         }));
     }
@@ -354,6 +473,24 @@ module.exports = function (ctx) {
             try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
             submit(b, req.headers || {}, res);
         }));
+    }
+
+    // Play a sound without a notification (the panel's sound tests; any app can use it too). Only names from the closed list.
+    function handlePlay(req, res) {
+        readBodyG(req, res, function (raw) {
+            var b;
+            try { b = JSON.parse(raw); } catch (e) { return sendJson(res, 400, { error: 'invalid JSON' }); }
+            b = rules.isObj(b) ? b : {};
+            if (b.song !== undefined) {
+                if (b.song === 'stop') { stopSong(); return sendJson(res, 200, { ok: true, song: 'stopped' }); }
+                if (!has(SONGS, b.song)) { return sendJson(res, 400, { error: 'song must be one of: ' + Object.keys(SONGS).join(', ') + ', stop' }); }
+                var played = playSong(b.song);
+                return sendJson(res, played === 'busy' ? 409 : 200, played === 'busy' ? { ok: false, error: 'a song is already playing (song: "stop" stops it)' } : { ok: true, song: played });
+            }
+            if (!has(rules.SOUNDS, b.sound)) { return sendJson(res, 400, { error: 'sound must be one of: ' + Object.keys(rules.SOUNDS).join(', ') }); }
+            var st = playSound(b.sound, soundVolume(b.volume));
+            sendJson(res, st === 'skipped' ? 429 : 200, st === 'skipped' ? { ok: false, error: 'too soon: one sound every 0.8 s' } : { ok: true, sound: st });
+        });
     }
 
     // Webhook: POST hook/<name> with any JSON. The hook's templates turn it into a notification ({{a.b}} = that value of the posted JSON).
@@ -405,26 +542,30 @@ module.exports = function (ctx) {
                 mode: has(MODES, b.mode) ? b.mode : 'banner',
                 duration: dur,
                 source: source,
+                sound: has(rules.SOUNDS, b.sound) ? b.sound : '',
+                volume: soundVolume(b.volume),
                 expires: Date.now() + secs * 1000
             };
-            var entry = { id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, wallpaper: note.wallpaper, source: source, at: Date.now() };
+            var entry = { id: note.id, title: note.title, message: note.message, level: note.level, mode: note.mode, duration: note.duration, icon: note.icon, image: note.image, wallpaper: note.wallpaper, source: source, sound: note.sound, volume: note.volume, at: Date.now() };
             // Quiet hours: below the allowed level the notification is only recorded, never shown.
             if (rules.isQuiet(settings, note.level, new Date())) {
                 entry.suppressed = true;
                 recent.unshift(entry); if (recent.length > MAX_RECENT) { recent.pop(); } saveRecent();
                 return sendJson(res, 200, { ok: true, id: note.id, suppressed: 'quiet hours' });
             }
-            // Grouping: the same source, title, message and level within the window is counted, not shown again.
-            var sig = [source, note.title, note.message, note.level].join('\u0001'), nowMs = Date.now(), g = groups[sig], gk, r;
-            if (settings.groupSeconds && g && nowMs - g.at < settings.groupSeconds * 1000) {
-                g.count += 1;
-                for (r = 0; r < recent.length; r++) { if (recent[r].id === g.id) { recent[r].count = g.count; } }
-                saveRecent();
-                return sendJson(res, 200, { ok: true, id: g.id, merged: true, count: g.count });
+            // Grouping: the same source, title, message and level within the window is counted, not shown again. It is skipped when it is off
+            // (groupSeconds 0) and for a request that says group:false (the panel's Resend and test buttons). The map only holds entries younger than the window.
+            if (settings.groupSeconds && b.group !== false) {
+                var sig = [source, note.title, note.message, note.level].join(String.fromCharCode(1)), nowMs = Date.now(), g = has(groups, sig) ? groups[sig] : null, r;
+                if (g && nowMs - g.at < settings.groupSeconds * 1000) {
+                    g.count += 1;
+                    for (r = 0; r < recent.length; r++) { if (recent[r].id === g.id) { recent[r].count = g.count; } }
+                    saveRecent();
+                    return sendJson(res, 200, { ok: true, id: g.id, merged: true, count: g.count });
+                }
+                groups[sig] = { at: nowMs, id: note.id, count: 1 };
+                pruneGroups(nowMs, settings.groupSeconds * 1000);
             }
-            groups[sig] = { at: nowMs, id: note.id, count: 1 };
-            gk = Object.keys(groups);
-            if (gk.length > 60) { gk.forEach(function (k) { if (nowMs - groups[k].at > 3600000) { delete groups[k]; } }); }
             queue.push(note);
             if (queue.length > MAX_QUEUE) { queue.shift(); }
             writeQueueFile();
@@ -432,7 +573,12 @@ module.exports = function (ctx) {
             if (recent.length > MAX_RECENT) { recent.pop(); }
             saveRecent();
             var opened = b.open === false ? 'not requested' : openApp(note.mode === 'banner');
-            sendJson(res, 200, { ok: true, id: note.id, open: opened });
+            // The sound is asked for only now: not for a notification held back by quiet hours or merged as a repeat.
+            var soundState = 'none';
+            if (note.sound) {
+                if (b.open === false || soundWaitMs <= 0) { soundState = playSound(note.sound, note.volume); } else { scheduleSound(note); soundState = 'requested'; }
+            }
+            sendJson(res, 200, { ok: true, id: note.id, open: opened, sound: soundState });
         }
     }
 
@@ -495,7 +641,7 @@ module.exports = function (ctx) {
 
     return {
         start: function () {},
-        stop: function () { abortFetches(); queue = []; writeQueueFile(); },
+        stop: function () { abortFetches(); cancelSounds(); stopSong(); queue = []; writeQueueFile(); },
         status: function () { prune(); return { queued: queue.length, appId: appId() }; },
         route: function (req, res, sub) {
             sub = String(sub || '').split('?')[0].replace(/^\/+|\/+$/g, '');
@@ -505,6 +651,8 @@ module.exports = function (ctx) {
             if (sub === 'status' && req.method === 'GET') { statusInfo(function (o) { sendJson(res, 200, o); }); return true; }
             if (sub === 'img' && req.method === 'GET') { serveImage(req, res); return true; }
             if (sub === 'ntfy' && req.method === 'POST') { handleNtfy(req, res); return true; }
+            if (sub === 'play' && req.method === 'POST') { handlePlay(req, res); return true; }
+            if (sub === 'sounds' && req.method === 'GET') { sendJson(res, 200, { sounds: Object.keys(rules.SOUNDS), songs: Object.keys(SONGS).map(function (k) { return { name: k, title: SONGS[k].title }; }), available: soundAvailable(), volume: settingsNow().soundVolume, delayMs: settingsNow().soundDelayMs, trace: soundTrace, last: soundLast }); return true; }
             if (sub === 'profiles' && (req.method === 'GET' || req.method === 'POST')) { handleProfiles(req, res); return true; }
             if (sub === 'settings' && (req.method === 'GET' || req.method === 'POST')) { handleSettings(req, res); return true; }
             if (sub === 'hooks' && (req.method === 'GET' || req.method === 'POST')) { handleHooks(req, res); return true; }
@@ -513,7 +661,10 @@ module.exports = function (ctx) {
             if (sub === 'nt.js' && req.method === 'GET') { sendFile(res, 'nt.js', 'application/javascript; charset=utf-8'); return true; }
             if (sub === 'notify' && req.method === 'POST') { handleNotify(req, res); return true; }
             if (sub === 'notifications' && req.method === 'GET') {
-                if (/[?&]src=app(&|$)/.test(String(req.url || ''))) { appPoll = /[?&]bye=1(&|$)/.test(String(req.url || '')) ? 0 : Date.now(); }
+                if (/[?&]src=app(&|$)/.test(String(req.url || ''))) {
+                    appPoll = /[?&]bye=1(&|$)/.test(String(req.url || '')) ? 0 : Date.now();
+                    if (appPoll) { queue.forEach(function (n) { if (n.mode !== 'banner' && has(waitingSounds, n.id)) { waitingSounds[n.id].fire(); } }); }
+                }
                 prune();
                 var now = Date.now();
                 var out = { lang: getLang(), notifications: queue.map(function (n) {

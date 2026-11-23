@@ -36,8 +36,11 @@ JSON body. Only `message` is required.
 | `seconds` | integer 5-300 | `30` | How long it may wait in the queue (always at least `duration` + 20). |
 | `open` | boolean | `true` | `false` only queues it, without launching the app or its service. |
 | `source` | string, max 32 (`a-z 0-9 . _ -`) | none | Who is sending (or the header `X-NC-Source`). If a source with that name exists, its defaults, key, on/off switch and rate limit apply, see "Sources". |
+| `group` | boolean | `true` | `false` = never merge this notification with an identical recent one (the panel sends `false` for Resend and the test buttons, so they always show). Merging only happens while the setting `groupSeconds` is above 0. |
+| `sound` | `chime` `soft` `reward` `success` `alert` `rotation` `open` `poweron` | none | Plays that TV system sound with the notification. Played by this Shard itself (one fixed `paplay` command), at most one sound every 0.8 s. It plays when the notification appears, not when it is queued: the Shard waits for the banner service to show the banner (at most 5 s), or for the app screen to ask for a card; with `open: false` (nothing is shown) it plays at once. Not played for a notification held back by quiet hours or merged as a repeat. |
+| `volume` | integer 10-100 | `100` | Volume of the sound, in percent. |
 
-Answer: `{"ok":true,"id":"1-abc","open":"requested"}`. Errors: `400 {"error":"message is required"}` or `"invalid JSON"`; `403` (`invalid key for this source`, `source is disabled`, `unknown source`); `429` (`rate limit for this source`).
+Answer: `{"ok":true,"id":"1-abc","open":"requested","sound":"none"}` (`sound` is `"requested"` when a sound was asked for). Errors: `400 {"error":"message is required"}` or `"invalid JSON"`; `403` (`invalid key for this source`, `source is disabled`, `unknown source`); `429` (`rate limit for this source`).
 Two other answers are still `200`: during quiet hours `{"ok":true,"id":"...","suppressed":"quiet hours"}` (recorded in `GET recent`, not shown), and a repeat inside the grouping window `{"ok":true,"id":"...","merged":true,"count":2}`.
 
 Notes:
@@ -100,6 +103,8 @@ For apps that already publish to ntfy. The body is the message; headers `Title`,
 curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title: Oven" -H "Priority: 4" -H "Tags: tada" -d "Dinner is ready"
 ```
 
+A sound can be chosen with the header `Sound` (or the JSON field `sound`, and `volume`), see `sound` above.
+
 ## Read and discover
 
 | Route | Returns |
@@ -110,6 +115,8 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title:
 | `GET img?id=<id>[&kind=wallpaper][&info=1]` | The picture of a queued notification; `info=1` returns `{ok,type,bytes}` or `{ok:false,error}` (use it to check a URL). |
 | `GET status` | `{version, app, appVersion, service, handoff, pairing:"on"\|"off"\|"unknown"}`: is the companion app and its banner service installed, is Vetro pairing on, did the Shard write the queue file the banner service reads (`handoff`). |
 | `GET lang` / `POST lang` | Display language `{lang:"en"|"pt"}`, shared by the panel and the TV screen. |
+| `GET sounds` | `{sounds:[...], songs:[{name,title}], available, volume, delayMs, trace, last}`: the sounds a request can choose, the tunes of `POST play`, whether this Shard can play them (`exec` granted), the sound settings, when the last banner sound started (`trace`) and the result of the last attempt. |
+| `POST play` | `{sound, volume?}`: play one sound without a notification (answer `{ok:true,sound:"requested"}`, `400` for an unknown name, `429` if another sound was played less than 0.8 s ago). `{song:"rock"}` or `{song:"fate"}`: a goodie, about 10 seconds of a well-known tune (*We Will Rock You*, the start of Beethoven's 5th) made only of these sounds and recognised by the rhythm; one song at a time (`409` while one plays), `{song:"stop"}` stops it. |
 | `GET emoji` | The bundled emoji list (Unicode CLDR, MIT) used by the panel's icon picker. |
 
 ## Sources, quiet hours, grouping and webhooks
@@ -119,28 +126,30 @@ curl -X POST http://<TV-IP>:8099/plugins/notification-center/api/ntfy -H "Title:
 | Route | What it does |
 |---|---|
 | `GET profiles` | `{profiles:{<source>:{enabled,icon,level,mode,duration,rate,hasKey}}, max:20}`. The key is never returned. |
-| `POST profiles` | Create, change or delete one: `{source, icon?, level?, mode?, duration?, rate?, enabled?, key?, genKey?, delete?}`. `icon`, `level`, `mode` and `duration` fill in what the sender leaves out (the sender's own value always wins). `rate` is the most notifications per minute (`0` = no limit). `key` (8-64 characters; `""` clears it) makes the source require the header `X-NC-Key`; `genKey: true` creates a random key and returns it **once**. |
+| `POST profiles` | Create, change or delete one: `{source, icon?, level?, mode?, duration?, sound?, volume?, rate?, enabled?, key?, genKey?, delete?}`. `icon`, `level`, `mode`, `duration`, `sound` and `volume` fill in what the sender leaves out (the sender's own value always wins). `rate` is the most notifications per minute (`0` = no limit). `key` (8-64 characters; `""` clears it) makes the source require the header `X-NC-Key`; `genKey: true` creates a random key and returns it **once**. |
 
 **Settings:**
 
 | Route | What it does |
 |---|---|
-| `GET settings` | `{settings:{quiet:{enabled,from,to,allow},groupSeconds,strict}}` |
-| `POST settings` | Send only what changes. `quiet`: between `from` and `to` (`"22:00"` to `"07:00"`, TV local time, may cross midnight) nothing is shown below the level `allow` (`alert` lets only alerts through, `warn` lets warnings and alerts, `none` silences everything); suppressed ones are still listed in `GET recent`. `groupSeconds` (0-3600, default 60, `0` = off): a notification identical to one from the last `groupSeconds` (same source, title, message and level) is counted (`count` in `GET recent`) instead of shown again. `strict: true` rejects notifications whose `source` has no profile. |
+| `GET settings` | `{settings:{quiet:{enabled,from,to,allow},groupSeconds,strict,soundVolume,soundDelayMs}}` |
+| `POST settings` | Send only what changes. `quiet`: between `from` and `to` (`"22:00"` to `"07:00"`, TV local time, may cross midnight) nothing is shown below the level `allow` (`alert` lets only alerts through, `warn` lets warnings and alerts, `none` silences everything); suppressed ones are still listed in `GET recent`. `groupSeconds` (0-3600, default 60, `0` = off): a notification identical to one from the last `groupSeconds` (same source, title, message and level) is counted (`count` in `GET recent`) instead of shown again, and the answer is `{merged:true,count}`; send `group:false` to always show one (grouping is on by default, so a repeat pressed twice within a minute shows nothing). Only the last 200 distinct notifications are remembered. `strict: true` rejects notifications whose `source` has no profile. `soundVolume` (10-100 %, default 100) is the volume of every sound (the system sounds are quiet, so 100 % is already boosted; the `volume` of a request is a share of it). `soundDelayMs` (0-10000, default 3000) is how long after the request the sound starts: the banner appears a few seconds after the request (Vetro has to start the banner service) and the Shard cannot see exactly when, so you tune this by ear in the Testing tab; if the banner service did record the id in a file the Shard can read, the sound starts as soon as it is seen. |
 
 **Webhooks** turn any JSON a service already sends (GitHub, Home Assistant, Grafana, a router) into a notification, without changing the sender:
 
 | Route | What it does |
 |---|---|
 | `GET hooks` | `{hooks:{<name>:{title,message,level,icon,mode,duration,source}}, max:10, base}` |
-| `POST hooks` | Create, change or delete one: `{name, message, title?, level?, icon?, mode?, duration?, source?, delete?}`. `name`: `a-z 0-9 -`, up to 24. The text fields are templates: `{{a.b.0.c}}` is replaced by that value of the posted JSON (a missing value gives an empty string; nothing is ever evaluated). `message` is required. |
+| `POST hooks` | Create, change or delete one: `{name, message, title?, level?, icon?, mode?, duration?, sound?, volume?, source?, delete?}`. `name`: `a-z 0-9 -`, up to 24. The text fields are templates: `{{a.b.0.c}}` is replaced by that value of the posted JSON (a missing value gives an empty string; nothing is ever evaluated). `message` is required. |
 | `POST hook/<name>` | Send any JSON (up to 64 KB) to that hook. A body that is not JSON is available as `{{text}}`. The notification is sent as source `source`, or the hook's name if `source` is empty, so a source's key protects its hook. |
 
 Example, GitHub pushes: `POST hooks` with `{"name":"github","title":"{{repository.name}}","message":"{{pusher.name}} pushed {{head_commit.message}}","icon":"📦"}`, then give GitHub the URL `http://<TV-IP>:8099/plugins/notification-center/api/hook/github`.
 
 ## Security notes
 
-- A source key is stored in `ctx.config` on the TV and checked by the Shard; it is not a replacement for Vetro pairing (it travels in clear text on the LAN, like the rest of the traffic) but it lets you accept one sender and refuse the others when pairing is off. `GET profiles` never returns it.
+- This Shard has the `exec` permission for exactly one command: `paplay --volume=<integer> /usr/share/feedback/sound/operation/<one of 8 fixed files>`. The sound is chosen from a closed list and the volume is a clamped integer, so no text from a request reaches the command. Anyone who can reach the Shard can make the TV play those sounds (at most one every 0.8 s); with pairing on they need a key.
+
+- A source key is stored in `ctx.config` on the TV in plain text and checked by the Shard. It stops **misconfigured** senders (a script that picks the wrong source, a service you did not mean to allow), **not hostile ones**: anyone who can reach the Shard can also read the list of sources and change or delete a profile, including its key (`POST profiles`). It travels in clear text on the LAN like the rest of the traffic. Use Vetro pairing to keep strangers out; use keys to keep your own senders apart. `GET profiles` never returns a key.
 - Anyone who can reach the Shard can change sources, settings and hooks, as they can change the language. Hooks and sources can only shape the text, icon, level, mode and duration of a notification: nothing can point the Shard at another app or run a command.
 
 - With pairing off, anyone who can reach the TV's port 8099 can send notifications and make the Shard fetch an image URL. Turn pairing on for shared networks.
