@@ -17,7 +17,7 @@ const acorn = require('acorn');
 // Copied, not imported: CI does not have the Vetro repo. Re-read them when a new Vetro version changes the API.
 const ID = /^[a-z][a-z0-9-]{1,31}$/, RESERVED = ['install', 'resume', 'developer'];
 const PERMISSIONS = ['exec'];
-const BUNDLED = ['launcher'];
+const BUNDLED = ['launcher', 'tuner'];   // built-in Shards of Vetro (0.5.0: launcher; 0.7.0: tuner): the TV refuses a bundle with their id
 const FILE = /^[A-Za-z0-9_-][A-Za-z0-9._-]*(\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
 const MAX_FILES = 20, MAX_BYTES = 512 * 1024;
 
@@ -42,6 +42,14 @@ function intercepts(list) {
     return e;
 }
 
+// The manifest key "controlCenter": one card in the launcher's Control center (Vetro 0.7.0). The same rules as the TV (plugin-host.js: checkControlCenter).
+function controlCenter(cc) {
+    if (cc == null) return [];
+    if (typeof cc !== 'object' || Array.isArray(cc)) return ['controlCenter must be an object with a label'];
+    if (typeof cc.label !== 'string' || !cc.label.trim() || cc.label.length > 24 || /[\u0000-\u001f\u007f<>]/.test(cc.label)) return ['controlCenter.label must be 1-24 characters of plain text'];
+    return [];
+}
+
 function validate(id, m, files) {
     const e = [];
     if (!ID.test(id) || RESERVED.indexOf(id) >= 0) e.push('the folder name is not a valid id (2-32 chars, a-z 0-9 -, starts with a letter; not ' + RESERVED.join(', ') + ')');
@@ -62,6 +70,7 @@ function validate(id, m, files) {
     if (m.ui != null && (typeof m.ui.label !== 'string' || !m.ui.label || m.ui.label.length > 24)) e.push('ui.label must be 1-24 characters');
     if (m.main != null && (typeof m.main !== 'string' || !FILE.test(m.main))) e.push('main must be a file name inside the Shard folder');
     intercepts(m.intercepts).forEach(msg => e.push(msg));
+    controlCenter(m.controlCenter).forEach(msg => e.push(msg));
     const names = Object.keys(files);
     if (names.length > MAX_FILES) e.push('a bundle holds at most ' + MAX_FILES + ' files (this one has ' + names.length + ')');
     const total = names.reduce((n, f) => n + Buffer.byteLength(files[f]), 0);
@@ -70,6 +79,11 @@ function validate(id, m, files) {
     if (typeof files[m.main || 'index.js'] !== 'string') e.push('entry file ' + (m.main || 'index.js') + ' is missing');
     if (m.ui && typeof files[m.main || 'index.js'] === 'string' && !/['"]ui['"]/.test(files[m.main || 'index.js'])) e.push('manifest.ui is set but the entry file never mentions the "ui" route');
     if (m.intercepts != null && typeof files[m.main || 'index.js'] === 'string' && !/\blaunch\s*:\s*function|\blaunch\s*\(/.test(files[m.main || 'index.js'])) e.push('manifest.intercepts is set but the entry file has no launch(appId) method');
+    if (m.controlCenter != null && typeof files[m.main || 'index.js'] === 'string') {
+        const entry = files[m.main || 'index.js'];
+        if (!/\bcard\s*:\s*function|\bcard\s*\(|\bcard\s*:\s*\w+\s*[,}]/.test(entry)) e.push('manifest.controlCenter is set but the entry file has no card() method');
+        if (!/\bcardSelect\s*:\s*function|\bcardSelect\s*\(|\bcardSelect\s*:\s*\w+\s*[,}]/.test(entry)) e.push('manifest.controlCenter is set but the entry file has no cardSelect(rowId) method');
+    }
 
     if (typeof files['README.md'] !== 'string') e.push('README.md is missing (start from template/README.md)');
     else if (perms.indexOf('exec') >= 0 && !/^#{1,6}\s+Commands\b/mi.test(files['README.md'])) e.push('asks for exec, so README.md needs a "Commands it runs" section listing every command and why');
@@ -122,6 +136,7 @@ for (const id of fs.readdirSync(path.join(root, 'plugins')).sort()) {
         sha256: crypto.createHash('sha256').update(r.text).digest('hex'), size: Buffer.byteLength(r.text)
     };
     if (m.intercepts) entry.intercepts = m.intercepts.map(a => ({ appId: a.appId, label: a.label }));
+    if (m.controlCenter) entry.controlCenter = { label: m.controlCenter.label };   // announced before the install; Vetro refuses a bundle whose key differs
     const old = previous.find(p => p.id === id);
     if (old && old.signature && old.version === entry.version && old.sha256 === entry.sha256) entry.signature = old.signature;
     out['dist/' + name] = r.text;

@@ -29,6 +29,70 @@
       "size": 24081
     },
     {
+      "id": "eightbitdo-guide",
+      "name": "8BitDo Guide",
+      "version": "1.1.5",
+      "author": "augusto1024",
+      "description": "Open the Vetro launcher with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes. No network access.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/eightbitdo-guide-1.1.5.vplugin",
+      "sha256": "0508818ff1d6bf9d7b811b9d186821ed78d48fd8dfc915ad3231901e0ae09746",
+      "size": 65608
+    },
+    {
+      "id": "home-assistant",
+      "name": "Home Assistant",
+      "version": "0.1.0",
+      "author": "andrearicci93",
+      "description": "A Home Assistant card in Vetro's Control center for lights, switches, scenes and scripts. Talks only to the Home Assistant address you set (REST API).",
+      "permissions": [],
+      "url": "dist/home-assistant-0.1.0.vplugin",
+      "sha256": "b6cc8eae731a3d2df052ec6c567986f98736e547962125de3a088111fb6fc3d0",
+      "size": 38242,
+      "controlCenter": {
+        "label": "Home Assistant"
+      }
+    },
+    {
+      "id": "keyboard",
+      "name": "Keyboard & Remote",
+      "version": "1.0.0",
+      "author": "abdoghanem2011",
+      "description": "Text input, live 1080p screen preview, and full TV remote. Connects browser to TV port 8002 (WSS) for typing.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/keyboard-1.0.0.vplugin",
+      "sha256": "723fc6ed08eb1e2733775e5b9532dedf9fdd36d43cbacf0b60a3d83848bb9c96",
+      "size": 143549
+    },
+    {
+      "id": "nordvpn",
+      "name": "NordVPN",
+      "version": "1.0.0",
+      "author": "piecifra",
+      "description": "NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect. Talks to api.nordvpn.com, NordVPN servers and GitHub (its binary).",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/nordvpn-1.0.0.vplugin",
+      "sha256": "71ebdbc70c9070e0c4c658f43492151903c52f96d927a02b629b6c15654797aa",
+      "size": 62170
+    },
+    {
+      "id": "notification-center",
+      "name": "Notification Center",
+      "version": "0.3.1",
+      "author": "mclaudiopt",
+      "description": "Show LAN notifications as native TV banners via a companion app. Talks to Vetro on 127.0.0.1:8099 and fetches a sender's image/wallpaper URL only if sent.",
+      "permissions": [],
+      "url": "dist/notification-center-0.3.1.vplugin",
+      "sha256": "4cce53854f29c856523c39c4309f2dbd80c6f5b62fdf8c01a9aa61676d47ee11",
+      "size": 333147
+    },
+    {
       "id": "prometheus",
       "name": "Prometheus exporter",
       "version": "1.0.0",
@@ -53,6 +117,17 @@
       "size": 19626
     },
     {
+      "id": "sonos-controller",
+      "name": "Sonos controller",
+      "version": "0.2.4",
+      "author": "genesai",
+      "description": "Remote volume and mute keys control a Sonos room via Vetro's MQTT rules. Uses Sonos on your LAN (port 1400, SSDP) and reads Vetro's settings. No cloud.",
+      "permissions": [],
+      "url": "dist/sonos-controller-0.2.4.vplugin",
+      "sha256": "b37f0c3d90815ad992ae17af6ca600cfd8486a6b6cdc27058f1bf115bb5121d4",
+      "size": 104417
+    },
+    {
       "id": "ssh-server",
       "name": "SSH server",
       "version": "0.3.0",
@@ -64,6 +139,19 @@
       "url": "dist/ssh-server-0.3.0.vplugin",
       "sha256": "fa869b8ae63466a577b78b96fc4b11eee9a655c6ec4891ca7ac26db4cadd8da9",
       "size": 74678
+    },
+    {
+      "id": "tv-reboot",
+      "name": "TV reboot",
+      "version": "1.0.0",
+      "author": "genesai",
+      "description": "A button that restarts the TV. Runs systemctl reboot through the TV agent (needs the exec permission).",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/tv-reboot-1.0.0.vplugin",
+      "sha256": "4677a4ef86416289465ae7eb80fd37478c12b130423c26ed2e530dbccc2853d9",
+      "size": 9105
     },
     {
       "id": "tv-uptime",
@@ -79,30 +167,17 @@
       "size": 2885
     },
     {
-      "id": "vpn",
-      "name": "VPN",
-      "version": "1.1.0",
-      "author": "piecifra",
-      "description": "WireGuard VPN on the TV: NordVPN, or your own configs from any provider or server. Kill switch, split tunnel. Talks to api.nordvpn.com, your VPN and GitHub.",
-      "permissions": [
-        "exec"
-      ],
-      "url": "dist/vpn-1.1.0.vplugin",
-      "sha256": "10724abe8eea0fd578aa79a85db89f0dc9a2bfb86530a9c7ac505e1a0e831846",
-      "size": 102141
-    },
-    {
       "id": "youtube",
       "name": "Ad-free YouTube",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": "andrearicci93",
       "description": "Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube). Local proxy; fetches one pinned script from cdn.jsdelivr.net.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/youtube-0.4.0.vplugin",
-      "sha256": "1e21d1b479312671f7451db84a6843f10cde32c238d0ffcee85f4985f723048f",
-      "size": 77740,
+      "url": "dist/youtube-0.4.1.vplugin",
+      "sha256": "ccbf4fb3bfb4f025682b197db734d6f7a8965ec4bb71d7a743ed1564f1018389",
+      "size": 92998,
       "intercepts": [
         {
           "appId": "com.samsung.tv.cobalt-yt",

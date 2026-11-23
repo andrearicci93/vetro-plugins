@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v3.1",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v3.1": {
+      "guide-bridge/1.0.0": {
+        "runtime": {
+          "guide-bridge.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "guide-bridge/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

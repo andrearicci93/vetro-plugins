@@ -1,0 +1,11 @@
+{
+  "id": "tv-reboot",
+  "name": "TV reboot",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "author": "genesai",
+  "description": "A button that restarts the TV. Runs systemctl reboot through the TV agent (needs the exec permission).",
+  "main": "index.js",
+  "ui": { "label": "Reboot" }
+}

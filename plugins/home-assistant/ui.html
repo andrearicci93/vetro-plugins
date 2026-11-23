@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>Home Assistant</title>
+<style>
+:root{--bg:#080f23;--surface:#101c35;--raised:#192943;--border:#344360;--text:#f5f8ff;--muted:#aab8d1;--accent:#8fbaff;--action:#123bb5;--ok:#7fcba0;--danger:#ef8a80}
+@media (prefers-color-scheme:light){:root{--bg:#f5f8ff;--surface:#fff;--raised:#eef2fb;--border:#c9d3e6;--text:#0b1430;--muted:#4a5878;--accent:#123bb5;--ok:#1e7a4a;--danger:#b3261e}}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin:0 0 16px;max-width:720px}
+h2{margin:0 0 8px;font-size:16px}p{margin:0 0 8px}.note{color:var(--muted);font-size:12px}
+.field{display:flex;flex-direction:column;gap:4px;margin:12px 0 0;max-width:420px}.field span{color:var(--muted);font-size:12px}
+input,button{height:36px;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--raised);color:inherit;font:inherit}
+input{width:100%}button{cursor:pointer}button.primary{background:var(--action);border-color:var(--action);color:#f5f8ff;font-weight:600}
+button:disabled,input:disabled{opacity:.5;cursor:default}button.small{height:30px;padding:0 10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+ul{list-style:none;margin:12px 0 0;padding:0}li{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)}li:first-child{border-top:0}
+li .main{flex:1;min-width:0}li .main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}li .main small{color:var(--muted)}
+li input{flex:1;min-width:0}.msg{min-height:1.5em;margin-top:12px;font-size:12px}.msg.bad{color:var(--danger)}.msg.good{color:var(--ok)}
+#pick{max-height:320px;overflow:auto}
+</style></head><body>
+
+<div class="panel"><h2>Connection</h2>
+<p class="note">The card talks to this Home Assistant and to nothing else. Use its IP address: a name ending in .local often does not resolve on the TV.</p>
+<label class="field"><span>Home Assistant address</span><input id="url" type="text" autocomplete="off" placeholder="http://192.168.1.20:8123"></label>
+<label class="field"><span id="tokenLabel">Long-lived access token</span><input id="token" type="password" autocomplete="off" placeholder="Paste a token"></label>
+<p class="note" style="margin-top:8px">Create one in Home Assistant: your profile → Security → Long-lived access tokens. It is kept on the TV and never shown here again.</p>
+<div class="row"><button id="save" class="primary">Save and test</button><button id="forget">Forget the token</button></div>
+<p id="connMsg" class="msg" aria-live="polite"></p></div>
+
+<div class="panel"><h2>On the card</h2>
+<p class="note">Up to <span id="max">7</span> entities, in this order. OK on a row in the Control center switches it. Turn the card on in Vetro UI → Launcher → Control center.</p>
+<ul id="chosen"></ul><p id="none" class="note">Nothing chosen yet.</p>
+<div class="row"><button id="apply" class="primary">Save the card</button></div>
+<p id="cardMsg" class="msg" aria-live="polite"></p></div>
+
+<div class="panel"><h2>Add an entity</h2>
+<p class="note">Lights, switches, fans, input booleans, scenes, scripts and buttons. Locks, garage doors and alarms are left out on purpose.</p>
+<label class="field"><span>Search</span><input id="search" type="text" autocomplete="off" placeholder="living, light.kitchen…"></label>
+<ul id="pick"></ul><p id="pickMsg" class="msg" aria-live="polite"></p></div>
+
+<script>
+var cfg = { entities: [], max: 7 }, chosen = [], all = [];
+function $(id) { return document.getElementById(id); }
+function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+function say(id, text, kind) { var e = $(id); e.textContent = text || ''; e.className = 'msg' + (kind ? ' ' + kind : ''); }
+function send(body) {
+  return fetch('config', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Failed'); return d; }); });
+}
+function applyConfig(d, keepChosen) {      // keepChosen: a card list edited and not saved yet survives a change of the connection
+  cfg = d; if (!keepChosen) chosen = d.entities.map(function (e) { return { id: e.id, name: e.name }; });
+  $('url').value = d.url || ''; $('max').textContent = d.max;
+  $('token').value = ''; $('token').placeholder = d.hasToken ? 'A token is saved. Paste a new one to replace it' : 'Paste a token';
+  $('forget').disabled = !d.hasToken; renderChosen(); renderPick();
+}
+function renderChosen() {
+  var ul = $('chosen'); ul.innerHTML = ''; $('none').hidden = chosen.length > 0;
+  chosen.forEach(function (c, i) {
+    var li = el('li'), name = el('input'); name.value = c.name; name.maxLength = 40; name.setAttribute('aria-label', 'Name of ' + c.id);
+    name.oninput = function () { c.name = name.value; };
+    var id = el('small', c.id, 'note'); id.style.width = '30%'; id.style.overflow = 'hidden'; id.style.textOverflow = 'ellipsis';
+    var up = el('button', '↑', 'small'), down = el('button', '↓', 'small'), del = el('button', 'Remove', 'small');
+    up.disabled = i === 0; down.disabled = i === chosen.length - 1;
+    up.onclick = function () { chosen.splice(i - 1, 0, chosen.splice(i, 1)[0]); renderChosen(); };
+    down.onclick = function () { chosen.splice(i + 1, 0, chosen.splice(i, 1)[0]); renderChosen(); };
+    del.onclick = function () { chosen.splice(i, 1); renderChosen(); renderPick(); };
+    [name, id, up, down, del].forEach(function (n) { li.appendChild(n); }); ul.appendChild(li);
+  });
+}
+function renderPick() {
+  var ul = $('pick'), q = $('search').value.toLowerCase(); ul.innerHTML = '';
+  var taken = {}; chosen.forEach(function (c) { taken[c.id] = true; });
+  var shown = 0;
+  all.forEach(function (e) {
+    if (q && e.name.toLowerCase().indexOf(q) < 0 && e.id.toLowerCase().indexOf(q) < 0) return;
+    if (shown++ >= 60) return;
+    var li = el('li'), main = el('div', null, 'main'), add = el('button', taken[e.id] ? 'Added' : 'Add', 'small');
+    main.appendChild(el('b', e.name)); main.appendChild(el('small', e.id + (e.kind === 'switch' ? ' · ' + e.state : ' · runs when pressed')));
+    add.disabled = !e.usable || taken[e.id] || chosen.length >= cfg.max;
+    if (!e.usable) add.title = 'The id is longer than 40 characters: the Control center cannot take it';
+    add.onclick = function () { chosen.push({ id: e.id, name: e.name }); renderChosen(); renderPick(); };
+    li.appendChild(main); li.appendChild(add); ul.appendChild(li);
+  });
+  if (shown > 60) say('pickMsg', 'Showing 60 of ' + shown + '. Search to narrow it down.');
+  else if (all.length && !shown) say('pickMsg', 'Nothing matches.');
+  else if (!all.length) say('pickMsg', '');
+  else say('pickMsg', '');
+}
+function loadEntities() {
+  say('pickMsg', 'Reading Home Assistant…');
+  return fetch('entities').then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+    if (!x.ok) { all = []; renderPick(); say('pickMsg', x.d.error || 'Home Assistant did not answer', 'bad'); say('connMsg', x.d.error || 'Home Assistant did not answer', 'bad'); return false; }
+    all = x.d.entities; renderPick(); say('connMsg', 'Connected. ' + all.length + ' entities can go on the card.', 'good'); return true;
+  }).catch(function () { say('pickMsg', 'The TV did not answer', 'bad'); });
+}
+$('search').oninput = renderPick;
+$('save').onclick = function () {
+  var body = { url: $('url').value }, t = $('token').value;
+  if (t) body.token = t;
+  say('connMsg', 'Saving…');
+  send(body).then(function (d) {
+    applyConfig(d, true);
+    if (d.tokenForgotten && !t) { say('connMsg', 'The address changed, so the old token was forgotten. Paste a token for the new one.', 'bad'); return; }
+    if (!d.url) { say('connMsg', 'Address removed.'); all = []; renderPick(); return; }
+    if (!d.hasToken) { say('connMsg', 'Saved. Paste a token to connect.'); return; }
+    return loadEntities();
+  }).catch(function (e) { say('connMsg', e.message, 'bad'); });
+};
+$('forget').onclick = function () { send({ clearToken: true }).then(function (d) { applyConfig(d, true); all = []; renderPick(); say('connMsg', 'Token forgotten.'); }).catch(function (e) { say('connMsg', e.message, 'bad'); }); };
+$('apply').onclick = function () {
+  say('cardMsg', 'Saving…');
+  send({ entities: chosen }).then(function (d) { applyConfig(d); say('cardMsg', 'Saved. The card shows it the next time the Control center opens.', 'good'); }).catch(function (e) { say('cardMsg', e.message, 'bad'); });
+};
+fetch('config').then(function (r) { return r.json(); }).then(function (d) { applyConfig(d); if (d.url && d.hasToken) loadEntities(); else say('connMsg', 'Enter the address and a token to begin.'); })
+  .catch(function () { say('connMsg', 'The TV did not answer', 'bad'); });
+</script></body></html>

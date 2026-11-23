@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Sonos controller</title>
+<style>
+:root {
+  --bg: #080f23; --surface: #101c35; --raised: #192943; --text: #f5f8ff; --muted: #aab8d1;
+  --border: #344360; --control: #7183a2; --action: #123bb5; --action-hover: #0e3095; --on-action: #f5f8ff;
+  --accent: #1674fb; --track: #24365a; --ok: #5fd39a; --warn: #e2b867; --bad: #ff8a8a; --focus: #8fbaff;
+  --radius: 16px; --radius-control: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f3f6fc; --surface: #ffffff; --raised: #eef2fa; --text: #0b1530; --muted: #4d5b78;
+    --border: #d5ddeb; --control: #8f9cb6; --action: #123bb5; --action-hover: #0e3095; --on-action: #ffffff;
+    --accent: #0450ef; --track: #dde5f4; --ok: #137a4b; --warn: #8a5a00; --bad: #b42318; --focus: #0450ef;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); }
+main { max-width: 1040px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 1.5rem; line-height: 1.15; margin: 0; font-weight: 600; }
+h2 { font-size: 1.05rem; margin: 0 0 12px; font-weight: 600; }
+p { margin: 0 0 10px; }
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); font-size: .85rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--control); }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; min-width: 0; }
+.wide { grid-column: 1 / -1; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; border-radius: var(--radius-control); border: 1px solid var(--control); background: transparent; padding: 8px 14px; }
+button:hover { background: var(--raised); }
+button.primary { background: var(--action); border-color: var(--action); color: var(--on-action); }
+button.primary:hover { background: var(--action-hover); }
+button:disabled { opacity: .55; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+input[type=text], input[type=number], input[type=password] { background: var(--bg); border: 1px solid var(--control); border-radius: var(--radius-control); padding: 8px 10px; min-width: 0; }
+label { display: block; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.field { margin-bottom: 14px; }
+.field > span { display: block; font-size: .875rem; color: var(--muted); margin-bottom: 4px; }
+
+/* Volume */
+.volume { display: flex; flex-direction: column; gap: 14px; }
+.room { font-size: .95rem; color: var(--muted); }
+.level { display: flex; align-items: baseline; gap: 10px; }
+.number { font-size: 3.5rem; line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.badge { font-size: .8rem; padding: 2px 8px; border-radius: 999px; background: var(--raised); color: var(--muted); }
+.badge.muted-on { background: var(--warn); color: #101c35; }
+.meter { position: relative; height: 14px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.meter .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--action), var(--accent)); transition: width .18s ease; }
+.meter.is-muted .fill { background: var(--control); }
+.meter .cap { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--warn); display: none; }
+.keys { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 10px; }
+.keys button { padding: 14px 0; font-size: 1.15rem; border-radius: 12px; }
+.keys .mute { font-size: 1rem; }
+.lastcmd { min-height: 1.5em; }
+
+/* Rooms */
+.rooms { display: grid; gap: 8px; margin: 10px 0 4px; }
+.roomopt { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.roomopt:hover { background: var(--raised); }
+.roomopt.current { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.roomopt .name { font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--control); border-radius: var(--radius-control); overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 7px 12px; }
+.seg button[aria-pressed=true] { background: var(--action); color: var(--on-action); }
+
+/* Setup */
+ol.steps { margin: 0; padding-left: 20px; }
+ol.steps > li { margin-bottom: 12px; }
+code, .copy { font-family: var(--mono); font-size: .86rem; background: var(--raised); border-radius: 6px; padding: 1px 6px; user-select: all; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: .9rem; vertical-align: top; }
+th { color: var(--muted); font-weight: 500; }
+.check { color: var(--ok); font-weight: 600; }
+.checkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 12px; }
+.results { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 6px; }
+.results li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--raised); }
+.results .icon { font-weight: 700; text-align: center; }
+.results .ok .icon { color: var(--ok); } .results .warn .icon { color: var(--warn); } .results .bad .icon { color: var(--bad); }
+.results .title { font-weight: 600; }
+.results .detail { color: var(--muted); font-size: .875rem; }
+.keylist { font-size: .875rem; margin: 0 0 12px; }
+
+/* Log */
+.log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; font-size: .86rem; }
+.log li { display: grid; grid-template-columns: 70px 1fr; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.log .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.log .error { color: var(--bad); } .log .warn { color: var(--warn); }
+.msg { min-height: 1.4em; font-size: .875rem; }
+.msg.bad { color: var(--bad); } .msg.ok { color: var(--ok); }
+details summary { cursor: pointer; font-weight: 600; }
+details[open] summary { margin-bottom: 12px; }
+@media (max-width: 420px) { .number { font-size: 2.8rem; } .keys button { padding: 12px 0; } }
+@media (prefers-reduced-motion: reduce) { .meter .fill { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Sonos controller</h1>
+      <div class="muted small">The TV remote's volume and mute keys, on your Sonos.</div>
+    </div>
+    <div class="pills">
+      <span class="pill"><span class="dot" id="vetroDot"></span><span id="vetroText">Checking…</span></span>
+      <span class="pill"><span class="dot" id="speakerDot"></span><span id="speakerText">No speaker</span></span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card volume" aria-labelledby="volTitle">
+      <h2 id="volTitle">Volume</h2>
+      <div class="room" id="roomName">Choose a speaker first.</div>
+      <div class="level">
+        <span class="number" id="volNumber">–</span>
+        <span class="badge" id="muteBadge" hidden>Muted</span>
+      </div>
+      <div class="meter" id="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-label="Sonos volume">
+        <div class="fill" id="meterFill"></div>
+        <div class="cap" id="meterCap" title="Maximum volume"></div>
+      </div>
+      <div class="keys">
+        <button type="button" data-action="volume-down" aria-label="Volume down">−</button>
+        <button type="button" data-action="mute-toggle" class="mute" id="muteBtn">Mute</button>
+        <button type="button" data-action="volume-up" aria-label="Volume up">+</button>
+      </div>
+      <div class="muted small lastcmd" id="lastCmd"></div>
+      <div class="muted small" id="remoteLine">No key presses from Vetro yet.</div>
+    </section>
+
+    <section class="card" aria-labelledby="spkTitle">
+      <h2 id="spkTitle">Speaker</h2>
+      <p class="muted small">The room the remote controls. Search the network, or type the IP address of any Sonos speaker (the Sonos app shows it under Settings › System › About my system).</p>
+      <div class="row">
+        <button type="button" id="searchBtn">Search the network</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="addrInput" placeholder="192.168.1.20" inputmode="decimal" aria-label="Speaker IP address" style="flex:1 1 140px">
+        <button type="button" id="lookupBtn">Look up</button>
+      </div>
+      <div class="msg" id="spkMsg"></div>
+      <div class="rooms" id="rooms"></div>
+      <div class="field" style="margin-top:12px">
+        <span>Volume keys change</span>
+        <div class="seg" role="group" aria-label="Volume keys change">
+          <button type="button" id="tRoom" data-target="room">This room only</button>
+          <button type="button" id="tGroup" data-target="group">The whole group</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="keyTitle">
+      <h2 id="keyTitle">Keys</h2>
+      <label class="field"><span>Volume change per press</span>
+        <input type="number" id="step" min="1" max="10" step="1" style="width:6em">
+      </label>
+      <label class="field"><span>Maximum volume: <b id="maxLabel"></b></span>
+        <input type="range" id="maxVolume" min="1" max="100" step="1" style="width:100%">
+      </label>
+      <label class="row field" style="gap:10px">
+        <input type="checkbox" id="unmute"> <span style="margin:0">Volume keys also unmute</span>
+      </label>
+      <div class="msg" id="keyMsg"></div>
+    </section>
+
+    <section class="card wide" aria-labelledby="setupTitle">
+      <h2 id="setupTitle">Connect Vetro <span class="check" id="setupCheck" hidden>✓ connected</span></h2>
+      <div class="checkbar">
+        <button type="button" class="primary" id="checkBtn">Check Vetro setup</button>
+        <span class="muted small" id="checkInfo">Reads Vetro’s MQTT settings, rules and remote interception, and says what is missing.</span>
+      </div>
+      <ul class="results" id="checkResults" hidden></ul>
+      <div class="keylist" id="keyList" hidden></div>
+      <ol class="steps">
+        <li><b>Point Vetro's MQTT link at this Shard.</b> In Vetro's <b>MQTT</b> page: broker <span class="copy">127.0.0.1</span>, port <span class="copy" id="sPort">1883</span>, <span id="sCreds">no user name or password</span>, TLS off. Keep the topic prefix <span class="copy">vetro</span>, enable the connection and save. The badge at the top turns green within half a minute.</li>
+        <li><b>Find your remote's key codes.</b> In Vetro's <b>Remote</b> page, choose the remote, select <b>Start listening</b> and press Volume up, Volume down and Mute. Note the code shown for each, then select <b>Stop listening</b>: while Vetro listens, no rule runs.</li>
+        <li><b>Add one rule per key</b> (MQTT page › Rules). Change <b>Trigger type</b> from “MQTT message” to <b>Physical key</b>, enter the code from step 2, leave the payload blank, choose the action <b>Publish MQTT message</b> and enter the destination topic:
+          <table>
+            <thead><tr><th>Remote key</th><th>Destination topic</th></tr></thead>
+            <tbody>
+              <tr><td>Volume up</td><td><span class="copy" data-topic="volume-up"></span></td></tr>
+              <tr><td>Volume down</td><td><span class="copy" data-topic="volume-down"></span></td></tr>
+              <tr><td>Mute</td><td><span class="copy" data-topic="mute-toggle"></span></td></tr>
+            </tbody>
+          </table>
+          <p class="muted small" style="margin-top:8px">Also available: <span class="copy" data-topic="mute"></span> and <span class="copy" data-topic="unmute"></span>. The payload does not matter.</p>
+        </li>
+        <li>In the Remote page, <b>choose your remote</b> in the device menu (not “Detect automatically”, which only listens), then <b>turn on Remote interception</b>. Vetro intercepts one remote at a time: on a 2022 The Frame the infrared remote is “wt61p807 rc device”. From then on those keys go to Sonos instead of the TV: the TV’s own volume no longer changes. Then press <b>Check Vetro setup</b> above.</li>
+      </ol>
+      <p class="muted small">If a key press reaches Vetro while this Shard is off, Vetro gives the keys back to the TV for a minute, then tries again.</p>
+    </section>
+
+    <section class="card" aria-labelledby="logTitle">
+      <h2 id="logTitle">Activity</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+
+    <section class="card">
+      <details>
+        <summary>Receiver settings</summary>
+        <p class="muted small">Where Vetro's MQTT link connects. It only accepts connections from the TV itself.</p>
+        <label class="field"><span>Port</span><input type="number" id="brokerPort" min="1" max="65535" style="width:8em"></label>
+        <label class="field"><span>Topic prefix</span><input type="text" id="topicPrefix" style="width:100%"></label>
+        <label class="field"><span>User name (optional)</span><input type="text" id="username" autocomplete="off" style="width:100%"></label>
+        <label class="field"><span>Password</span><input type="password" id="password" autocomplete="new-password" placeholder="unchanged" style="width:100%"></label>
+        <div class="row"><button type="button" class="primary" id="saveReceiver">Save</button></div>
+        <div class="msg" id="rcvMsg"></div>
+        <p class="muted small" id="rcvStatus"></p>
+      </details>
+    </section>
+  </div>
+</main>
+<script>
+(function () {
+  'use strict';
+  // Relative URLs only: the page's URL carries the session token Vetro checks.
+  var $ = function (id) { return document.getElementById(id); };
+  var last = null, rooms = [], busy = false, editing = {}, lastLogKey = null, lastRoomsKey = null;
+
+  function request(sub, body) {
+    var opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) };
+    return fetch(sub, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+        return d;
+      });
+    });
+  }
+  function msg(id, text, kind) { var el = $(id); el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+  function time(t) { var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2); }
+
+  function render(s) {
+    last = s;
+    var set = s.settings, sp = s.speaker, rcv = s.receiver || {};
+    var connected = !!(rcv.clients && rcv.clients.length);
+    $('vetroDot').className = 'dot ' + (connected ? 'ok' : rcv.listening ? 'warn' : 'bad');
+    $('vetroText').textContent = connected ? 'Vetro connected' : rcv.listening ? 'Waiting for Vetro' : 'Receiver not listening';
+    $('setupCheck').hidden = !connected;
+    var hasSpeaker = !!set.speaker;
+    $('speakerDot').className = 'dot ' + (!hasSpeaker ? '' : sp.lastError ? 'bad' : sp.readAt ? 'ok' : 'warn');
+    $('speakerText').textContent = hasSpeaker ? set.speaker.name + (sp.lastError ? ' · not reachable' : '') : 'No speaker';
+
+    $('roomName').textContent = hasSpeaker ? set.speaker.name + (set.target === 'group' ? ' and its group' : '') + ' · ' + set.speaker.address : 'Choose a speaker first.';
+    var v = typeof sp.volume === 'number' ? sp.volume : null;
+    $('volNumber').textContent = v === null ? '–' : String(v);
+    $('meterFill').style.width = (v === null ? 0 : v) + '%';
+    $('meter').setAttribute('aria-valuenow', v === null ? '' : String(v));
+    $('meter').className = 'meter' + (sp.muted ? ' is-muted' : '');
+    var cap = $('meterCap');
+    cap.style.display = set.maxVolume < 100 ? 'block' : 'none';
+    cap.style.left = 'calc(' + set.maxVolume + '% - 1px)';
+    $('muteBadge').hidden = !sp.muted;
+    $('muteBadge').className = 'badge' + (sp.muted ? ' muted-on' : '');
+    $('muteBtn').textContent = sp.muted ? 'Unmute' : 'Mute';
+    var lc = sp.lastCommand;
+    $('lastCmd').textContent = sp.lastError ? sp.lastError
+      : lc ? 'Last: ' + lc.action + ' from ' + lc.source + ' at ' + time(lc.at) + (lc.ms != null ? ' · ' + lc.ms + ' ms' : '') : '';
+    Array.prototype.forEach.call(document.querySelectorAll('.keys button'), function (b) { b.disabled = !hasSpeaker; });
+
+    var rm = s.remote || {};
+    $('remoteLine').textContent = rm.presses ? 'Key presses from Vetro: ' + rm.presses + ' · last ' + time(rm.lastAt) + ' (' + rm.lastTopic + ')'
+      : 'No key presses from Vetro yet.' + (rm.lastIgnored ? ' Ignored a message on ' + rm.lastIgnored.topic + '.' : '');
+    renderCheck(s.check, s.checking);
+
+    $('tRoom').setAttribute('aria-pressed', String(set.target === 'room'));
+    $('tGroup').setAttribute('aria-pressed', String(set.target === 'group'));
+    if (!editing.step) $('step').value = set.step;
+    if (!editing.max) $('maxVolume').value = set.maxVolume;
+    $('maxLabel').textContent = set.maxVolume >= 100 ? 'no limit' : String(set.maxVolume);
+    $('unmute').checked = !!set.unmuteOnVolume;
+
+    if (!editing.receiver) {
+      $('brokerPort').value = set.brokerPort;
+      $('topicPrefix').value = set.topicPrefix;
+      $('username').value = set.username || '';
+    }
+    $('rcvStatus').textContent = rcv.listening ? 'Listening on 127.0.0.1:' + rcv.port + ' · ' + rcv.received + ' messages received' : (rcv.error || 'Not listening');
+    $('sPort').textContent = String(set.brokerPort);
+    $('sCreds').innerHTML = '';
+    if (set.username) {
+      $('sCreds').appendChild(document.createTextNode('user name '));
+      var u = document.createElement('span'); u.className = 'copy'; u.textContent = set.username;
+      $('sCreds').appendChild(u);
+      $('sCreds').appendChild(document.createTextNode(' with the password you set here'));
+    } else $('sCreds').textContent = 'no user name or password';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-topic]'), function (el) {
+      el.textContent = set.topicPrefix + '/' + el.getAttribute('data-topic');
+    });
+
+    // The page polls every 2 s: rebuild the log only when it changed, so scrolling and focus stay put.
+    var logKey = (s.log || []).map(function (e) { return e.at + e.text; }).join('|');
+    if (logKey !== lastLogKey) renderLog(s.log || [], logKey);
+    renderRooms();
+  }
+
+  var lastCheckAt = null;
+  function renderCheck(c, running) {
+    $('checkBtn').disabled = !!running;
+    if (running) $('checkInfo').textContent = 'Checking…';
+    if (!c || c.at === lastCheckAt) return;
+    lastCheckAt = c.at;
+    var bad = c.items.filter(function (i) { return i.level === 'bad'; }).length;
+    $('checkInfo').textContent = (c.level === 'ok' ? 'Everything looks right' : bad ? bad + ' problem' + (bad > 1 ? 's' : '') + ' found' : 'Mostly right') + ' · checked ' + time(c.at);
+    var box = $('checkResults');
+    box.innerHTML = '';
+    box.hidden = false;
+    c.items.forEach(function (i) {
+      var li = document.createElement('li'), icon = document.createElement('span'), body = document.createElement('div');
+      var title = document.createElement('div'), detail = document.createElement('div');
+      li.className = i.level;
+      icon.className = 'icon'; icon.textContent = i.level === 'ok' ? '✓' : i.level === 'warn' ? '!' : '✕';
+      title.className = 'title'; title.textContent = i.title;
+      detail.className = 'detail'; detail.textContent = i.detail || '';
+      body.appendChild(title); if (i.detail) body.appendChild(detail);
+      li.appendChild(icon); li.appendChild(body); box.appendChild(li);
+    });
+    var kl = $('keyList');
+    kl.hidden = !c.keys || !c.keys.length;
+    kl.textContent = c.keys && c.keys.length ? 'Last keys Vetro saw: ' + c.keys.map(function (k) {
+      return k.code + (k.key ? ' ' + k.key : '') + ' (' + (k.decision === 'blocked' ? 'intercepted' : k.mode === 'observe' ? 'listening' : 'went to the TV') + ')';
+    }).join(', ') : '';
+  }
+
+  function renderLog(entries, key) {
+    lastLogKey = key;
+    var list = $('log');
+    list.innerHTML = '';
+    entries.forEach(function (e) {
+      var li = document.createElement('li'), t = document.createElement('span'), x = document.createElement('span');
+      t.className = 't'; t.textContent = time(e.at);
+      x.className = e.level; x.textContent = e.text;
+      li.appendChild(t); li.appendChild(x); list.appendChild(li);
+    });
+  }
+
+  function renderRooms() {
+    var box = $('rooms'), current = last && last.settings.speaker;
+    var key = JSON.stringify(rooms) + '|' + (current ? current.uuid + current.address : '');
+    if (key === lastRoomsKey) return;
+    lastRoomsKey = key;
+    box.innerHTML = '';
+    rooms.forEach(function (r) {
+      var opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'roomopt' + (current && current.uuid === r.uuid ? ' current' : '');
+      var text = document.createElement('div'), name = document.createElement('div'), sub = document.createElement('div');
+      name.className = 'name'; name.textContent = r.name;
+      sub.className = 'muted small'; sub.textContent = r.address + (r.groupedWith.length ? ' · grouped with ' + r.groupedWith.join(', ') : '');
+      text.appendChild(name); text.appendChild(sub); opt.appendChild(text);
+      opt.addEventListener('click', function () {
+        save({ speaker: { uuid: r.uuid, name: r.name, address: r.address } }, 'spkMsg', 'Remote now controls ' + r.name).then(refresh);
+      });
+      box.appendChild(opt);
+    });
+  }
+
+  function load() { return request('state').then(render).catch(function (e) { $('vetroText').textContent = e.message; }); }
+  function refresh() {
+    if (!last || !last.settings.speaker) return Promise.resolve();
+    return request('refresh', {}).then(load, load);
+  }
+  function save(update, msgId, okText) {
+    msg(msgId, 'Saving…');
+    return request('settings', update).then(function (s) { render(s); msg(msgId, okText || 'Saved', 'ok'); }, function (e) { msg(msgId, e.message, 'bad'); });
+  }
+  function showRooms(d, emptyText) {
+    rooms = d.rooms || [];
+    msg('spkMsg', rooms.length ? 'Choose the room your TV plays through:' : emptyText, rooms.length ? '' : 'bad');
+    renderRooms();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.keys button'), function (b) {
+    b.addEventListener('click', function () {
+      if (busy) return;
+      busy = true;
+      request('command', { action: b.getAttribute('data-action') }).then(load, function (e) { $('lastCmd').textContent = e.message; load(); })
+        .then(function () { busy = false; });
+    });
+  });
+  $('checkBtn').addEventListener('click', function () {
+    $('checkBtn').disabled = true; $('checkInfo').textContent = 'Checking…';
+    request('check', {}).then(load, function (e) { $('checkInfo').textContent = e.message; }).then(function () { $('checkBtn').disabled = false; });
+  });
+  $('searchBtn').addEventListener('click', function () {
+    var btn = this; btn.disabled = true; msg('spkMsg', 'Searching…');
+    request('discover', {}).then(function (d) {
+      showRooms(d, d.found ? 'Found speakers, but none answered. Type an IP address instead.' : 'No speakers answered the search. Type an IP address instead.');
+    }, function (e) { msg('spkMsg', e.message, 'bad'); }).then(function () { btn.disabled = false; });
+  });
+  function lookup() {
+    var a = $('addrInput').value.trim();
+    if (!a) { msg('spkMsg', 'Type an IP address first.', 'bad'); return; }
+    $('lookupBtn').disabled = true; msg('spkMsg', 'Asking ' + a + '…');
+    request('lookup', { address: a }).then(function (d) { showRooms(d, 'That speaker lists no rooms.'); }, function (e) { msg('spkMsg', e.message, 'bad'); })
+      .then(function () { $('lookupBtn').disabled = false; });
+  }
+  $('lookupBtn').addEventListener('click', lookup);
+  $('addrInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') lookup(); });
+  [$('tRoom'), $('tGroup')].forEach(function (b) {
+    b.addEventListener('click', function () { save({ target: b.getAttribute('data-target') }, 'spkMsg').then(refresh); });
+  });
+  $('step').addEventListener('focus', function () { editing.step = true; });
+  $('step').addEventListener('change', function () { editing.step = false; save({ step: Number(this.value) }, 'keyMsg'); });
+  $('maxVolume').addEventListener('input', function () { editing.max = true; $('maxLabel').textContent = this.value >= 100 ? 'no limit' : this.value; });
+  $('maxVolume').addEventListener('change', function () { editing.max = false; save({ maxVolume: Number(this.value) }, 'keyMsg'); });
+  $('unmute').addEventListener('change', function () { save({ unmuteOnVolume: this.checked }, 'keyMsg'); });
+  ['brokerPort', 'topicPrefix', 'username', 'password'].forEach(function (id) {
+    $(id).addEventListener('focus', function () { editing.receiver = true; });
+  });
+  $('saveReceiver').addEventListener('click', function () {
+    var update = { brokerPort: Number($('brokerPort').value), topicPrefix: $('topicPrefix').value.trim(), username: $('username').value.trim() };
+    if ($('password').value) update.password = $('password').value;
+    save(update, 'rcvMsg', 'Saved. Update Vetro’s MQTT page if you changed the port or login.').then(function () {
+      editing.receiver = false; $('password').value = '';
+    });
+  });
+
+  load().then(refresh);
+  setInterval(load, 2000);
+  setInterval(refresh, 10000);
+})();
+</script>
+</body>
+</html>

@@ -53,7 +53,7 @@ a Shard run, then change it.
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `id` | yes | Equals the folder name. 2-32 characters, `a-z 0-9 -`, starts with a letter. Not `install`, `resume`, `developer` or `launcher` (a Shard that ships inside Vetro). |
+| `id` | yes | Equals the folder name. 2-32 characters, `a-z 0-9 -`, starts with a letter. Not `install`, `resume`, `developer`, `launcher` or `tuner` (Shards that ship inside Vetro). |
 | `apiVersion` | yes | `1`. |
 | `name` | yes | Up to 40 characters. Shown in the catalog. |
 | `version` | yes | `1.2.3`. The dashboard offers an update when the catalog has a higher one. |
@@ -62,7 +62,8 @@ a Shard run, then change it.
 | `permissions` | no | `[]` or `["exec"]`. Ask for `exec` only if you call `ctx.execute`. |
 | `main` | no | The entry file. Default `index.js`. |
 | `ui` | no | `{ "label": "…" }`, 1-24 characters. Adds a tab to the dashboard while the Shard runs. The Shard must answer the `ui` route. |
-| `intercepts` | no | `[{ "appId": "…", "label": "…" }]`, 1-3 apps. Says that the Vetro launcher's tile for each app starts your `launch(appId)` while the Shard runs. The Shard must have a `launch` method. See [Taking over an app's tile](#taking-over-an-apps-launcher-tile). |
+| `controlCenter` | no | `{ "label": "…" }`, 1-24 plain characters. Adds one card to the Control center of the Vetro launcher while the Shard runs, from your `card()` and `cardSelect(rowId)`. Both methods are required with it. Needs Vetro 0.7.0; older versions ignore the key. See [Adding a card to the Control center](#adding-a-card-to-the-control-center). |
+| `intercepts` | no | `[{ "appId": "…", "label": "…" }]`, 1-3 apps. Says that the Vetro launcher's tile for each app starts your `launch(appId)` while the Shard runs. The Shard must have a `launch` method. Needs Vetro 0.7.0; older versions ignore the key. See [Taking over an app's tile](#taking-over-an-apps-launcher-tile). |
 
 **Choosing `permissions`.** There is only one, `exec`: shell commands on the TV, as root. Leave it out unless you need
 it. If you have it, the README has to say which commands you run and why (section 4). Leaving it out does not make a
@@ -112,11 +113,36 @@ pressed. The Ad-free YouTube Shard does this for YouTube; a Twitch Shard could d
 - **Vetro tells the user.** The Shard's card in the dashboard shows **Intercepts the YouTube app**, and the install question lists the apps.
   The catalog entry (`index.json`) carries the same list, and Vetro refuses a download whose manifest lists other apps than the catalog says.
   Put it in your README too: say what changes for the tile.
-- It is **not a permission**: `permissions` stays `[]` or `["exec"]`. Older Vetro versions ignore the key and the Shard still loads.
+- It is **not a permission**: `permissions` stays `[]` or `["exec"]`. It needs **Vetro 0.7.0**: 0.5.0 and older ignore the key, the Shard still loads and the tile starts the app as before.
 - `launch(appId)` returns a Promise. Resolve `true` when the app is starting; resolve `false` to decline. It may take a while the first time (up to 2 minutes).
 - **The fallback is Vetro's.** If the Shard is off, has no answer, declines, throws, rejects or is too slow, Vetro starts the app the normal way, so the tile
   never goes dead. Do not start the app yourself *and* resolve `false`: it would start twice.
 - Only while the Shard is on: switching it off or removing it gives the tile back.
+
+### Adding a card to the Control center
+
+Down on the Vetro launcher's apps row opens the Control center: up to three cards side by side. A Shard can add **one** of its own,
+a short list of rows that the remote switches with OK. [`plugins/home-assistant`](../plugins/home-assistant) is a full example.
+
+```json
+"controlCenter": { "label": "Home Assistant" }
+```
+
+```js
+card: function () {                      // sync or a Promise; read every time the Control center opens (3 s)
+    return { rows: [{ id: 'light.living', label: 'Living room', value: 'on' }], note: '1 of 2 on' };
+},
+cardSelect: function (rowId) {           // OK on a row (10 s). Resolve { ok: false, note } to say it did not work
+    return Promise.resolve({ ok: true, rows: [{ id: 'light.living', label: 'Living room', value: 'off' }] });
+}
+```
+
+- **Vetro cleans what you return.** At most **7 rows**; `id` 1-40 of `A-Z a-z 0-9 . _ -`, `label` up to 40 characters, `value` 24, `note` 80; control characters become spaces; a row without a usable id or label, or with a repeated id, is dropped. The launcher shows `label · value`, with a tick on rows you mark `ticked`. No icons, no colours.
+- **OK on a ticked row does nothing.** For an on/off thing do not tick it: write the state in `value` and let OK mean "the opposite of what the row says" (`home-assistant` does), or show two rows (On, Off) and tick the current one.
+- **Return the new rows from `cardSelect`** when you know them. Otherwise Vetro calls `card()` again at once, and a slow reply adds to a press that has 10 seconds in all (the launcher's own call gives up after 12).
+- **Errors are the card's own.** A throw, a rejection or a timeout shows **Not available** with your message (80 characters, so make it readable: `Token refused`), and does not count towards the 3 errors that switch a Shard off. Resolve `{ ok: false, note }` for a press that failed but left the card as it was.
+- **It exists only while the Shard is on.** The user turns the card on in **Vetro UI → Launcher → Control center** (off by default; three cards at most, shared with Vetro's own). The launcher never runs your code: it asks the Vetro service, which asks you.
+- `build.cjs` checks the key as Vetro does, wants both methods in the entry file, and `scripts/test-runtime.cjs` calls both once with an empty config: they must answer within 500 ms and leave no timer.
 
 ### The page
 
@@ -178,8 +204,8 @@ which `build.cjs` does not.
 3. Change the code, run `build.cjs` again, install again: the Shard is replaced in place and comes back switched off.
 4. If it fails, the dashboard shows *Failed* and the last error. Three errors in a row switch it off.
 
-If the TV does not come back after a restart, Vetro starts the next boot in safe mode: Shards are paused, and you can
-switch off or remove yours.
+If the TV does not come back after a restart, Vetro starts the next boot in safe mode (0.7.0: after two starts in a row that did not
+stay up for 60 seconds): Shards are paused, and you can switch off or remove yours.
 
 ## 7. Publish
 
@@ -247,7 +273,7 @@ built on this.
 | *Invalid* in the dashboard | The bundle failed a check on the TV. The reason is shown. |
 | `SHA-256 does not match` | The file changed after the catalog was written, or GitHub's CDN has not caught up (wait a few minutes). |
 | *Failed* | `start()` threw, or three errors came in a row. The message is the last one. |
-| Shards *Suspended* | Safe mode: the last boot did not stay up for 60 seconds. Switch off or remove the culprit, then Resume. |
+| Shards *Suspended* | Safe mode: the last start (0.7.0: the last two in a row) did not stay up for 60 seconds. Switch off or remove the culprit, then Resume (0.7.0 starts the Shards again at once; 0.5.0 at the next restart). |
 | Works in CI, breaks on the TV | Probably syntax newer than ES5. |
 | The page loads but its requests fail | An absolute URL in `fetch`: use a relative one. |
 | `has no exec permission` | You call `ctx.execute` and the manifest does not list `exec`. |

@@ -2,7 +2,8 @@
 // The proxy YouTube is started with (--proxy). Everything is a plain tunnel except www.youtube.com, which is opened with
 // the plugin's own certificate (trusted only by the YouTube app this plugin starts) so the /tv page can get its script.
 // Without a certificate or without the script it only tunnels: YouTube then runs unpatched instead of breaking.
-// Listens on 127.0.0.2 (Chromium sends 127.0.0.1 around a proxy).
+// Listens on 127.0.0.2 (Chromium sends 127.0.0.1 around a proxy), or on every address when the app cannot reach loopback
+// (see address.js); then opts.allow(remoteAddress) keeps everything but the TV itself out.
 //
 // This code runs inside Vetro's process, so nothing may throw out of an event handler: every callback goes through guard(),
 // every socket has an error listener, every connection has a timeout, and the number of connections is capped.
@@ -18,9 +19,9 @@ var MAX_CONNECTIONS = 300;
 var IDLE_MS = 5 * 60 * 1000;           // a connection that carries nothing for this long is closed
 var CONNECT_MS = 20 * 1000;            // time allowed to reach a host
 
-// opts: host, port, log(msg), leaf() -> {key, cert} | null, script() -> {body, version} | null, onPage({injected, bytes}), maxConnections
+// opts: host, port, allow(remoteAddress) -> boolean (optional), log(msg), leaf() -> {key, cert} | null, script() -> {body, version} | null, onPage({injected, bytes}), maxConnections
 function createProxy(opts) {
-    var server = null, ready = false, tlsServer = null, httpServer = null, leafCert = null, tunnels = 0, opened = 0, live = 0, refused = 0;
+    var server = null, ready = false, tlsServer = null, httpServer = null, leafCert = null, tunnels = 0, opened = 0, live = 0, refused = 0, accepted = 0, foreign = 0, loggedFirst = false, loggedOdd = false;
     var socks = {}, nextId = 1, waiters = [];                // every open socket, so that close(true) can end them
     var cap = opts.maxConnections || MAX_CONNECTIONS;
 
@@ -106,7 +107,13 @@ function createProxy(opts) {
     var HEAD_MAX = 8192;
 
     function onConnection(c) {
+        if (opts.allow && !opts.allow(c.remoteAddress)) {
+            if (!foreign++) opts.log('refused a connection from outside the TV');
+            drop(c); return;
+        }
         if (live >= cap) { refused++; drop(c); return; }
+        accepted++;
+        if (!loggedFirst) { loggedFirst = true; opts.log('first connection from the app, from ' + c.remoteAddress); }
         track(c);
         var buf = Buffer.alloc ? Buffer.alloc(0) : new Buffer(0), started = false;
         c.on('data', guard(function onData(d) {
@@ -127,7 +134,7 @@ function createProxy(opts) {
 
     function connect(c, line, rest) {
         var m = /^CONNECT ([^ :\[\]]+):(\d{1,5}) HTTP\/1\.[01]$/.exec(line);
-        if (!m) { c.end('HTTP/1.1 502 Bad Gateway\r\nconnection: close\r\ncontent-length: 0\r\n\r\n'); return; }
+        if (!m) { if (!loggedOdd) { loggedOdd = true; opts.log('not a CONNECT request: ' + line.slice(0, 60)); } c.end('HTTP/1.1 502 Bad Gateway\r\nconnection: close\r\ncontent-length: 0\r\n\r\n'); return; }
         var host = m[1].toLowerCase(), port = parseInt(m[2], 10);
         if (port < 1 || port > 65535) { c.end('HTTP/1.1 400 Bad Request\r\nconnection: close\r\ncontent-length: 0\r\n\r\n'); return; }
         if (port === 443 && inject.MITM_HOSTS[host] && opts.script() && !rest.length) {
@@ -175,7 +182,7 @@ function createProxy(opts) {
             if (hard) Object.keys(socks).forEach(function (id) { drop(socks[id]); });
         },
         listening: function () { return !!server && ready; },
-        stats: function () { return { tunnels: tunnels, opened: opened, live: live, refused: refused }; }
+        stats: function () { return { tunnels: tunnels, opened: opened, live: live, refused: refused, accepted: accepted, foreign: foreign }; }
     };
 }
 

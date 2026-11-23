@@ -107,13 +107,14 @@ function swap(execute, from, to, db) {
     });
 }
 
-// Makes the row hold the patched value for this proxy. Resolves to the state afterwards: 'patched' | 'absent' | 'foreign' | 'stuck' | 'error' | 'raced'.
+// Makes the row hold the patched value for this proxy. Resolves to the state afterwards: 'patched' | 'absent' | 'foreign' | 'toolong'
+// (the flags with this address do not fit in what the TV passes on) | 'stuck' | 'error' | 'raced'.
 function apply(execute, proxyHost, proxyPort, db) {
     return read(execute, db).then(function (cur) {
         if (cur.state !== 'original' && cur.state !== 'patched') return cur.state;
         if (cur.valid === false) return 'foreign';
         var want = patched(cur.value, proxyHost, proxyPort);
-        if (want === null) return 'foreign';                        // would not fit in what the TV passes on
+        if (want === null) return 'toolong';                        // would not fit in what the TV passes on
         if (want === cur.value) return 'patched';
         return swap(execute, cur.value, want, db).then(function (r) { return r === 'swapped' ? 'patched' : r === 'changed' ? 'raced' : 'error'; });
     });

@@ -1,4 +1,6 @@
 node_modules/
+helpers/**/bin/
+helpers/**/obj/
 .DS_Store
 *.pem
 !catalog-public.pem
