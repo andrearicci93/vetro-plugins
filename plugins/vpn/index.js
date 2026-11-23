@@ -6,43 +6,56 @@
 //  - /opt/nordtv/nordtv is used when it is there (installed by hand, or by an earlier version).
 //  - When it is missing, or was installed by an older plugin version, the plugin downloads BINARY.url, refuses it
 //    unless its SHA-256 is BINARY.sha256, unpacks it and records the checksum in /opt/nordtv/.source. This runs at
-//    start and from the page, never on every call, so a slow download cannot hold Vetro's command queue.
-//  - Before each command it is copied to /dev/shm, where the TV lets it run (also after every boot).
+//    start, from the page, and again every 2 minutes while it has not succeeded (an update waiting for the Wi-Fi),
+//    never on every call, so a slow download cannot hold Vetro's command queue.
+//  - Before each command it is copied to /dev/shm/nordtv.d, a root-only folder in memory where the TV lets it run
+//    (also after every boot); the binary keeps its lock and pid files there too.
 // State lives in the binary's own files (/opt/nordtv/config, token, log); the same commands work from a shell.
 // The token and the profiles' .conf text are written through base64 and never read back: the binary's state lists
 // a profile's endpoint, address, AllowedIPs and DNS, never its keys. Plain ES5: older TVs run Node 4.4.
 var fs = require('fs'), path = require('path');
-var BINARY = { url: 'https://raw.githubusercontent.com/andrearicci93/vetro-plugins/main/helpers/nordtv-1.1.1.gz', sha256: 'd9ce340d9accd43f95f83d7c48e5be5e3ada721c23804a7b5a80e70bf45620b9' };   // helpers/nordtv-1.1.1.gz in the catalog, rebuilt from nordtv/ by its CI
-var DIR = '/opt/nordtv', RUN = '/dev/shm/nordtv';
+var BINARY = { url: 'https://raw.githubusercontent.com/andrearicci93/vetro-plugins/main/helpers/nordtv-1.1.2.gz', sha256: 'b56117fb6d34fbb09f9d5acfaab76a256f67de9386f94c6c7fc8e0a32ecc57e4' };   // helpers/nordtv-1.1.2.gz in the catalog, rebuilt from nordtv/ by its CI
+var DIR = '/opt/nordtv', RUNDIR = '/dev/shm/nordtv.d', RUN = RUNDIR + '/nordtv';
 var COUNTRY = /^[A-Z]{2}$/, PROFILE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/, PROVIDERS = ['nordvpn', 'wireguard'], MAX_CONF = 8192, TOKEN = /^[A-Za-z0-9_-]{16,256}$/, SHA = /^[0-9a-f]{64}$/, URL_RE = /^https:\/\/[A-Za-z0-9.\/_~%+-]+$/;
 var RETRY_MS = 120000, TICK_MS = 60000, FIRST_TICK_MS = 15000, MAX_BODY = 16384;
 
 // /opt/nordtv holds a binary that runs as root, the account token and the profiles: root only. Folders 0700, files
 // 0600, the binary 0700 (the TV's default umask had left the folder 0777). Vetro reaches it only through the root
-// agent. Only plain files get 0600: the profiles folder stays 0700 (the binary keeps its files 0600).
-var STAGE = 'chmod 700 ' + DIR + ' 2>/dev/null; for f in ' + DIR + '/*; do [ -f "$f" ] && chmod 600 "$f"; done; chmod 700 ' + DIR + '/nordtv 2>/dev/null; chmod 700 ' + DIR + '/profiles 2>/dev/null\n' +
+// agent. The binary, and one being unpacked (nordtv.new.*), are left out of the 0600 loop, so a command running at
+// the same time never sees it non-executable. The running copy goes to RUNDIR: /dev/shm is writable by everyone,
+// so RUNDIR is used only as a real folder owned by root (anything else there is removed first), and the copy is
+// made inside it.
+var STAGE = 'umask 077\nchmod 700 ' + DIR + ' 2>/dev/null\n' +
+    'for f in ' + DIR + '/*; do case "$f" in ' + DIR + '/nordtv|' + DIR + '/nordtv.new*) ;; *) [ -f "$f" ] && chmod 600 "$f";; esac; done\n' +
+    'chmod 700 ' + DIR + '/nordtv ' + DIR + '/profiles 2>/dev/null\n' +
     '[ -x ' + DIR + '/nordtv ] || { echo __NOBIN__; exit 0; }\n' +
-    'a=$(md5sum < ' + DIR + '/nordtv); b=$(md5sum < ' + RUN + ' 2>/dev/null)\n' +
+    'if [ -L ' + RUNDIR + ' ] || [ ! -d ' + RUNDIR + ' ] || [ "$(stat -c %u ' + RUNDIR + ')" != 0 ]; then rm -rf ' + RUNDIR + '; mkdir -m 700 ' + RUNDIR + ' || { echo __NORUNDIR__; exit 1; }; fi\n' +
+    'chmod 700 ' + RUNDIR + '\n' +
+    'a=$(md5sum < ' + DIR + '/nordtv); b=$(md5sum 2>/dev/null < ' + RUN + ')\n' +
     'if [ "$a" != "$b" ]; then cp ' + DIR + '/nordtv ' + RUN + '.new && chmod 700 ' + RUN + '.new && mv -f ' + RUN + '.new ' + RUN + '; fi\nchmod 700 ' + RUN + '\ncd /\n';
 
 // Node 4.4 has a Buffer.from inherited from Uint8Array that does not take a string; Node 5.10+ has the real one.
 function bytes(s) { return Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(s) : new Buffer(s); }
+// Downloads into a file of its own (mktemp), checks that file's SHA-256 and unpacks that same file into another
+// one of its own, so nothing else can swap the download between the check and gunzip. Runs under lock(), like
+// every change. Leftovers of an install that was cut off (older than 5 minutes) are removed first.
 function installScript(bin) {
     if (!bin || !URL_RE.test(bin.url || '') || !SHA.test(bin.sha256 || '')) return null;
-    var tmp = DIR + '/nordtv.gz.part';
     return 'umask 077\nmkdir -p ' + DIR + ' && chmod 700 ' + DIR + '\n' +
         'if [ -x ' + DIR + '/nordtv ] && [ "$(cat ' + DIR + '/.source 2>/dev/null)" = ' + bin.sha256 + ' ]; then echo __CURRENT__; exit 0; fi\n' +
-        'rm -f ' + tmp + '\n' +
-        'curl -fsSL --max-time 90 -o ' + tmp + ' \'' + bin.url + '\' || { rm -f ' + tmp + '; echo __DOWNLOAD_FAILED__; exit 0; }\n' +
-        'if [ "$(sha256sum < ' + tmp + ' | cut -d" " -f1)" != ' + bin.sha256 + ' ]; then rm -f ' + tmp + '; echo __CHECKSUM_MISMATCH__; exit 0; fi\n' +
-        'gunzip -c ' + tmp + ' > ' + DIR + '/nordtv.new && chmod 700 ' + DIR + '/nordtv.new && mv -f ' + DIR + '/nordtv.new ' + DIR + '/nordtv && echo ' + bin.sha256 + ' > ' + DIR + '/.source && rm -f ' + tmp + ' && echo __INSTALLED__\n';
+        'find ' + DIR + ' -maxdepth 1 -type f \\( -name "nordtv.gz.*" -o -name "nordtv.new.*" \\) -mmin +5 -exec rm -f {} + 2>/dev/null\n' +
+        'gz=$(mktemp ' + DIR + '/nordtv.gz.XXXXXX) && new=$(mktemp ' + DIR + '/nordtv.new.XXXXXX) || { echo __NO_TEMP__; exit 0; }\n' +
+        'trap \'rm -f "$gz" "$new"\' EXIT\n' +
+        'curl -fsSL --max-time 90 -o "$gz" \'' + bin.url + '\' || { echo __DOWNLOAD_FAILED__; exit 0; }\n' +
+        'if [ "$(sha256sum < "$gz" | cut -d" " -f1)" != ' + bin.sha256 + ' ]; then echo __CHECKSUM_MISMATCH__; exit 0; fi\n' +
+        'gunzip -c < "$gz" > "$new" && chmod 700 "$new" && mv -f "$new" ' + DIR + '/nordtv && echo ' + bin.sha256 + ' > ' + DIR + '/.source && echo __INSTALLED__\n';
 }
 
 // After a crash of nordtv (the process gone, its rules still there) nothing reconnects when "VPN on" or "Keep
 // connected" is off, and a kill switch left behind would keep the TV off the internet. When such rules exist and no
 // `nordtv up` is starting, `nordtv down` removes them. Only the rules nordtv makes: its chains and table 51820.
 var LEFTOVER = 'if iptables -n -L NORDTV >/dev/null 2>&1 || iptables -t nat -n -L NORDTV_DNS >/dev/null 2>&1 || ip6tables -n -L NORDTV >/dev/null 2>&1 || ip rule | grep -q -e "lookup 51820" -e "lookup 0xca6c"; then\n' +
-    '  for p in /proc/[0-9]*; do tr "\\000" " " < $p/cmdline 2>/dev/null | grep -q "^' + RUN + ' up" && { echo __STARTING__; exit 0; }; done\n' +
+    '  for p in /proc/[0-9]*; do tr "\\000" " " < $p/cmdline 2>/dev/null | grep -q -e "^' + RUN + ' up" -e "^/dev/shm/nordtv up" && { echo __STARTING__; exit 0; }; done\n' +
     '  ' + RUN + ' down >/dev/null 2>&1; echo __CLEANED__\nfi\n';
 function wrap(s) { return 'echo ' + bytes(s).toString('base64') + ' | base64 -d | sh'; }
 function lastJson(out) {
@@ -72,37 +85,57 @@ function settingsScript(o) {
     return s;
 }
 
-// A WireGuard choice must name a saved profile the binary can read, so a start never trades a working tunnel for none.
+// A start must have what the provider needs (a saved token, or a saved profile the binary can read), so it never
+// trades a working tunnel for none.
 function checkChoice(o, s) {
     var provider = o.provider !== undefined ? o.provider : s.provider, profile = o.profile !== undefined ? o.profile : s.profile;
-    if (provider !== 'wireguard') return;
+    if (provider !== 'wireguard') { if (!s.hasToken) throw new Error('Save your NordVPN access token first'); return; }
     var p = (s.profiles || []).filter(function (x) { return x.name === profile; })[0];
     if (!p) throw new Error(profile ? 'No saved profile ' + profile : 'Add or pick a WireGuard profile first');
     if (p.error) throw new Error('Profile ' + profile + ': ' + p.error);
 }
 
-function Vpn(execute, bin) { this.execute = execute; this.bin = bin || BINARY; this.busy = false; this.countryList = null; this.autoFailedAt = 0; this.lastAuto = null; this.lastInstall = null; this.last = null; }
+function Vpn(execute, bin) { this.execute = execute; this.bin = bin || BINARY; this.busy = false; this.countryList = null; this.autoFailedAt = 0; this.lastAuto = null; this.lastInstall = null; this.last = null; this.installing = null; this.needInstall = true; }
 function lock(self, work) {
     if (self.busy) return Promise.reject(new Error('VPN change already in progress'));
     self.busy = true;
     return Promise.resolve().then(work).then(function (v) { self.busy = false; return v; }, function (e) { self.busy = false; throw e; });
 }
+// Installs the pinned binary, under lock() like every change. A second call while one runs (the page's button
+// during the automatic install) waits for that one instead of starting another download.
 Vpn.prototype.install = function () {
     var self = this, script = installScript(this.bin);
     if (!script) { this.lastInstall = { at: Date.now(), result: 'no-download' }; return Promise.resolve(this.lastInstall); }
-    return this.execute(wrap(script), 120000).then(function (r) {
-        var m = /__(CURRENT|INSTALLED|DOWNLOAD_FAILED|CHECKSUM_MISMATCH)__/.exec(r.stdout || '');
-        self.lastInstall = { at: Date.now(), result: m ? m[1].toLowerCase().replace('_', '-') : 'failed' };
-        if (!m) self.lastInstall.error = failure(r, 'Install failed').message;
-        return self.lastInstall;
+    if (this.installing) return this.installing;
+    var p = lock(this, function () {
+        return self.execute(wrap(script), 120000).then(function (r) {
+            var m = /__(CURRENT|INSTALLED|DOWNLOAD_FAILED|CHECKSUM_MISMATCH|NO_TEMP)__/.exec(r.stdout || '');
+            self.lastInstall = { at: Date.now(), result: m ? m[1].toLowerCase().replace(/_/g, '-') : 'failed' };
+            if (!m) self.lastInstall.error = failure(r, 'Install failed').message;
+            if (m && (m[1] === 'CURRENT' || m[1] === 'INSTALLED')) self.needInstall = false;
+            return self.lastInstall;
+        }, function (e) { self.lastInstall = { at: Date.now(), result: 'failed', error: e.message }; throw e; });
     });
+    this.installing = p.then(function (v) { self.installing = null; return v; }, function (e) { self.installing = null; throw e; });
+    return this.installing;
+};
+// From the timer: installs when the binary is missing or is not the pinned one (someone coming from nordvpn whose
+// first download failed, Wi-Fi not up yet), at most every 2 minutes, never while another change runs.
+Vpn.prototype.maybeInstall = function () {
+    var li = this.lastInstall;
+    if (!this.needInstall || this.busy || !installScript(this.bin) || (li && Date.now() - li.at < RETRY_MS)) return Promise.resolve(null);
+    return this.install();
 };
 Vpn.prototype.read = function (withIp) {
     var self = this;
-    return this.execute(wrap(STAGE + RUN + ' ' + (withIp ? 'status -json' : 'state')), withIp ? 20000 : 10000).then(function (r) {
-        if (/__NOBIN__/.test(r.stdout || '')) return (self.last = { installed: false, canDownload: !!installScript(self.bin), lastInstall: self.lastInstall });
+    var script = STAGE + 'echo "__SOURCE_$(cat ' + DIR + '/.source 2>/dev/null)__"\n' + RUN + ' ' + (withIp ? 'status -json' : 'state');
+    return this.execute(wrap(script), withIp ? 20000 : 10000).then(function (r) {
+        var canDownload = !!installScript(self.bin);
+        if (/__NOBIN__/.test(r.stdout || '')) { self.needInstall = true; return (self.last = { installed: false, canDownload: canDownload, lastInstall: self.lastInstall }); }
         var s = lastJson(r.stdout); if (!s) throw failure(r, 'VPN state unreadable');
-        s.installed = true; s.lastAuto = self.lastAuto; s.lastInstall = self.lastInstall; s.canDownload = !!installScript(self.bin);
+        var src = /__SOURCE_([0-9a-f]*)__/.exec(r.stdout || '');
+        self.needInstall = canDownload && !!src && src[1] !== self.bin.sha256;
+        s.installed = true; s.lastAuto = self.lastAuto; s.lastInstall = self.lastInstall; s.canDownload = canDownload; s.updatePending = self.needInstall;
         return (self.last = s);
     });
 };
@@ -237,7 +270,7 @@ Vpn.prototype.supervise = function () {
     if (this.busy || Date.now() - this.autoFailedAt < RETRY_MS) return Promise.resolve({ started: false });
     return this.read(false).then(function (s) {
         var ready = s.ready !== undefined ? s.ready : s.hasToken;   // binaries before 1.1 report only hasToken
-        if (!s.installed || s.running) return { started: false };
+        if (!s.installed || s.running || s.connecting) return { started: false };
         if (!s.enabled || !s.autostart || !ready) return self.clearLeftovers().then(function (cleaned) { return { started: false, cleaned: cleaned }; });
         return self.start({}).then(function (after) { self.lastAuto = { at: Date.now(), ok: true }; return { started: true, state: after }; },
             function (e) { self.autoFailedAt = Date.now(); self.lastAuto = { at: Date.now(), ok: false, error: e.message }; throw e; });
@@ -264,14 +297,16 @@ function loadPage(ctx) {
 }
 module.exports = function (ctx) {
     var vpn = new Vpn(ctx.execute), page = null, timer = null, first = null, stopped = true;
-    function tick() { if (stopped) return; vpn.supervise().catch(function () { /* recorded in lastAuto; the root agent may not be up yet */ }); }
+    function noop() { /* recorded in lastInstall / lastAuto; the root agent may not be up yet */ }
+    function tick() { if (stopped) return; vpn.maybeInstall().catch(noop).then(function () { if (!stopped) return vpn.supervise(); }).catch(noop); }
     function reply(res, p) { p.then(function (d) { json(res, d); }, function (e) { json(res, { ok: false, error: String(e && e.message || e) }, 409); }); }
     return {
         start: function () {
             stopped = false;
             page = loadPage(ctx);
-            // Install (or update) the binary first, then begin supervising; neither may throw out of start().
-            first = setTimeout(function () { vpn.install().catch(function () {}).then(tick); }, FIRST_TICK_MS);
+            // Install (or update) the binary first, then begin supervising; neither may throw out of start(). Each
+            // tick installs again while that has not worked (maybeInstall).
+            first = setTimeout(tick, FIRST_TICK_MS);
             timer = setInterval(tick, TICK_MS);
             if (timer.unref) timer.unref();
         },
@@ -281,9 +316,9 @@ module.exports = function (ctx) {
         // (`nordtv stop`) turns it off for good.
         stop: function () {
             stopped = true; clearTimeout(first); clearInterval(timer); page = null;
-            try { ctx.execute(wrap('[ -x ' + RUN + ' ] && ' + RUN + ' down >/dev/null 2>&1; true'), 30000).catch(function () { /* nothing to undo */ }); } catch (e) { /* no exec: nothing ran */ }
+            try { ctx.execute(wrap(STAGE + RUN + ' down >/dev/null 2>&1; true'), 30000).catch(function () { /* nothing to undo */ }); } catch (e) { /* no exec: nothing ran */ }
         },
-        status: function () { var s = vpn.last || {}; return { running: !!s.running, provider: s.provider || null, server: s.server || null, installed: s.installed !== false }; },
+        status: function () { var s = vpn.last || {}; return { running: !!s.running, connecting: !!s.connecting, provider: s.provider || null, server: s.server || null, installed: s.installed !== false, updatePending: !!s.updatePending }; },
         route: function (req, res, sub) {
             if (sub === 'ui' && req.method === 'GET') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); res.end(page || ''); return true; }
             if (sub === 'state' && req.method === 'GET') { reply(res, vpn.read(true)); return true; }
@@ -311,3 +346,4 @@ module.exports.STAGE = STAGE;
 module.exports.RESET = RESET;
 module.exports.BINARY = BINARY;
 module.exports.LEFTOVER = LEFTOVER;
+module.exports.RUN = RUN;

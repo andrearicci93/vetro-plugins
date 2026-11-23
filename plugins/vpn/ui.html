@@ -76,12 +76,13 @@ function show(d){data=d;var ok=d.installed!==false;$('missing').hidden=ok;ids.fo
  if(!ok){$('status').textContent='The VPN program is not installed.';$('status').className='bad';$('detail').textContent='';$('token').textContent='';
   var li=d.lastInstall&&d.lastInstall.result;$('missingText').textContent=!d.canDownload?'No download is configured in this Shard version. Install nordtv into /opt/nordtv by hand (see the Shard README).':'nordtv is downloaded from the address pinned in this Shard and installed only if its SHA-256 matches.'+(li&&li!=='installed'&&li!=='current'?' Last attempt: '+li+'.':'');$('install').hidden=!d.canDownload;return}
  $('provider').value=d.provider==='wireguard'?'wireguard':'nordvpn';showProfiles(d);
- $('on').checked=!!d.running;$('ks').checked=!!d.killswitch;$('auto').checked=!!d.autostart;setCountry(d.country);layout();
+ $('on').checked=!!(d.running||d.connecting);$('ks').checked=!!d.killswitch;$('auto').checked=!!d.autostart;setCountry(d.country);layout();
  var nord=$('provider').value==='nordvpn',where=[d.city,d.ipCountry].filter(Boolean).join(', '),ip=d.publicIp?d.publicIp+(where?' · '+where:''):'';
  var warn=d.running&&nord&&d.protected===false;
- $('status').textContent=d.running?(warn?'Tunnel up, but NordVPN does not see this IP as protected':'Connected')+(d.server?' · '+d.server:'')+(d.mode&&d.mode.indexOf('split')===0?' · split':''):'Off'+(d.enabled&&d.autostart?' · will reconnect':'');
+ $('status').textContent=d.running?(warn?'Tunnel up, but NordVPN does not see this IP as protected':'Connected')+(d.server?' · '+d.server:'')+(d.mode&&d.mode.indexOf('split')===0?' · split':''):d.connecting?'Connecting…':'Off'+(d.enabled&&d.autostart?' · will reconnect':'');
  $('status').className=d.running?(warn?'bad':'on'):'';
  var auto=d.lastAuto&&!d.lastAuto.ok?' · Last automatic start failed: '+d.lastAuto.error:'';
+ var li=d.lastInstall&&d.lastInstall.result;if(d.updatePending)auto+=' · Update pending: the VPN program in use is not the one this Shard pins; it is downloaded again every 2 minutes until that works'+(li&&li!=='installed'&&li!=='current'?' (last attempt: '+li+')':'')+'.';
  $('detail').textContent=(d.running?'Public IP '+(ip||'unavailable')+(d.since?' · connected at '+new Date(d.since*1000).toLocaleTimeString():''):d.lastError?'Last message: '+d.lastError:ip?'Public IP '+ip+' (not through the VPN)':'')+auto;
  $('token').textContent=d.hasToken?'A token is saved on the TV.':'No token saved: NordVPN cannot start without one.'}
 function load(){return api('state').then(show).catch(function(e){$('status').textContent=e.message;$('status').className='bad'})}
