@@ -1,0 +1,11 @@
+{
+  "id": "sonos-controller",
+  "name": "Sonos controller",
+  "version": "0.2.4",
+  "apiVersion": 1,
+  "permissions": [],
+  "author": "genesai",
+  "description": "Remote volume and mute keys control a Sonos room via Vetro's MQTT rules. Uses Sonos on your LAN (port 1400, SSDP) and reads Vetro's settings. No cloud.",
+  "main": "index.js",
+  "ui": { "label": "Sonos" }
+}

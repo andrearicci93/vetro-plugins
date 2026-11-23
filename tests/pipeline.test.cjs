@@ -25,6 +25,10 @@ test('signature round trip and tampered/wrong-key/identity rejection',()=>{
  catalog.sign(dir,out,keys.privateKey.export({type:'pkcs8',format:'pem'}));fs.appendFileSync(path.join(out,'dist/sample-1.0.0.vplugin'),' ');assert.throws(()=>catalog.verify(out),/checksum/);
  const current=JSON.parse(fs.readFileSync(path.join(dir,'index.json')));current.plugins[0].url='../outside';fs.writeFileSync(path.join(dir,'index.json'),JSON.stringify(current));assert.throws(()=>catalog.sign(dir,out,keys.privateKey.export({type:'pkcs8',format:'pem'})),/unexpected bundle URL/);
 });
+test('ids of the Shards built into Vetro are refused (launcher; tuner from 0.7.0)',()=>{
+ for(const id of ['launcher','tuner'])assert.ok(build.validate(id,{...manifest,id},validFiles).some(e=>/bundled with Vetro/.test(e)),id);
+ assert.deepEqual(build.validate('tuner-extras',{...manifest,id:'tuner-extras'},validFiles),[]);
+});
 test('published changes require higher versions',()=>{
  const old={plugins:[{id:'sample',version:'1.2.0',sha256:'before'}]};
  assert.throws(()=>changes.check(old,{plugins:[{id:'sample',version:'1.2.0',sha256:'after'}]}),/new version/);
@@ -45,4 +49,38 @@ test('intercepts: same rules as Vetro, a launch method, and the index carries it
  build.build(dir,false);
  const entry=JSON.parse(fs.readFileSync(path.join(dir,'index.json'),'utf8')).plugins.find(p=>p.id==='sample');
  assert.deepEqual(entry.intercepts,[{appId:'com.example.app',label:'Example'}]);
+});
+
+test('controlCenter: same rules as Vetro, card() and cardSelect() in the entry, and the index carries it',()=>{
+ const ok={...manifest,controlCenter:{label:'Home Assistant'}};
+ const code='module.exports=function(){return {card:function(){return {rows:[]};},cardSelect:function(){return {ok:true};}};};';
+ const files={...validFiles,'index.js':code};
+ assert.deepEqual(build.validate('sample',ok,files),[]);
+ assert.deepEqual(build.validate('sample',{...ok,controlCenter:{label:'x'.repeat(24),future:true}},files),[]);   // unknown keys inside are ignored, as on the TV
+ assert.ok(build.validate('sample',ok,validFiles).some(e=>/no card\(\)/.test(e)));
+ assert.ok(build.validate('sample',ok,{...validFiles,'index.js':'module.exports=function(){return {card:function(){return {rows:[]};}};};'}).some(e=>/no cardSelect/.test(e)));
+ assert.ok(build.validate('sample',ok,{...validFiles,'index.js':'module.exports=function(){return {cardSelect:function(){}};};'}).some(e=>/no card\(\)/.test(e)));
+ assert.deepEqual(build.validate('sample',{...manifest},validFiles),[],'without the key a Shard needs neither method');
+ const bad=[[],'Home',7,{label:''},{label:'  '},{},{label:'x'.repeat(25)},{label:'<b>x</b>'},{label:'a\nb'},{label:5}];
+ for(const v of bad)assert.ok(build.validate('sample',{...ok,controlCenter:v},files).some(e=>/controlCenter/.test(e)),JSON.stringify(v));
+ const dir=fixture(code);
+ fs.writeFileSync(path.join(dir,'plugins/sample/manifest.json'),JSON.stringify(ok));
+ build.build(dir,false);
+ const entry=JSON.parse(fs.readFileSync(path.join(dir,'index.json'),'utf8')).plugins.find(p=>p.id==='sample');
+ assert.deepEqual(entry.controlCenter,{label:'Home Assistant'});
+ assert.deepEqual(entry.permissions,[],'not a permission');
+});
+
+test('runtime smoke: a Shard with a card answers card() and cardSelect() quickly and without a timer',()=>{
+ const withCard='module.exports=function(){return {card:function(){return {rows:[]};},cardSelect:function(){return {ok:false};}};};';
+ const cases=[[withCard,true],
+  ['module.exports=function(){return {card:function(){return {rows:[]};},cardSelect:function(){}};};',true],
+  ['module.exports=function(){return {card:function(){return 5;},cardSelect:function(){}};};',false],
+  ['module.exports=function(){return {card:function(){return new Promise(function(){});},cardSelect:function(){}};};',false],
+  ['module.exports=function(){return {card:function(){return {rows:[]};},cardSelect:function(){setTimeout(function(){},1000);}};};',false],
+  ['module.exports=function(){return {card:function(){return {rows:[]};}};};',false]];
+ for(const [code,ok] of cases){
+  const dir=fixture(code);fs.writeFileSync(path.join(dir,'plugins/sample/manifest.json'),JSON.stringify({...manifest,controlCenter:{label:'Card'}}));
+  const r=cp.spawnSync(process.execPath,[path.join(root,'scripts/test-runtime.cjs'),path.join(dir,'plugins')],{timeout:8000,encoding:'utf8'});assert.equal(r.status===0,ok,code+'\n'+r.stderr);
+ }
 });

@@ -1,0 +1,12 @@
+{
+  "id": "home-assistant",
+  "name": "Home Assistant",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "permissions": [],
+  "author": "andrearicci93",
+  "description": "A Home Assistant card in Vetro's Control center for lights, switches, scenes and scripts. Talks only to the Home Assistant address you set (REST API).",
+  "main": "index.js",
+  "ui": { "label": "Home Assistant" },
+  "controlCenter": { "label": "Home Assistant" }
+}

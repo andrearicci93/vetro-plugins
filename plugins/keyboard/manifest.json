@@ -1,0 +1,11 @@
+{
+  "id": "keyboard",
+  "name": "Keyboard & Remote",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "author": "abdoghanem2011",
+  "description": "Text input, live 1080p screen preview, and full TV remote. Connects browser to TV port 8002 (WSS) for typing.",
+  "main": "index.js",
+  "ui": { "label": "Keyboard" }
+}

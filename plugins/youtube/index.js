@@ -14,9 +14,12 @@ var proxyLib = require('./proxy.js');
 var setup = require('./setup.js');
 var tile = require('./tile.js');
 var scriptLib = require('./userscript.js');
+var os = require('os');
+var address = require('./address.js');
+var watchLib = require('./watch.js');
 
 var PROXY_HOST = '127.0.0.2', DEFAULT_PORT = 8101;
-var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000, WATCH_MS = 6000;
+var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000;
 
 var PAGE = '<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -57,6 +60,13 @@ module.exports = function (ctx) {
     var cfg = ctx.config.get();
     var PORT = typeof cfg.port === 'number' && cfg.port % 1 === 0 && cfg.port >= 1024 && cfg.port < 65536 ? cfg.port : DEFAULT_PORT;
     var script = new scriptLib.UserScript(setup.CACHE);
+    // Where the YouTube app reaches the proxy. 'loopback': 127.0.0.2, as it always was. 'lan': the TV's own network address, for
+    // firmware where apps cannot connect to 127.x (then the app silently falls back to a direct connection and the ads stay).
+    // The proxy then listens on every address and takes connections from the TV itself only (see address.js). Fixed when the plugin starts.
+    var MODE = address.chooseMode(cfg.proxy, address.tizenMajor(readText('/etc/tizen-release')));
+    var BIND = MODE === 'lan' ? '0.0.0.0' : PROXY_HOST;
+    // The address put in the app's flags: the TV's own when it has one (it can change with the router), else loopback.
+    function proxyHost() { return MODE === 'lan' ? (address.lanAddress(os.networkInterfaces()) || PROXY_HOST) : PROXY_HOST; }
     var logLines = [], preparing = null, alive = false, timer = null, watchTimer = null;
     var tileOn = cfg.tile === true;
     var lastSetup = 0, nextScriptTry = 0;
@@ -72,6 +82,8 @@ module.exports = function (ctx) {
         try { ctx.config.set(c); } catch (e) { log('config not saved: ' + e.message); }
     }
 
+    function readText(file) { try { return fs.readFileSync(file, 'utf8'); } catch (e) { return ''; } }
+
     function readLeaf() {
         try {
             var key = fs.readFileSync(path.join(setup.DIR, 'leaf.key'));
@@ -82,7 +94,8 @@ module.exports = function (ctx) {
     function contentThere() { try { return fs.statSync(path.join(setup.CONTENT, 'ssl', 'certs')).isDirectory(); } catch (e) { return false; } }
 
     var proxy = proxyLib.createProxy({
-        host: PROXY_HOST, port: PORT, log: log,
+        host: BIND, port: PORT, log: log,
+        allow: MODE === 'lan' ? function (remote) { return address.isLocal(remote, os.networkInterfaces()); } : null,
         leaf: readLeaf,
         script: function () { return script.load(); },
         onPage: function () { st.pages++; st.lastPage = new Date().toISOString().slice(11, 19); }
@@ -158,7 +171,7 @@ module.exports = function (ctx) {
         waiting = serial(function () {
             waiting = null;
             var why = alive ? blocker() : 'the plugin is off';
-            var job = why ? tile.restore(exec) : tile.apply(exec, PROXY_HOST, PORT);
+            var job = why ? tile.restore(exec) : tile.apply(exec, proxyHost(), PORT);
             return job.then(function (state) {
                 if (why) {
                     st.tileState = tileOn && alive ? 'waiting' : 'off'; st.tileNote = tileOn ? why : '';
@@ -175,6 +188,7 @@ module.exports = function (ctx) {
                 restoreTries = 0;
                 if (state === 'patched') { if (st.tileState !== 'on') log('Samsung’s YouTube button now opens the patched app'); st.tileState = 'on'; st.tileNote = ''; }
                 else if (state === 'absent') { st.tileState = 'unsupported'; st.tileNote = 'This TV has no entry for Samsung’s YouTube app that can be changed.'; }
+                else if (state === 'toolong') { st.tileState = 'unsupported'; st.tileNote = 'The TV’s address (' + proxyHost() + ') is too long to fit in Samsung’s YouTube settings. Use the Vetro launcher’s YouTube tile, or the Open button.'; }
                 else if (state === 'foreign') { st.tileState = 'unsupported'; st.tileNote = 'Samsung’s YouTube settings are not in the expected form: left as they are.'; }
                 else { st.tileState = 'error'; st.tileNote = 'The TV’s app list could not be updated (' + state + '); trying again.'; log('row: ' + state); retrySoon(); }
                 if (st.tileState === 'on') bootTries = 0;
@@ -197,23 +211,39 @@ module.exports = function (ctx) {
 
     // Samsung's YouTube started by the remote key, the Home tile or voice, without our flags (the TV's entry for it is missing after
     // a boot, or Samsung rewrote it): close it and start it again through the proxy. At most 3 times in 2 minutes.
-    var watchBusy = false, relaunches = [], lastWhy = '', lastOut = null;
+    // The root check (setup.checkScript) only runs when the process list shows something new that Vetro cannot read itself
+    // (watch.js), once a minute as a backstop, or every CHECK_MS when the process list cannot be read at all.
+    var watcher = new watchLib.Watcher(), watchBusy = false, relaunches = [], lastWhy = '', lastOut = null;
+    var wst = { checks: 0, seen: 0, backstop: 0 };
+    function relaunch(how) {
+        relaunches.push(Date.now());
+        log('YouTube was started without the patches (' + how + '): starting it again through the proxy');
+        return ctx.execute(setup.launchScript(proxyHost(), PORT), 25000);
+    }
     function watch() {
         if (!alive || !tileOn || watchBusy) return;
         var why = blocker();
-        if (why) { if (why !== lastWhy) log('watch idle: ' + why); lastWhy = why; return; }
+        if (why) { if (why !== lastWhy) log('watch idle: ' + why); lastWhy = why; watcher.blocked(); return; }
         lastWhy = '';
         var now = Date.now();
         relaunches = relaunches.filter(function (t) { return now - t < 120000; });
-        if (relaunches.length >= 3) return;
-        watchBusy = true;
+        // live > 0: the patched app is open, and there is only one.
+        var a = watcher.step(now, proxy.stats().live > 0, relaunches.length < 3);
+        if (a.blind) log('watch: cannot list processes (' + a.blind + '): checking as root every ' + (watchLib.CHECK_MS / 1000) + ' s');
+        if (a.relaunch) {
+            wst.seen++; watchBusy = true;
+            relaunch('seen in the process list').then(function () { watchBusy = false; }, function (e) { watchBusy = false; log('watch: ' + e.message); });
+            return;
+        }
+        if (!a.check) return;
+        var backstop = a.check === 'backstop';
+        watchBusy = true; wst.checks++;
         exec(setup.checkScript(), 10000).then(function (r) {
             var out = String((r && r.stdout) || '');
             if (!/^relaunch$/m.test(out)) { if (out !== lastOut) log('watch: ' + (out.trim() || 'YouTube not running')); lastOut = out; return null; }
-            relaunches.push(Date.now());
-            log('YouTube was started without the patches: starting it again through the proxy');
-            return ctx.execute(setup.launchScript(PROXY_HOST, PORT), 25000);
-        }).then(function () { watchBusy = false; }, function (e) { watchBusy = false; log('watch: ' + e.message); });
+            if (backstop) wst.backstop++;
+            return relaunch(backstop ? 'found by the once-a-minute check' : 'found by the root check');
+        }).then(function () { watchBusy = false; }, function (e) { watchBusy = false; watcher.failed(); log('watch: ' + e.message); });
     }
 
     function json(res, code, body) { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)); }
@@ -230,7 +260,7 @@ module.exports = function (ctx) {
     // Resolves with { warning } and rejects when YouTube did not start. Used by the Open button and by the launcher tile.
     function openYoutube() {
         var warning = null;
-        return prepare().then(function (r) { warning = r.warning; return ctx.execute(setup.launchScript(PROXY_HOST, PORT), 25000); }).then(function (r) {
+        return prepare().then(function (r) { warning = r.warning; return ctx.execute(setup.launchScript(proxyHost(), PORT), 25000); }).then(function (r) {
             var out = String((r && r.stdout) || '');
             if (!/successfully launched/.test(out)) throw new Error('YouTube did not start: ' + out.replace(/\s+/g, ' ').slice(0, 120));
             log('YouTube started');
@@ -241,8 +271,9 @@ module.exports = function (ctx) {
     function snapshot() {
         var have = script.load(), s = proxy.stats();
         return { setup: st.setup, error: st.error, script: have ? 'ready' : st.script, scriptVersion: scriptLib.VERSION, scriptError: st.scriptError,
-            proxy: proxy.listening() ? 'up' : 'down', proxyAddress: PROXY_HOST + ':' + PORT, proxyError: st.proxyError, pages: st.pages, lastPage: st.lastPage,
-            tileOn: tileOn, tileState: st.tileState, tileNote: st.tileNote, tunnels: s.tunnels, opened: s.opened, live: s.live };
+            proxy: proxy.listening() ? 'up' : 'down', proxyAddress: proxyHost() + ':' + PORT, proxyMode: MODE, proxyError: st.proxyError, pages: st.pages, lastPage: st.lastPage,
+            tileOn: tileOn, tileState: st.tileState, tileNote: st.tileNote, tunnels: s.tunnels, opened: s.opened, live: s.live, accepted: s.accepted, refused: s.refused, foreign: s.foreign,
+            watch: { mode: watcher.blind ? 'root' : 'processes', rootChecks: wst.checks, foundInList: wst.seen, foundByBackstop: wst.backstop } };
     }
 
     return {
@@ -261,7 +292,7 @@ module.exports = function (ctx) {
             timer = setInterval(function () { try { tick(); } catch (e) { log('tick: ' + e.message); } }, TICK_MS);
             if (timer.unref) timer.unref();
             if (watchTimer) clearInterval(watchTimer);
-            watchTimer = setInterval(function () { try { watch(); } catch (e) { log('watch: ' + e.message); } }, WATCH_MS);
+            watchTimer = setInterval(function () { try { watch(); } catch (e) { log('watch: ' + e.message); } }, watchLib.SCAN_MS);
             if (watchTimer.unref) watchTimer.unref();
             var ready = readLeaf() && script.load() ? listen().catch(function (e) { log('start: ' + e.message); }) : Promise.resolve();
             ready.then(function () { return tileOn && !(readLeaf() && script.load() && contentThere()) ? prepare().catch(function (e) { log('start: ' + e.message); }) : null; })

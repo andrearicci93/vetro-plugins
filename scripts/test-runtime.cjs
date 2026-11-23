@@ -40,6 +40,13 @@ if (process.argv[2] !== '--plugin') {
         assert(!manifest.ui || typeof instance.route === 'function','UI requires route');
         return Promise.resolve().then(function(){if(instance.start)return instance.start();}).then(function(){
             if(instance.status) JSON.stringify(instance.status());
+        }).then(function(){
+            // A Shard with a Control center card (manifest "controlCenter") answers both methods on an empty config, quickly and without a timer.
+            if(!manifest.controlCenter)return;
+            assert(typeof instance.card==='function'&&typeof instance.cardSelect==='function','controlCenter needs card() and cardSelect()');
+            function within(value,what){return new Promise(function(resolve,reject){var t=timeout(function(){reject(Error(what+' did not answer in 500 ms'));},500);Promise.resolve(value).then(function(v){clearT(t);resolve(v);},function(e){clearT(t);reject(e);});});}
+            return within(instance.card(),'card()').then(function(c){assert(c&&typeof c==='object'&&Array.isArray(c.rows),'card() must return {rows: [...]}');JSON.stringify(c);return within(instance.cardSelect('none'),'cardSelect()');}).then(function(r){JSON.stringify(r===undefined?null:r);});
+        }).then(function(){
             if(!manifest.ui)return;
             return new Promise(function(resolve,reject){
                 var timer=timeout(function(){reject(Error('UI route did not answer'));},500),req=new EventEmitter(),chunks=[];

@@ -18,7 +18,8 @@ Run `npm ci --ignore-scripts`, `npm test`, `npm run check` and
 `npm run test:runtime` before submitting. CI repeats the lifecycle checks on
 Node 4.4.7, 12.4.0 and 20; use only ES5 in Shard files. `start()`/`stop()` must release
 timers and sockets across restarts. Fake TV command responses in smoke tests are
-not proof of working on real hardware: include your model and actual test results.
+not proof of working on real hardware: include your model and actual test results. For a card, say what you saw on the
+Control center itself (Vetro 0.7.0 or later), or say that you did not try it on a TV.
 
 The required `check` must pass and a code owner must approve an ordinary merge.
 Administrators retain their existing explicit bypass; the publishing key must
@@ -32,6 +33,11 @@ never be supplied to PR jobs, a Shard test, or a `pull_request_target` workflow.
 - `permissions` is as small as possible. A Shard that asks for `exec` must say in its README which commands it
   runs and why; a Shard that does not need `exec` must not ask for it.
 - It cleans up in `stop()` (timers, sockets) and keeps its own data in its folder or in `ctx.config`.
+- **A Control center card** (`controlCenter` in the manifest, [guide](docs/writing-a-plugin.md#adding-a-card-to-the-control-center)):
+  the README says what the rows show and what OK on a row does. `card()` only reads and answers inside 3 seconds; `cardSelect(rowId)` acts
+  only on rows that `card()` lists, answers inside 10, and never turns something on or off that the user did not put on the card. A key
+  press on a remote must not open a door or disarm an alarm. Neither method throws on a missing config or an unreachable service: it
+  resolves or rejects with a short message the user can read (`Token refused`). `npm run test:runtime` calls both with an empty config.
 - The `author` is a real GitHub account that can answer questions about the Shard.
 
 This is a spot check by one person, not an audit.

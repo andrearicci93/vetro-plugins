@@ -42,6 +42,33 @@
       "size": 65608
     },
     {
+      "id": "home-assistant",
+      "name": "Home Assistant",
+      "version": "0.1.0",
+      "author": "andrearicci93",
+      "description": "A Home Assistant card in Vetro's Control center for lights, switches, scenes and scripts. Talks only to the Home Assistant address you set (REST API).",
+      "permissions": [],
+      "url": "dist/home-assistant-0.1.0.vplugin",
+      "sha256": "b6cc8eae731a3d2df052ec6c567986f98736e547962125de3a088111fb6fc3d0",
+      "size": 38242,
+      "controlCenter": {
+        "label": "Home Assistant"
+      }
+    },
+    {
+      "id": "keyboard",
+      "name": "Keyboard & Remote",
+      "version": "1.0.0",
+      "author": "abdoghanem2011",
+      "description": "Text input, live 1080p screen preview, and full TV remote. Connects browser to TV port 8002 (WSS) for typing.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/keyboard-1.0.0.vplugin",
+      "sha256": "723fc6ed08eb1e2733775e5b9532dedf9fdd36d43cbacf0b60a3d83848bb9c96",
+      "size": 143549
+    },
+    {
       "id": "nordvpn",
       "name": "NordVPN",
       "version": "1.0.0",
@@ -90,6 +117,17 @@
       "size": 19626
     },
     {
+      "id": "sonos-controller",
+      "name": "Sonos controller",
+      "version": "0.2.4",
+      "author": "genesai",
+      "description": "Remote volume and mute keys control a Sonos room via Vetro's MQTT rules. Uses Sonos on your LAN (port 1400, SSDP) and reads Vetro's settings. No cloud.",
+      "permissions": [],
+      "url": "dist/sonos-controller-0.2.4.vplugin",
+      "sha256": "b37f0c3d90815ad992ae17af6ca600cfd8486a6b6cdc27058f1bf115bb5121d4",
+      "size": 104417
+    },
+    {
       "id": "ssh-server",
       "name": "SSH server",
       "version": "0.3.0",
@@ -101,6 +139,19 @@
       "url": "dist/ssh-server-0.3.0.vplugin",
       "sha256": "fa869b8ae63466a577b78b96fc4b11eee9a655c6ec4891ca7ac26db4cadd8da9",
       "size": 74678
+    },
+    {
+      "id": "tv-reboot",
+      "name": "TV reboot",
+      "version": "1.0.0",
+      "author": "genesai",
+      "description": "A button that restarts the TV. Runs systemctl reboot through the TV agent (needs the exec permission).",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/tv-reboot-1.0.0.vplugin",
+      "sha256": "4677a4ef86416289465ae7eb80fd37478c12b130423c26ed2e530dbccc2853d9",
+      "size": 9105
     },
     {
       "id": "tv-uptime",
@@ -118,15 +169,15 @@
     {
       "id": "youtube",
       "name": "Ad-free YouTube",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": "andrearicci93",
       "description": "Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube). Local proxy; fetches one pinned script from cdn.jsdelivr.net.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/youtube-0.4.0.vplugin",
-      "sha256": "1e21d1b479312671f7451db84a6843f10cde32c238d0ffcee85f4985f723048f",
-      "size": 77740,
+      "url": "dist/youtube-0.4.1.vplugin",
+      "sha256": "ccbf4fb3bfb4f025682b197db734d6f7a8965ec4bb71d7a743ed1564f1018389",
+      "size": 92998,
       "intercepts": [
         {
           "appId": "com.samsung.tv.cobalt-yt",
