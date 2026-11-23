@@ -88,6 +88,18 @@
       "signature": "D4rdozAdMoc+AsEMagxJuBERVRu8Vy7xg3ZJjKFbj9eufabs9XJSm+VUTPjGUBCotcBT+VaiPkhhcSQ2r2sUUp9i2JC8HJzZcLiKr++Ped9fGySMpmj2ThrFfQspNIbN899Bq7OlFM3i+uvKKAPvImLsvD46yqDN+5X6S9H0e+Cc9HdLso6ZoZ8GbS033G9IUaIuoTre50l/7AYY/GdHgumbMBP3g5lnRvBIW4pb6xXM++OYqR+DNQHC9QiukzL47xs90ANrfrfzWHZWLjAnDoAYdzE4uxv64NdEEYRYomELT1sOQCXTyxKDnkcnMc3KlJlDLWgz85pg6oj7+DkZusenmKgJ920xoZT7Hcjpk0p+iHyGVaznyGb95G1J+IcQLj0vFOHtLK8DfP60dVauiIw9oI9c4CpuZUxz85Z7cl3MnmqrYX5/1btL4iTWud04/EL/MjXc8k3RWvnVMulbw64HJhEyAb3wbiLA9RCBxXkTm/6uHavb5fqckJ2nDwC3"
     },
     {
+      "id": "notification-center",
+      "name": "Notification Center",
+      "version": "0.3.1",
+      "author": "mclaudiopt",
+      "description": "Show LAN notifications as native TV banners via a companion app. Talks to Vetro on 127.0.0.1:8099 and fetches a sender's image/wallpaper URL only if sent.",
+      "permissions": [],
+      "url": "dist/notification-center-0.3.1.vplugin",
+      "sha256": "4cce53854f29c856523c39c4309f2dbd80c6f5b62fdf8c01a9aa61676d47ee11",
+      "size": 333147,
+      "signature": "BVKVC+XaJkPWOeFK6a5ovdv5Oh3vDcHSxngqAWTIXNvgBRdUpMaCB5REuuHYQ6ck1K6zt4v5XFi6C0v5VQVAwk+ou87kiT59sOZSvb+QnH4nOijq3i8zHXECT538kxG8g1jW/2ysjFe/GgREHokpDPY/93YV2DbcKgo3CzmdTiS+NuQFAimZEdKccWq/E4IYMMQcQmZalLUKtDPXB1SKiTdw+5VcLK2/ItCCriw7BygURx3AbCV6VrNWwBFAULr0lwZIBhqX/lGS8zONId/ODx0/l0ghOsQboCrQXecs/wl7lRmcgnkAofHhXCmxK1nAqemIv9EytpO4MveaGsmXIiOwELw7MHlpmS3hx7FcqFKZhjhE5bNDf+gp2IhaKEno9TvXtMP8jFhfeoIP6+y1tKGWFI2JgTYI75b8lVaRhjig1nMQFpFyRZNnXHKAvgreS/kav7HjeAYcY+Haojd4YcOM4xXfyXKEbov8e0NSum/PMAIFJMm/8LOR+wLCVhiC"
+    },
+    {
       "id": "prometheus",
       "name": "Prometheus exporter",
       "version": "1.0.0",
