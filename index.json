@@ -60,6 +60,20 @@
       "signature": "qGdYZLPhvV99mSA4iE2DwJQZMEcgLuByPFufxN1OntVJRpR6ALExhYcvMXQh+Z8i81dXv8mS/1SGVhEdF9f+1F63JN4RqZOmdQlsYG3YxvT60f+81cH76WRBjtDep3mhQ4Th5IS9FEgotP4HRmKW+KRPlFn7GDl1P3fcwCyZpTr3QUw0LNLH37lo/omuYJ6WxDz9Yc5xEgez4BWBu9riZUXqcG65o0S1CHDXEmU4VKCoGzMQp0cPHW+7L3WVmKTqWPg6JgNaKUdamEL8QbIvfhBt6VeoSn3o1BgWgUOARK6r6FZh7YvemBOBfGdwaRwXtpEyU5c5usZiHq3igeisVGlLL3DGm+OJsNEd0SRDdzUvHWvAccwGAEwaZsUyp6lUIBcoH8gH4QaifOiQypIKJIeM9MauhyjheDntGU7oSGiwoqPlTjvNRnCb/hJtyRS6fbS2Q2VqSGbHxLe06GgLG7oaZ3eQksYo+rDhqY7GA6Z4VqCTFYKP8+kHPlFGhJUF"
     },
     {
+      "id": "keyboard",
+      "name": "Keyboard & Remote",
+      "version": "1.0.0",
+      "author": "abdoghanem2011",
+      "description": "Text input, live 1080p screen preview, and full TV remote. Connects browser to TV port 8002 (WSS) for typing.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/keyboard-1.0.0.vplugin",
+      "sha256": "723fc6ed08eb1e2733775e5b9532dedf9fdd36d43cbacf0b60a3d83848bb9c96",
+      "size": 143549,
+      "signature": "JQpfr3z5fE1PivSzbhEihHnL6K+jURSL6IPxW8pW8A0c/4tBjS2llBgvKjhZpqz90ym/xF3LTMpB3Cwyc8ckMY0B/FAu4n8+uX3oKqS4+Z+/qVQ7EKHfmyZHzsFWg3x8oM8nyx6A2r1Qia2vhXm4n8k96VG0OMv2Id3UTtCWDKsYMVFCW5Jasj2ec7Hi5H7dvjyirKRJIMkdgPye/YGuXAg4dGKPyPhzQp2gwHHWjQL3A63Xphme0lu7u9PIuXxFBUJeFl6YgqXkxX3sCiydSHo2sBybQiw4qL2yy2GULFVzCNZVl9SCptXJFjMY58RrWQYK5/WkeXkeXWhsw8kWpHLE5TU1faReHXQbxBqB8yiOSHX7EkH/xYyEiN1lwuGydw+aXdZMAyHShLqiSrxKmNcVgX+b899VlTdZBesG4BKH2QxJTR+p9tPVg8ySvGlmZtstyM6mg5rrNuqcnQrI6n3D2OR65s1Tp9CSh8nTDEvF8K59/Nl4CdYcHQ5hS/VZ"
+    },
+    {
       "id": "nordvpn",
       "name": "NordVPN",
       "version": "1.0.0",
