@@ -74,20 +74,6 @@
       "signature": "eQ8hTli1Bu12hOhdzy7DG/jPquWxD1uUdljlTBaeD6gT5lkMjFrSeonMWHmYH5Q7bzhm15egdoqgd2wkZE4KspiM6Rz6N3dEc35iNKIbyzJ+U97wwMx374V46c9R7UALFcxn7CxpZC4lpPkdjJBSnIKhCnONrJRoXWDbHo0/+NALucxV5G4Y1PJRRgJGJZN049/XO2m7SMjgKyzpDFLNOYG2LjQxG8A4pKewXoiGy2P3v0IwJIF8yptSzv6hLNNA/HuP1/CGhIYWsPcqApvC4TZVcHaXBgZaf8mlfkG67oUSYxnoC+qiiOXUICPDGrmypQk/SzQS9C5nHPOhNVqS83hNa23A1S/0Et3pgFILM6KMD2EsBkk/Y4HMlFRw7v65ZC0Z6hSiQgAMsaqWJNCdijd2z2dz9ikozEv22lGJ2Qs+3+Y7RFPYSP9FZdjOExzaqxoRROkbmJws7qN42+nN4wFesIisbwCbPVEByoZoOlKA2j4nHlW5aYB5sLq5sb0N"
     },
     {
-      "id": "nordvpn",
-      "name": "NordVPN",
-      "version": "1.0.0",
-      "author": "piecifra",
-      "description": "NordVPN (NordLynx/WireGuard) on the TV: country, kill switch, reconnect. Talks to api.nordvpn.com, NordVPN servers and GitHub (its binary).",
-      "permissions": [
-        "exec"
-      ],
-      "url": "dist/nordvpn-1.0.0.vplugin",
-      "sha256": "71ebdbc70c9070e0c4c658f43492151903c52f96d927a02b629b6c15654797aa",
-      "size": 62170,
-      "signature": "D4rdozAdMoc+AsEMagxJuBERVRu8Vy7xg3ZJjKFbj9eufabs9XJSm+VUTPjGUBCotcBT+VaiPkhhcSQ2r2sUUp9i2JC8HJzZcLiKr++Ped9fGySMpmj2ThrFfQspNIbN899Bq7OlFM3i+uvKKAPvImLsvD46yqDN+5X6S9H0e+Cc9HdLso6ZoZ8GbS033G9IUaIuoTre50l/7AYY/GdHgumbMBP3g5lnRvBIW4pb6xXM++OYqR+DNQHC9QiukzL47xs90ANrfrfzWHZWLjAnDoAYdzE4uxv64NdEEYRYomELT1sOQCXTyxKDnkcnMc3KlJlDLWgz85pg6oj7+DkZusenmKgJ920xoZT7Hcjpk0p+iHyGVaznyGb95G1J+IcQLj0vFOHtLK8DfP60dVauiIw9oI9c4CpuZUxz85Z7cl3MnmqrYX5/1btL4iTWud04/EL/MjXc8k3RWvnVMulbw64HJhEyAb3wbiLA9RCBxXkTm/6uHavb5fqckJ2nDwC3"
-    },
-    {
       "id": "notification-center",
       "name": "Notification Center",
       "version": "0.3.1",
@@ -178,6 +164,20 @@
       "sha256": "246cd51dc9281d63cf75b40803453417608c456fbd439c92daf36d36d54dcecf",
       "size": 2885,
       "signature": "LXJQOg44GjSl5pHtKHSBnNRu5a4QGHlJR0Jpt71JBaZShBQ4bxuGgFp5k94WKpEPsmodwolrORqatTugnkzqGl9D8efC/4cX8kd6klWN1colYBMFaXxaSNI3ugBH6/fF0HykSHVFy45gyZXnoYcKQ3cU0AgODJHY4XY1dNIbe9WLNTb0JNwPb/NKgZZLYGIWEPn4MckBwiM3bzZyeKJKzbqFJfhpWMoO9WcAyMK3lPXklNjLlC1gkzgAvAIK4vZ4Bm4D+Qew5yW7OJ+zCluxvLPgIqtq/7RJP3jIwsO41Tniq8VjBinc2C3adg5AoooByghUHkST/g7YRN2x9zRgMev7jq+8wYmGL7s844OX7ka4prhAPOGAzriDXRvMX9/OnEl4j/bntFnrpdKhdPMvRprEbNoo7tzRmn8sF7yXr3KXMCRpXkWBPa0jtpNXxt+zmyPZW/tVwoAY2XRjtP5IJLHW0ZbnHSltd7FKqxlD6COKHKj2smOr31IP+N5oVhIy"
+    },
+    {
+      "id": "vpn",
+      "name": "VPN",
+      "version": "1.1.0",
+      "author": "piecifra",
+      "description": "WireGuard VPN on the TV: NordVPN, or your own configs from any provider or server. Kill switch, split tunnel. Talks to api.nordvpn.com, your VPN and GitHub.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/vpn-1.1.0.vplugin",
+      "sha256": "c0c51fe19c3de0762ea7ca9919e969f9745b65326ac36f21993ed0418a128984",
+      "size": 127458,
+      "signature": "PorlA9kFDIfUymhgdDDfE1umHqe5fgVK+k7dE7ZD2vsL4MTlV2TlyfLpajexLExutdusxJdWSSkvwouflR0jMkRJu+LNqDjYqke/+HZ0b4JIFm581MfPxVqIipdWtBJZUqVeeIU8WvAmg5FfyUdyHFf7MogaqqjzWSROMs1rNNZ/151mGxajWuxGZN22LKu4uzyU9ett83f7PAGEA8VrKX5iZ7YISov6eZom1PsEKAByyjYwjAnC2BVMQpYTdoDJYiFbAbswbbNKkCj9/9grUQEMnUJqFpW8wRXjlXd+psCFBUW/ATigyj4MrQNWY6QekdyPQhugnaus3Jg01OtRiTXxYcz44tQgVZ+nX4IsgyjF2fIeaZnKQjKCSZqETDVyIkIH2Fa9pRu06ipWYsTv1tbYI1vWzLmBBS9gTpr5yLsT7Bl5ecz2d4pYF4LIIqO4INd5EWEnMGVIMCsFX1SPXCzmy3Bo8s4rJGSJGH+RRMuWXtNuJxHGAvuwFY7Su8We"
     },
     {
       "id": "youtube",
