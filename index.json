@@ -114,14 +114,14 @@
     {
       "id": "sonos-controller",
       "name": "Sonos controller",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "author": "genesai",
       "description": "Remote volume and mute keys control a Sonos room via Vetro's MQTT rules. Uses Sonos on your LAN (port 1400, SSDP) and reads Vetro's settings. No cloud.",
       "permissions": [],
-      "url": "dist/sonos-controller-0.2.4.vplugin",
-      "sha256": "b37f0c3d90815ad992ae17af6ca600cfd8486a6b6cdc27058f1bf115bb5121d4",
-      "size": 104417,
-      "signature": "lEwTAWAy3UEx1jPdmjY44e+Og2A2G23+Of7/jQ5QkrsELnN7F5df1+cW/eh6aBP/1fpYfCYiKdRIu1YQXF79PN6J3tX0WMryHcDRtxE1ZRAwMMUC19SBFHT5HvnyrKeDBcUeEp3XYD3XKgmF9ecMvONZEbXu8YQ7Byf7vQ8DLl2J/+fTdTl//o95zKAwZQ2xyjzgz9vD/VhPQPtjiV2UoHEbUeQgUzs7Fc4XHF3iUrnbroUUD5fN5k4QpQEd9Y1dil/MNlcW3IRbPU0FoCejRsnoPDMUYpAufHBeU/eb4UrRvS/MESzOR0o66SdY5Bo5aDPcgrOJtDwAO3Q/hL6yU2REPQhjBRruRvK9xs1gxR8K/MYFiutgejMKEJxA+VzRBcfa9hDNpg3JUWw/H7bMUGjlTQ+Rby3JUoLj6rnuDgn3CQyS+XB+V0Wqfg4P8Z5txYq1XLPYI4toa/oSEqaABcf+G/c5edjru3Cs8rPn5PfdN7J7Ddrw5O18OEBkJ6N4"
+      "url": "dist/sonos-controller-0.2.5.vplugin",
+      "sha256": "74e5bb6deb20b283e5268bbfdcfaf37c5152f1be24a2f8d70ca80740db413977",
+      "size": 121787,
+      "signature": "KTXt1DixDUddDNcbcfgLPpuVd1rNAoYmuPlcuHRjfTYr0Qoopdo5Dy2iz4vHgjYELsYja010mLfv3ymkx4qdatISZCj5DpoEX+1J/eEDXLBHpBifsvWISrhwTZSa/iXP3As0qPPoAtA+PI26IandygkGEOZZh6X9br/Fbs7Ve5jYeIgu/Sps0xHnmznr9Nv0JefDVB168vua4sP+XKIiV4yRf3Nnmo7JvbRLSxWxZhK58MFXCtEL5+Kh5UWdh9OzoyUI7raTdMVf67I1k/by/vSsVj4Diw3m3XK9+IpM/kcI0Wh27ciCmtIqVsfrsZtCXbJcm6LW914FNd3r8NV/H/tbQcdrRF06O7FOOkYJmS1YYjS8XSbAecBjlY6+srxFnnFZr6H+sdtP5Jv12m35Ftde2Yhe41TpD3kUCRFM+UZ0xXT/WYR7516oejJNgI0eCIVHJZVq6XburMhp11njZw25iq2kdG1Xz2zotzUYOatKyEtPq2bmPiQoXdXKY62M"
     },
     {
       "id": "ssh-server",
