@@ -62,16 +62,16 @@
     {
       "id": "keyboard",
       "name": "Keyboard & Remote",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "abdoghanem2011",
-      "description": "Text input, live 1080p screen preview, and full TV remote. Connects browser to TV port 8002 (WSS) for typing.",
+      "description": "Text input, live MJPEG/1080p screen preview, and full TV remote. Connects browser to TV port 8002 (WSS); streams via 127.0.0.1.",
       "permissions": [
         "exec"
       ],
-      "url": "dist/keyboard-1.0.0.vplugin",
-      "sha256": "723fc6ed08eb1e2733775e5b9532dedf9fdd36d43cbacf0b60a3d83848bb9c96",
-      "size": 143549,
-      "signature": "JQpfr3z5fE1PivSzbhEihHnL6K+jURSL6IPxW8pW8A0c/4tBjS2llBgvKjhZpqz90ym/xF3LTMpB3Cwyc8ckMY0B/FAu4n8+uX3oKqS4+Z+/qVQ7EKHfmyZHzsFWg3x8oM8nyx6A2r1Qia2vhXm4n8k96VG0OMv2Id3UTtCWDKsYMVFCW5Jasj2ec7Hi5H7dvjyirKRJIMkdgPye/YGuXAg4dGKPyPhzQp2gwHHWjQL3A63Xphme0lu7u9PIuXxFBUJeFl6YgqXkxX3sCiydSHo2sBybQiw4qL2yy2GULFVzCNZVl9SCptXJFjMY58RrWQYK5/WkeXkeXWhsw8kWpHLE5TU1faReHXQbxBqB8yiOSHX7EkH/xYyEiN1lwuGydw+aXdZMAyHShLqiSrxKmNcVgX+b899VlTdZBesG4BKH2QxJTR+p9tPVg8ySvGlmZtstyM6mg5rrNuqcnQrI6n3D2OR65s1Tp9CSh8nTDEvF8K59/Nl4CdYcHQ5hS/VZ"
+      "url": "dist/keyboard-1.1.0.vplugin",
+      "sha256": "7146f1297f23e0ab56ef9d158c4a73051fa9f0dfdd899640c179fa39f5ceb8c5",
+      "size": 195944,
+      "signature": "eQ8hTli1Bu12hOhdzy7DG/jPquWxD1uUdljlTBaeD6gT5lkMjFrSeonMWHmYH5Q7bzhm15egdoqgd2wkZE4KspiM6Rz6N3dEc35iNKIbyzJ+U97wwMx374V46c9R7UALFcxn7CxpZC4lpPkdjJBSnIKhCnONrJRoXWDbHo0/+NALucxV5G4Y1PJRRgJGJZN049/XO2m7SMjgKyzpDFLNOYG2LjQxG8A4pKewXoiGy2P3v0IwJIF8yptSzv6hLNNA/HuP1/CGhIYWsPcqApvC4TZVcHaXBgZaf8mlfkG67oUSYxnoC+qiiOXUICPDGrmypQk/SzQS9C5nHPOhNVqS83hNa23A1S/0Et3pgFILM6KMD2EsBkk/Y4HMlFRw7v65ZC0Z6hSiQgAMsaqWJNCdijd2z2dz9ikozEv22lGJ2Qs+3+Y7RFPYSP9FZdjOExzaqxoRROkbmJws7qN42+nN4wFesIisbwCbPVEByoZoOlKA2j4nHlW5aYB5sLq5sb0N"
     },
     {
       "id": "nordvpn",
