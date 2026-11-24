@@ -91,17 +91,17 @@ test('every command ever run has exactly the fixed shape, whatever the request s
     for (const c of commands) assert.match(c, SHAPE);
 }));
 
-test('the volume is clamped to 10-100 and defaults to 100', () => withShard(async (s, commands) => {
+test('the volume is clamped to 10-100 (below 10 is the quietest) and defaults to 100 only when missing or not a number', () => withShard(async (s, commands) => {
     for (const volume of [500, 3, {toString: 1}, 50]) await call(s, 'POST', 'notify', {message: 'v' + String(Math.random()), sound: 'chime', volume});
     await wait(80);
-    assert.deepEqual(commands.map(c => Number(/--volume=(\d+)/.exec(c)[1])), [vol(100), vol(100), vol(100), vol(50)]);
+    assert.deepEqual(commands.map(c => Number(/--volume=(\d+)/.exec(c)[1])), [vol(100), vol(10), vol(100), vol(50)]);
 }));
 
 test('the sound volume is a setting, 10-100 %, default 100, and scales every sound', () => withShard(async (s, commands) => {
     assert.equal((await call(s, 'GET', 'settings')).json.settings.soundVolume, 100);
     assert.equal((await call(s, 'POST', 'settings', {soundVolume: 40})).json.settings.soundVolume, 40);
     assert.equal((await call(s, 'POST', 'settings', {soundVolume: 1000})).json.settings.soundVolume, 100);
-    assert.equal((await call(s, 'POST', 'settings', {soundVolume: 3})).json.settings.soundVolume, 100, 'below 10 is not a valid volume: the current one is kept');
+    assert.equal((await call(s, 'POST', 'settings', {soundVolume: 3})).json.settings.soundVolume, 10, 'below 10 is raised to 10, never to the maximum');
     await call(s, 'POST', 'settings', {soundVolume: 50});
     assert.equal((await call(s, 'POST', 'settings', {soundVolume: 'x'})).json.settings.soundVolume, 50, 'an invalid value keeps the current one');
     assert.equal((await call(s, 'POST', 'settings', {strict: false})).json.settings.soundVolume, 50, 'other settings keep it');

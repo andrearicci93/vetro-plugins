@@ -28,7 +28,7 @@ var SOUND_DIR = '/usr/share/feedback/sound/operation/', SOUND_GAP_MS = 800;
 var SOUND_BOOST = 3;
 // The sound waits for the banner: Vetro needs a few seconds to start the banner service, which then records the id in this file (see app/service.js).
 // If the id never shows up there, the sound plays after SOUND_WAIT_MS anyway.
-var SEEN_FILE = '/tmp/notification-center-seen.json', SOUND_WAIT_MS = 10000, SOUND_POLL_MS = 50;
+var SEEN_FILE = '/tmp/notification-center-seen.json', SOUND_WAIT_MS = 10000, SOUND_POLL_MS = 50, MAX_WAITING_SOUNDS = 8;   // at most 8 sounds wait for their banner at once; more are skipped
 // The TV's system sounds a request can choose (the names are the closed list in rules.js).
 var SOUND_FILES = { chime: 'normal_noti.wav', soft: 'select.wav', reward: 'vi_reward.wav', success: 'vi_success.wav', alert: 'vi_fail.wav', rotation: 'p_rotation_fail.wav', open: 'home_open.wav', poweron: 'power_on.wav' };
 var MAX_TITLE = 40, MAX_MESSAGE = 200, MAX_QUEUE = 5, MAX_RECENT = 20, MAX_BODY = 8192, MAX_ICON = 16;
@@ -118,7 +118,7 @@ module.exports = function (ctx) {
             keys.sort(function (x, y) { return groups[x].at - groups[y].at; }).slice(0, keys.length - MAX_GROUPS).forEach(function (k) { delete groups[k]; });
         }
     }
-    function soundVolume(v) { var n = num(v); return n >= 10 ? (n > 100 ? 100 : n) : 0; }
+    function soundVolume(v) { return rules.clampVolume(v); }
     function settingsNow() { return rules.sanitizeSettings(cfgGet().settings, {}); }
     function clean(text, max) {
         return str(text).replace(/[\x00-\x1f]/g, ' ').slice(0, max).trim();
@@ -263,6 +263,7 @@ module.exports = function (ctx) {
     // Testing tab); if the banner service did record the id in the file the Shard can read (other TVs), the sound starts as soon as it is seen.
     // Full and both: the sound plays when the app screen asks for the queue. open:false notifications (never shown) play at once.
     function scheduleSound(note) {
+        if (Object.keys(waitingSounds).length >= MAX_WAITING_SOUNDS) { return false; }
         var entry = { timer: null, done: false, fired: false }, started = Date.now();
         var fireAt = started + Math.min(settingsNow().soundDelayMs, soundWaitMs);
         var trace = { id: note.id, mode: note.mode, plannedMs: fireAt - started, startedMs: null, seenMs: null };
@@ -283,6 +284,7 @@ module.exports = function (ctx) {
             entry.timer = setTimeout(tick, SOUND_POLL_MS);
         }
         entry.timer = setTimeout(tick, SOUND_POLL_MS);
+        return true;
     }
     function cancelSounds() { Object.keys(waitingSounds).forEach(function (id) { var e = waitingSounds[id]; e.done = true; clearTimeout(e.timer); }); waitingSounds = {}; }
     function soundAvailable() { return typeof ctx.execute === 'function'; }
@@ -576,7 +578,7 @@ module.exports = function (ctx) {
             // The sound is asked for only now: not for a notification held back by quiet hours or merged as a repeat.
             var soundState = 'none';
             if (note.sound) {
-                if (b.open === false || soundWaitMs <= 0) { soundState = playSound(note.sound, note.volume); } else { scheduleSound(note); soundState = 'requested'; }
+                if (b.open === false || soundWaitMs <= 0) { soundState = playSound(note.sound, note.volume); } else { soundState = scheduleSound(note) ? 'requested' : 'skipped'; }
             }
             sendJson(res, 200, { ok: true, id: note.id, open: opened, sound: soundState });
         }

@@ -24,6 +24,11 @@ function num(v) {
     if (t === 'number') { return v === v && v !== Infinity && v !== -Infinity ? Math.floor(v) : NaN; }
     return t === 'string' ? parseInt(v, 10) : NaN;
 }
+// A volume from the outside: a number (or numeric text) is clamped to 10-100, so `volume: 0` or `5` means "as quiet as allowed", never "full".
+// Missing, empty or not a number means "not given" (0), and the default (100) applies later.
+function clampVolume(v) { var n = num(v); if (n !== n) { return 0; } return n < 10 ? 10 : (n > 100 ? 100 : n); }
+// The default volume stored for a source or a webhook: the same, except that 0 or empty clears it.
+function storedVolume(v) { var n = num(v); return n === 0 || n !== n ? 0 : clampVolume(n); }
 function has(o, k) { return o !== null && typeof o === 'object' && typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k); }
 function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
 
@@ -61,7 +66,7 @@ function sanitizeProfile(p, cleanIcon, old) {
         duration: has(p, 'duration') ? clampInt(p.duration, 1, 60, 0) : (old.duration || 0),
         rate: has(p, 'rate') ? clampInt(p.rate, 0, MAX_RATE, 0) : (old.rate || 0),
         sound: has(p, 'sound') ? (has(SOUNDS, p.sound) ? p.sound : '') : (old.sound || ''),
-        volume: has(p, 'volume') ? clampInt(p.volume, 10, 100, 0) : (old.volume || 0),
+        volume: has(p, 'volume') ? storedVolume(p.volume) : (old.volume || 0),
         key: old.key || ''
     };
     if (has(p, 'key')) {
@@ -116,7 +121,7 @@ function sanitizeSettings(s, old) {
         quiet: { enabled: has(q, 'enabled') ? q.enabled === true : oq.enabled === true, from: from, to: to, allow: allow },
         groupSeconds: has(s, 'groupSeconds') ? clampInt(s.groupSeconds, 0, 3600, 0) : (has(old, 'groupSeconds') ? old.groupSeconds : 60),
         strict: has(s, 'strict') ? s.strict === true : old.strict === true,
-        soundVolume: has(s, 'soundVolume') ? clampInt(s.soundVolume, 10, 100, has(old, 'soundVolume') ? clampInt(old.soundVolume, 10, 100, 100) : 100) : (has(old, 'soundVolume') ? clampInt(old.soundVolume, 10, 100, 100) : 100),
+        soundVolume: has(s, 'soundVolume') && !isNaN(num(s.soundVolume)) ? clampVolume(s.soundVolume) : (has(old, 'soundVolume') ? clampInt(old.soundVolume, 10, 100, 100) : 100),
         soundDelayMs: has(s, 'soundDelayMs') ? clampInt(s.soundDelayMs, 0, 10000, has(old, 'soundDelayMs') ? clampInt(old.soundDelayMs, 0, 10000, 3000) : 3000) : (has(old, 'soundDelayMs') ? clampInt(old.soundDelayMs, 0, 10000, 3000) : 3000)
     };
 }
@@ -152,7 +157,7 @@ function sanitizeHook(h) {
     return {
         title: t(h.title), message: t(h.message), level: t(h.level, 40), icon: t(h.icon, 40),
         mode: has(MODES, h.mode) ? h.mode : '', duration: clampInt(h.duration, 1, 60, 0), source: cleanSource(h.source),
-        sound: has(SOUNDS, h.sound) ? h.sound : '', volume: clampInt(h.volume, 10, 100, 0)
+        sound: has(SOUNDS, h.sound) ? h.sound : '', volume: storedVolume(h.volume)
     };
 }
 // Builds the notify body from a hook definition and the posted data.
@@ -168,6 +173,7 @@ function buildFromHook(hook, data) {
 }
 
 module.exports = {
+    clampVolume: clampVolume, storedVolume: storedVolume,
     LEVEL_RANK: LEVEL_RANK, LEVELS: LEVELS, MODES: MODES, SOUNDS: SOUNDS, MAX_SOURCES: MAX_SOURCES, MAX_HOOKS: MAX_HOOKS, MAX_TEMPLATE: MAX_TEMPLATE, MAX_RATE: MAX_RATE,
     str: str, num: num, has: has, isObj: isObj,
     cleanSource: cleanSource, cleanHookName: cleanHookName, sameKey: sameKey, KEY_RE: KEY_RE,
