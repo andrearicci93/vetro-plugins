@@ -114,14 +114,17 @@
     {
       "id": "sonos-controller",
       "name": "Sonos controller",
-      "version": "0.2.5",
+      "version": "0.3.1",
       "author": "genesai",
-      "description": "Remote volume and mute keys control a Sonos room via Vetro's MQTT rules. Uses Sonos on your LAN (port 1400, SSDP) and reads Vetro's settings. No cloud.",
+      "description": "Remote volume and mute keys control Sonos via Vetro's MQTT rules, plus a Control center card for rooms. LAN only (port 1400, SSDP); reads Vetro's settings.",
       "permissions": [],
-      "url": "dist/sonos-controller-0.2.5.vplugin",
-      "sha256": "74e5bb6deb20b283e5268bbfdcfaf37c5152f1be24a2f8d70ca80740db413977",
-      "size": 121787,
-      "signature": "KTXt1DixDUddDNcbcfgLPpuVd1rNAoYmuPlcuHRjfTYr0Qoopdo5Dy2iz4vHgjYELsYja010mLfv3ymkx4qdatISZCj5DpoEX+1J/eEDXLBHpBifsvWISrhwTZSa/iXP3As0qPPoAtA+PI26IandygkGEOZZh6X9br/Fbs7Ve5jYeIgu/Sps0xHnmznr9Nv0JefDVB168vua4sP+XKIiV4yRf3Nnmo7JvbRLSxWxZhK58MFXCtEL5+Kh5UWdh9OzoyUI7raTdMVf67I1k/by/vSsVj4Diw3m3XK9+IpM/kcI0Wh27ciCmtIqVsfrsZtCXbJcm6LW914FNd3r8NV/H/tbQcdrRF06O7FOOkYJmS1YYjS8XSbAecBjlY6+srxFnnFZr6H+sdtP5Jv12m35Ftde2Yhe41TpD3kUCRFM+UZ0xXT/WYR7516oejJNgI0eCIVHJZVq6XburMhp11njZw25iq2kdG1Xz2zotzUYOatKyEtPq2bmPiQoXdXKY62M"
+      "url": "dist/sonos-controller-0.3.1.vplugin",
+      "sha256": "b7c5e5f95b255630b17d17d768e9e3e2b94ce0246ba7316879d5686900c127b8",
+      "size": 170156,
+      "controlCenter": {
+        "label": "Sonos"
+      },
+      "signature": "c8e0XoMB+IExl5qULuHLU7BoSrGL2MFXOgRrFBulBz9OD9SpFHkNrkgacJqKsgESpejAY2GyBi+xtb6Y+jg0ZC4h9tIExVz+99COLVBRsoJqK9kJUohlxO1Kv5deJa/gjikC6RvRkEJk4iN5mo/1jyfETAfwUAhTeSRtAdOq+Ec8lTi0UU+PsfWG//xNrgJjIEpSMUpsuS+FxEQkU881ezm3s+m5A51rp6mzDpPeQF7kZfovq6Z2g9za3kzHnX/MvVqPGENJt1CljcIwP3NwbfgkuLn+LfUBOcyzFEq5GXggWR/x2H6ewjJQLxbQbaqcIeLhZmnJxCIgzS5v6RuIBRxNRmuPtwL5Ot+BynWNefjdZUCes/BOtyS4Te3JeqosSNLTlmMjhb7NZRJcj222iJaVLXAXXAXnyMIEdEWEILhPFChPfrauL+q+daRg/nplVfWDf0zjkTXOHrZ+4Fi6NrZYzIhJAGgq8jzgVTHctJUGcK6XyFYRnncn0ridN3x/"
     },
     {
       "id": "ssh-server",
