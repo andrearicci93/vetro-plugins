@@ -169,6 +169,20 @@
       "signature": "LXJQOg44GjSl5pHtKHSBnNRu5a4QGHlJR0Jpt71JBaZShBQ4bxuGgFp5k94WKpEPsmodwolrORqatTugnkzqGl9D8efC/4cX8kd6klWN1colYBMFaXxaSNI3ugBH6/fF0HykSHVFy45gyZXnoYcKQ3cU0AgODJHY4XY1dNIbe9WLNTb0JNwPb/NKgZZLYGIWEPn4MckBwiM3bzZyeKJKzbqFJfhpWMoO9WcAyMK3lPXklNjLlC1gkzgAvAIK4vZ4Bm4D+Qew5yW7OJ+zCluxvLPgIqtq/7RJP3jIwsO41Tniq8VjBinc2C3adg5AoooByghUHkST/g7YRN2x9zRgMev7jq+8wYmGL7s844OX7ka4prhAPOGAzriDXRvMX9/OnEl4j/bntFnrpdKhdPMvRprEbNoo7tzRmn8sF7yXr3KXMCRpXkWBPa0jtpNXxt+zmyPZW/tVwoAY2XRjtP5IJLHW0ZbnHSltd7FKqxlD6COKHKj2smOr31IP+N5oVhIy"
     },
     {
+      "id": "usb-ethernet",
+      "name": "USB Ethernet",
+      "version": "1.1.0",
+      "author": "andrearicci93",
+      "description": "Gives a USB Ethernet adapter (Realtek RTL8152/8153/8156 and branded ones) a driver and makes it the TV's wired connection after each restart. No network use.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/usb-ethernet-1.1.0.vplugin",
+      "sha256": "7563007c1d3a21a4579a73639f0776864d6f9affce3fcb2a81ff48634a91045c",
+      "size": 37774,
+      "signature": "oaT37wfzFR5MJQORxan/0qJkFQOMjrwAyyvEoRsYYdEMMjZPuIjuSfSOg/ZmM+q/wkqC1Oj93EJTPUMe3On7N8jwib0oz3tuvmGRodEh1izsAz8l0Ts/Bo5HE4Px1M9IYGf0NqQqq60uiOgCikq0F8rwMRWMJruLZ+SxYgtjAwS/LEvaH4WzFDgC279KUi7TQCd9+oit3RwBacXK7TBkCG0ZmcYQKkjdaN7KzP2CSYkRuIdY9nLnGWaJI97vzwfb7DWt1eJEbV/wd2YWsxmCd8eo756/iQgkYTIfRqsFFzFW1Q4tm6HQ9liD1LHWcnB7LhZ1HnDAsQgknHXsnpkUw4RXZyFjer0WbQjnfkX/BS3862HzI2kMoo2L2BjfYm/Yxf01sqypduFGbH9jfZjTtN8C/2wGhPmmx/Ugb4r8AQtO2VR2GxukWj9sUQRX5KTIs4I53uMteJM9ITVBlexW2mHW1jKt9/U7W7oT5RyACB2IWnkr7jpzimlT2+/fLpwx"
+    },
+    {
       "id": "vpn",
       "name": "VPN",
       "version": "1.1.1",
