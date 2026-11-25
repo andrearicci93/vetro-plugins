@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>TV alerts</title>
+<style>
+:root {
+  --bg:#12151b; --surface:#1b1f27; --raised:#242b38; --border:#2b3140;
+  --text:#e8ecf3; --muted:#9aa4b5; --action:#4c8dff; --focus:#8fbaff;
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  --radius:12px; --radius-control:9px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  /* aliases kept so the rest of the stylesheet does not need a rewrite */
+  --card:var(--surface); --line:var(--border); --fg:var(--text); --dim:var(--muted); --accent:var(--action);
+}
+@media (prefers-color-scheme:light) {
+  :root {
+    --bg:#f3f6fc; --surface:#fff; --raised:#eef2fa; --border:#d5ddeb;
+    --text:#0b1530; --muted:#4d5b78; --action:#123bb5; --focus:#0450ef;
+    --ok:#137a4b; --warn:#8a5a00; --bad:#b3261e;
+  }
+}
+* { box-sizing:border-box; }
+body { margin:0 auto; max-width:1040px; padding:20px 16px 40px; background:var(--bg); color:var(--text); font:14px/1.45 var(--font); }
+:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+[hidden] { display:none !important; }
+.head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.logo { width:34px; height:34px; border-radius:9px; background:var(--card); display:flex; align-items:center; justify-content:center; font-size:19px; }
+h1 { font-size:19px; margin:0; flex:1; font-weight:600; }
+.ver { font-size:12px; font-weight:600; color:var(--dim); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:2px 8px; }
+.lang button { background:var(--card); color:var(--dim); border:1px solid var(--line); border-radius:8px; padding:5px 9px; margin-left:5px; cursor:pointer; font-size:12px; }
+.lang button.on { color:#fff; border-color:var(--accent); }
+.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; z-index:10; background:var(--bg); padding:6px 0; }
+.tabs button { background:var(--card); color:var(--dim); border:1px solid var(--line); border-radius:9px; padding:8px 14px; cursor:pointer; font-size:13px; font-weight:600; }
+.tabs button.on { color:#fff; background:#243044; border-color:var(--accent); }
+.tab { display:none; }
+.tab.on { display:block; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
+.stack { display:flex; flex-direction:column; gap:12px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+.card.wide { grid-column:1/-1; }
+h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 10px; font-weight:700; }
+label.f { display:block; font-size:12px; color:var(--dim); margin:10px 0 4px; }
+label.chk { display:flex; align-items:center; gap:8px; padding:3px 0; cursor:pointer; }
+label.chk input { width:17px; height:17px; accent-color:var(--accent); }
+select, input[type=text], input[type=password] { width:100%; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 9px; font-size:13px; }
+input[type=range] { width:100%; accent-color:var(--accent); }
+.dur input[type=number] { flex:1; min-width:70px; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; }
+.dur { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px; color:var(--dim); }
+.dur span { flex:0 0 45%; }
+.dur b { flex:0 0 34px; text-align:right; color:var(--fg); }
+.row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+button.p, button.g, button.x { border-radius:var(--radius-control); padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--raised); color:var(--text); }
+button.p { background:var(--action); border-color:var(--action); color:#fff; }
+button.g { background:var(--raised); border-color:var(--ok); }
+button.x { padding:5px 9px; font-size:12px; background:var(--surface); border-color:var(--bad); color:var(--bad); }
+button:disabled { opacity:.55; cursor:default; }
+button.done { border-color:var(--ok); }
+button.fail { border-color:var(--bad); }
+.msg { font-size:12px; color:var(--dim); min-height:16px; margin-top:8px; }
+.msg.ok { color:var(--ok); }
+.msg.err { color:var(--bad); }
+.live { font-size:15px; font-weight:600; margin-bottom:4px; }
+.club { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:var(--surface); }
+.club-head { display:flex; align-items:center; gap:8px; }
+.club-head b { flex:1; font-size:14px; }
+.tag { font-size:11px; color:var(--dim); border:1px solid var(--line); border-radius:10px; padding:1px 7px; }
+.comps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:2px 10px; margin:8px 0 2px; }
+.pick { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:9px; padding:7px 10px; margin-bottom:7px; background:var(--surface); }
+.simgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:10px; }
+.simbtn { display:flex; align-items:center; gap:12px; text-align:left; padding:10px; border:1px solid var(--line); border-radius:11px; background:var(--surface); color:var(--fg); cursor:pointer; }
+.simbtn img { width:40px; height:40px; flex:none; }
+.simbtn b { display:block; font-size:14px; }
+.simbtn small { display:block; color:var(--dim); font-size:11px; }
+.simrow { display:flex; align-items:center; gap:6px; margin-top:8px; }
+.simrow select { width:auto; flex:1; }
+.pick span { flex:1; font-size:13px; }
+.small { font-size:11px; color:var(--dim); }
+details summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--dim); }
+/* Collapsible sections inside a card: the heading doubles as the summary. */
+details.sec { border-top:1px solid var(--line); padding-top:10px; margin-top:10px; }
+details.sec:first-child { border-top:0; padding-top:0; margin-top:0; }
+details.sec > summary { font-size:14px; color:var(--fg); padding:2px 0; }
+details.sec > summary::marker { color:var(--dim); }
+details.sec .grid { margin-top:8px; }
+.secnote { font-size:11px; color:var(--dim); font-weight:400; }
+.tabnav { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:14px; }
+#diag-watches div, #diag-log div { margin:2px 0; }
+pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(--mono,monospace); }
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="logo">&#9917;</div>
+  <h1 data-t="title">TV alerts</h1>
+  <span class="ver" id="ver"></span>
+  <span class="msg" id="save-state" aria-live="polite"></span>
+  <button type="button" class="g" id="test-all" data-t="testAll">Test all</button>
+  <button type="button" class="p" id="save-all" data-t="saveAll">Save all</button>
+  <div class="lang" role="group" aria-label="Language"><button type="button" id="l-en" aria-label="English">EN</button><button type="button" id="l-pt" aria-label="Portugu&#234;s">PT</button></div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Sections">
+  <button type="button" id="tabbtn-setup" role="tab" aria-selected="true" aria-controls="tab-setup" data-tab="setup" class="on" data-t="tabSetup">SETUP</button>
+  <button type="button" id="tabbtn-weather" role="tab" aria-selected="false" aria-controls="tab-weather" data-tab="weather" data-t="tabWeather">Weather</button>
+  <button type="button" id="tabbtn-news" role="tab" aria-selected="false" aria-controls="tab-news" data-tab="news" data-t="tabNews">News</button>
+  <button type="button" id="tabbtn-civ" role="tab" aria-selected="false" aria-controls="tab-civ" data-tab="civ" data-t="tabCiv">Prote\u00E7\u00E3o Civil</button>
+  <button type="button" id="tabbtn-football" role="tab" aria-selected="false" aria-controls="tab-football" data-tab="football" data-t="tabFootball">Football</button>
+  <button type="button" id="tabbtn-others" role="tab" aria-selected="false" aria-controls="tab-others" data-tab="others" data-t="tabOthers">Other sports</button>
+  <button type="button" id="tabbtn-tech" role="tab" aria-selected="false" aria-controls="tab-tech" data-tab="tech" data-t="tabTech">Technical</button>
+</div>
+
+<!-- ============ GENERAL ============ -->
+<div class="tab on" id="tab-setup" role="tabpanel" aria-labelledby="tabbtn-setup">
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="modules">Modules</summary>
+        <label class="chk"><input type="checkbox" id="m-sport"> <span data-t="sport">Sport</span></label>
+        <label class="chk"><input type="checkbox" id="m-weather"> <span data-t="weather">Weather</span></label>
+        <label class="chk"><input type="checkbox" id="m-news"> <span data-t="news">News</span></label>
+        <label class="chk"><input type="checkbox" id="m-civ"> <span data-t="tabCiv">Proteção Civil</span></label>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="now">Right now</summary>
+        <div class="live" id="sport-line">-</div>
+        <div class="msg" id="sport-stat" aria-live="polite"></div>
+        <div class="msg" id="next-line" aria-live="polite"></div>
+        <div class="msg" id="news-line" aria-live="polite"></div>
+        <div class="row"><button type="button" class="g" id="check" data-t="check">Check now</button></div>
+      </details>
+    </div>
+    <div class="card wide">
+        <div class="row"><button type="button" class="p" id="save-mod" data-t="save">Save</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ WEATHER ============ -->
+<div class="tab" id="tab-weather" role="tabpanel" aria-labelledby="tabbtn-weather" hidden>
+  <div class="stack">
+    <div class="card wide"><div class="live" id="weather-line"></div></div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="weatherCard">Weather</summary>
+        <div class="grid">
+          <div>
+            <label class="f" data-t="place">Place</label>
+            <select id="w-place"></select>
+            <label class="f" data-t="weatherProvider">Provider</label>
+            <select id="w-provider"></select>
+            <label class="f" data-t="weatherWhen">When to notify</label>
+            <select id="w-when"></select>
+            <div class="dur"><span data-t="interval">Interval (min)</span><input type="range" id="w-interval" min="5" max="240" step="5"><b id="w-intervalv"></b></div>
+            <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="w-seconds" min="3" max="30"><b id="w-secondsv"></b></div>
+            <div class="dur"><span data-t="volume">Volume</span><input type="range" id="w-volume" min="10" max="100" step="5"><b id="w-volumev"></b></div>
+          </div>
+          <div>
+            <label class="f" data-t="mode">Mode</label>
+            <select id="w-mode"></select>
+            <label class="chk"><input type="checkbox" id="w-sound"> <span data-t="sound">Sound</span></label>
+            <label class="chk"><input type="checkbox" id="w-quiet"> <span data-t="quiet">Quiet hours 23h-07h</span></label>
+          </div>
+        </div>
+      </details>
+      <details class="sec">
+        <summary><span data-t="addPlaceTitle">Add a place</span><span class="secnote"> &middot; <span data-t="addPlaceNote">search by name</span></span></summary>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="place-search" placeholder="Caldas da Rainha" style="flex:1;min-width:160px">
+          <button type="button" class="g" id="place-find" data-t="find">Find</button>
+        </div>
+        <select id="place-results" class="hidden" style="margin-top:6px"></select>
+        <div class="row" style="margin-top:6px"><button type="button" class="g" id="place-add" data-t="addPlace">Add selected</button></div>
+        <div class="msg" id="weather-msg" aria-live="polite"></div>
+        <div id="custom-places" class="small"></div>
+      </details>
+      <details class="sec">
+        <summary data-t="wpTitle">Advance warnings</summary>
+        <div class="grid">
+          <div>
+            <label class="chk"><input type="checkbox" id="wp-enabled"> <span data-t="wpEnable">Enable</span></label>
+            <label class="f" data-t="wpMinutes">Look ahead</label>
+            <select id="wp-minutes"><option value="30">30 min</option><option value="60">60 min</option><option value="120">120 min</option><option value="180">180 min</option></select>
+            <label class="chk"><input type="checkbox" id="wp-rain"> <span data-t="wRain">Rain</span></label>
+            <label class="chk"><input type="checkbox" id="wp-wind"> <span data-t="wWind">Wind</span></label>
+            <label class="chk"><input type="checkbox" id="wp-heat"> <span data-t="wHeat">Heat</span></label>
+            <label class="chk"><input type="checkbox" id="wp-storm"> <span data-t="wStorm">Thunderstorm</span></label>
+          </div>
+          <div>
+            <div class="dur"><span data-t="wpRainPct">Rain %</span><input type="number" id="wp-rainpct" min="10" max="100" step="5"><b></b></div>
+            <div class="dur"><span data-t="wpWindKmh">Wind km/h</span><input type="number" id="wp-windkmh" min="10" max="120" step="5"><b></b></div>
+            <div class="dur"><span data-t="wpHeatC">Heat &deg;C</span><input type="number" id="wp-heatc" min="20" max="50"><b></b></div>
+            <div class="dur"><span data-t="wpStormCode">Storm code &ge;</span><input type="number" id="wp-stormcode" min="80" max="99"><b></b></div>
+          </div>
+        </div>
+      </details>
+      <div class="row"><button type="button" class="p" id="save-weather" data-t="save">Save</button><button type="button" class="g" id="t-weather" data-t="test">Test</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NEWS ============ -->
+<div class="tab" id="tab-news" role="tabpanel" aria-labelledby="tabbtn-news" hidden>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="sources">News sources</summary>
+        <div class="comps" id="feeds"></div>
+        <div class="small" data-t="sourcesNote">Pick as many as you like. Each source keeps its own history.</div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec">
+        <summary data-t="newsSettings">News settings</summary>
+        <div class="grid">
+        <div>
+          <div class="dur"><span data-t="interval">Interval (min)</span><input type="range" id="n-interval" min="5" max="240" step="5"><b id="n-intervalv"></b></div>
+          <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="n-seconds" min="3" max="30"><b id="n-secondsv"></b></div>
+          <div class="dur"><span data-t="volume">Volume</span><input type="range" id="n-volume" min="10" max="100" step="5"><b id="n-volumev"></b></div>
+          <label class="f" data-t="headlines">Headlines per source</label>
+          <select id="n-count"><option>1</option><option>2</option><option>3</option></select>
+        </div>
+        <div>
+          <label class="f" data-t="mode">Mode</label>
+          <select id="n-mode"></select>
+          <label class="chk"><input type="checkbox" id="n-sound"> <span data-t="sound">Sound</span></label>
+          <label class="chk"><input type="checkbox" id="n-quiet"> <span data-t="quiet">Quiet hours 23h-07h</span></label>
+        </div>
+        </div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="p" id="save-news" data-t="save">Save</button><button type="button" class="g" id="t-news" data-t="test">Test</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PROTECAO CIVIL ============ -->
+<div class="tab" id="tab-civ" role="tabpanel" aria-labelledby="tabbtn-civ" hidden>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="civNow">Active warnings</summary>
+        <div id="civ-list"></div>
+        <div class="msg" id="civ-status" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="civSources">Sources and filters</summary>
+        <label class="chk"><input type="checkbox" id="civ-enabled"> <span data-t="enabled">Enabled</span></label>
+        <label class="f" data-t="district">District (IPMA)</label>
+        <select id="civ-district"></select>
+        <label class="chk"><input type="checkbox" id="civ-yellow"> <span data-t="civYellow">Yellow (discreet)</span></label>
+        <label class="chk"><input type="checkbox" id="civ-orange"> <span data-t="civOrange">Orange</span></label>
+        <label class="chk"><input type="checkbox" id="civ-red"> <span data-t="civRed">Red</span></label>
+        <label class="chk"><input type="checkbox" id="civ-anepc"> <span>ANEPC - Aviso \u00E0 popula\u00E7\u00E3o</span></label>
+        <label class="chk"><input type="checkbox" id="civ-news"> <span data-t="civNews">Breaking news (RSS)</span></label>
+        <label class="f" data-t="keywords">Keywords</label>
+        <input type="text" id="civ-keywords">
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="style">Style</summary>
+        <label class="f" data-t="mode">Mode</label>
+        <select id="civ-mode"></select>
+        <label class="chk"><input type="checkbox" id="civ-sound"> <span data-t="sound">Sound</span></label>
+        <div class="dur"><span data-t="interval">Interval (min)</span><input type="range" id="civ-interval" min="5" max="240" step="5"><b id="civ-intervalv"></b></div>
+        <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="civ-seconds" min="3" max="60"><b id="civ-secondsv"></b></div>
+        <div class="dur"><span data-t="volume">Volume</span><input type="range" id="civ-volume" min="10" max="100" step="5"><b id="civ-volumev"></b></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="p" id="save-civ" data-t="save">Save</button><button type="button" class="g" id="t-civ" data-t="test">Test</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FOOTBALL ============ -->
+<div class="tab" id="tab-football" role="tabpanel" aria-labelledby="tabbtn-football" hidden>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="clubs">Clubs</summary>
+        <div id="clubs"></div>
+        <div class="grid">
+          <div>
+            <label class="f" data-t="league">League</label>
+            <select id="add-league"></select>
+          </div>
+          <div>
+            <label class="f" data-t="team">Team</label>
+            <select id="add-team"></select>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="add-club" data-t="addClub">Add club</button></div>
+        <div class="msg" id="add-msg" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="alerts">Alerts</summary>
+        <label class="chk"><input type="checkbox" data-fb="goal"> <span data-t="a_goal">Goal for my club</span></label>
+        <label class="chk"><input type="checkbox" data-fb="against"> <span data-t="a_against">Goal for the opponent</span></label>
+        <label class="chk"><input type="checkbox" data-fb="card"> <span data-t="a_card">Cards (both teams)</span></label>
+        <label class="chk"><input type="checkbox" data-fb="sub"> <span data-t="a_sub">Substitutions (my club)</span></label>
+        <label class="chk"><input type="checkbox" data-fb="varNo"> <span data-t="a_var">Goal disallowed</span></label>
+        <label class="chk"><input type="checkbox" data-fb="start"> <span data-t="a_start">Kick-off</span></label>
+        <label class="chk"><input type="checkbox" data-fb="half"> <span data-t="a_half">Half-time</span></label>
+        <label class="chk"><input type="checkbox" data-fb="end"> <span data-t="a_end">Full time</span></label>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="style">Style</summary>
+        <label class="f" data-t="mode">Mode</label>
+        <select id="f-mode"></select>
+        <label class="chk"><input type="checkbox" id="f-sound"> <span data-t="sound">Sound</span></label>
+        <div class="dur"><span data-t="goalsec">Goal banner (s)</span><input type="range" id="f-goalsec" min="5" max="60"><b id="f-goalsecv"></b></div>
+        <div class="dur"><span data-t="othersec">Other banners (s)</span><input type="range" id="f-othersec" min="3" max="30"><b id="f-othersecv"></b></div>
+        <div class="dur"><span data-t="volume">Volume</span><input type="range" id="f-volume" min="10" max="100" step="5"><b id="f-volumev"></b></div>
+        <label class="chk"><input type="checkbox" id="f-next-enabled"> <span data-t="nextWarn">Warn before kick-off</span></label>
+        <label class="f" data-t="minutesBefore">Minutes before</label>
+        <select id="f-next-minutes"><option value="0">0</option><option value="15">15</option><option value="30">30</option><option value="60">60</option></select>
+      </details>
+      <details class="sec">
+        <summary data-t="provider">Provider</summary>
+        <select id="f-provider"></select>
+        <label class="f" data-t="apikey">API-Football key (TV only)</label>
+        <input type="text" id="apikey" autocomplete="off" placeholder="...">
+        <div class="row"><button type="button" class="g" id="savekey" data-t="savekey">Save key</button><button type="button" class="g" id="checkkey" data-t="checkkey">Check key</button></div>
+        <div class="msg" id="keymsg" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec">
+        <summary data-t="simTitle">Goal simulation</summary>
+        <div class="small" data-t="simNote">One button per club. Sends a real (silent) notification through Notification Center.</div>
+        <div id="sim-grid" class="simgrid"></div>
+        <div class="msg" id="sim-msg" aria-live="polite"></div>
+      </details>
+      <details class="sec">
+        <summary data-t="simEdit">Edit the test clubs</summary>
+        <div class="grid">
+          <div>
+            <label class="f" data-t="team">Team</label>
+            <input type="text" id="sim-name" placeholder="Sporting">
+          </div>
+          <div>
+            <label class="f" data-t="simId">ESPN id</label>
+            <input type="text" id="sim-id" placeholder="2250">
+          </div>
+          <div>
+            <label class="f" data-t="simMsg">Message</label>
+            <input type="text" id="sim-text" placeholder="Sporting 1-0 Benfica">
+          </div>
+          <div>
+            <label class="f" data-t="simColor">Stripe colour</label>
+            <select id="sim-level"><option value="ok">ok - verde</option><option value="info">info - azul</option><option value="warn">warn - amarelo</option><option value="alert">alert - vermelho</option></select>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="sim-add" data-t="addClub">Add club</button></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <label class="f" data-t="testWith">Test with</label>
+      <select id="test-club" style="max-width:340px"></select>
+      <div class="row">
+        <button type="button" class="p" id="save-football" data-t="save">Save</button>
+        <button type="button" class="g" id="t-goal" data-t="testgoal">Test: goal</button>
+        <button type="button" class="g" id="t-against" data-t="testag">Test: goal against</button>
+        <button type="button" class="g" id="t-card" data-t="testcard">Test: card</button>
+        <button type="button" class="g" id="t-start" data-t="teststart">Test: kick-off</button>
+        <button type="button" class="g" id="t-end" data-t="testend">Test: full time</button>
+        <button type="button" class="g" id="t-next" data-t="testNext">Test: kick-off warning</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ OTHER SPORTS ============ -->
+<div class="tab" id="tab-others" role="tabpanel" aria-labelledby="tabbtn-others" hidden>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="picks">Other sports</summary>
+        <div id="picks"></div>
+        <div class="grid">
+          <div>
+            <label class="f" data-t="sport">Sport</label>
+            <select id="add-sport"></select>
+          </div>
+          <div>
+            <label class="f" data-t="pickTarget">Team / race</label>
+            <select id="add-team2"></select>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="add-pick" data-t="addPick">Add</button></div>
+        <div class="msg" id="pick-msg" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="alerts">Alerts</summary>
+        <label class="chk"><input type="checkbox" data-ob="start"> <span data-t="a_start2">Start</span></label>
+        <label class="chk"><input type="checkbox" data-ob="half"> <span data-t="a_half2">Half / period</span></label>
+        <label class="chk"><input type="checkbox" data-ob="end"> <span data-t="a_end2">End</span></label>
+        <label class="chk"><input type="checkbox" data-ob="score"> <span data-t="a_score">Score changes</span></label>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="style">Style</summary>
+        <label class="f" data-t="mode">Mode</label>
+        <select id="o-mode"></select>
+        <label class="chk"><input type="checkbox" id="o-sound"> <span data-t="sound">Sound</span></label>
+        <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="o-seconds" min="3" max="30"><b id="o-secondsv"></b></div>
+        <div class="dur"><span data-t="volume">Volume</span><input type="range" id="o-volume" min="10" max="100" step="5"><b id="o-volumev"></b></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="p" id="save-others" data-t="save">Save</button><button type="button" class="g" id="t-score" data-t="testscore">Test: score</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TECHNICAL ============ -->
+<div class="tab" id="tab-tech" role="tabpanel" aria-labelledby="tabbtn-tech" hidden>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="diagTitle">Diagnostics</summary>
+        <div class="grid" style="margin-top:10px">
+          <div>
+            <div class="f" data-t="diagWatches">Watched</div>
+            <div id="diag-watches" class="small"></div>
+          </div>
+          <div>
+            <div class="f" data-t="diagLog">Log</div>
+            <div id="diag-log" class="small"></div>
+          </div>
+          <div>
+            <div class="f" data-t="diagHealth">Providers</div>
+            <div id="diag-health" class="small"></div>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="clear-log" data-t="clearLog">Clear log</button></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec">
+        <summary data-t="techApi">API and examples</summary>
+        <pre id="api-help" class="small"></pre>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="tabnav" id="tabnav">
+  <button type="button" class="g" id="tab-prev" data-t="tabPrev">Previous</button>
+  <span class="small" id="tabnav-label"></span>
+  <button type="button" class="g" id="tab-next" data-t="tabNext">Next</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var T = {
+    en: {
+      title:"TV alerts", saveAll:"Save all", testAll:"Test all", tabPrev:"Previous", tabNext:"Next", unsaved:"Unsaved changes", savedAt:"Saved at ",
+      tabSetup:"SETUP", techApi:"API and examples", diagTitle:"Diagnostics", diagWatches:"Watched", diagLog:"Log", diagHealth:"Providers", clearLog:"Clear log", confirmClear:"Click again: clear log", noAnswer:"No answer from the Shard: open the panel again", tabWeather:"Weather", tabNews:"News", tabFootball:"Football", tabOthers:"Other sports", tabTech:"Technical",
+      modules:"Modules", sport:"Sport", weather:"Weather", news:"News", now:"Right now",
+      weatherCard:"Weather", place:"Place", interval:"Interval (min)", seconds:"Banner (s)", mode:"Mode",
+      quiet:"Quiet hours 23h-07h", style:"Style", sound:"Sound", test:"Test", save:"Save", savekey:"Save key",
+      checkkey:"Check key", check:"Check now", sources:"News sources",
+      sourcesNote:"Pick as many as you like. Each source keeps its own history.",
+
+      newsSettings:"News settings", headlines:"Headlines per source",
+      clubs:"Clubs", league:"League", team:"Team", addClub:"Add club",
+      alerts:"Alerts", a_goal:"Goal for my club", a_against:"Goal for the opponent",
+      a_card:"Cards (both teams)", a_sub:"Substitutions (my club)", a_var:"Goal disallowed",
+      a_start:"Kick-off", a_half:"Half-time", a_end:"Full time",
+      a_start2:"Start", a_half2:"Half / period", a_end2:"End", a_score:"Score changes",
+      goalsec:"Goal banner (s)", othersec:"Other banners (s)", provider:"Provider",
+      apikey:"API-Football key (TV only)", testWith:"Test with", testgoal:"Test: goal", testag:"Test: goal against",
+      testcard:"Test: card", teststart:"Test: kick-off", testend:"Test: full time", testscore:"Test: score",
+      testNext:"Test: kick-off warning",
+      picks:"Other sports", addPick:"Add", remove:"Remove", noClubs:"No clubs yet: add one below.",
+      pickTarget:"Team / race", noRaces:"No races available.",
+      noPicks:"Nothing selected yet.", pickLimit:"Maximum picks: ", saved:"Saved.", noneyet:"Nothing yet.", checked:"Last check: ",
+      err:"Error: ", sent:"Test sent.", loading:"Loading...", noTeams:"No team list for this league.",
+      keyok:"Key OK - remaining today: ", keynone:"No key saved yet.", keyset:"A key is saved.",
+      onlysoccer:"API-Football works for football only.", chooseOne:"Pick at least one source.",
+      clubNewsShort:"Club news", add:"Add", mode_banner:"Banner", mode_full:"Full screen", mode_overlay:"Bottom toast",
+      addPlaceTitle:"Add a place", addPlaceNote:"search by name", find:"Find", addPlace:"Add selected", findFirst:"Search for a place first.",
+      noPlaces:"No place found.", found:"Found: ", placeAdded:"Added", placeRemoved:"Removed",
+      none:"None", noSport:"Choose a sport first.",
+      savedPlaces:"Custom places", typePlace:"Type at least 2 letters.", tooManyPlaces:"Maximum 10 places.",
+      nextWarn:"Warn before kick-off", minutesBefore:"Minutes before", nextMatch:"Next match", noNext:"No upcoming match found.",
+      maxClubs:"Maximum ", tabCiv:"Civil protection", civNow:"Active warnings", civSources:"Sources and filters",
+      enabled:"Enabled", district:"District (IPMA)", civYellow:"Yellow (discreet)", civOrange:"Orange", civRed:"Red",
+      civNews:"Breaking news (RSS)", keywords:"Keywords", noCiv:"No active warnings for this district.",
+      civSource:"Source", civUntil:"until", civNotice:"Civil notice",
+      weatherProvider:"Provider", weatherWhen:"When to notify",
+      when_always:"Always", when_morning:"Morning until 10h (today)", when_night:"Night after 18h (tomorrow)",
+      wpTitle:"Advance warnings", wpEnable:"Enable", wpMinutes:"Look ahead", wRain:"Rain", wWind:"Wind", wHeat:"Heat", wStorm:"Thunderstorm",
+      wpRainPct:"Rain %", wpWindKmh:"Wind km/h", wpHeatC:"Heat \u00B0C", wpStormCode:"Storm code \u2265",
+      clubAlertsTitle:"Alerts for this club", custom:"custom", inherited:"inherited (global)", useGlobal:"Use global",
+      tabSim:"Test goals", simTitle:"Goal simulation", simNote:"One button per club. Sends a real (silent) notification through Notification Center.",
+      simEdit:"Edit the test clubs", simId:"ESPN id", simMsg:"Message", simColor:"Stripe colour", volume:"Volume"
+    },
+    pt: {
+      title:"Alertas TV", saveAll:"Guardar tudo", testAll:"Testar tudo", tabPrev:"Anterior", tabNext:"Seguinte", unsaved:"Altera\u00E7\u00F5es por guardar", savedAt:"Guardado \u00E0s ",
+      tabSetup:"SETUP", techApi:"API e exemplos", diagTitle:"Diagn\u00F3stico", diagWatches:"Acompanhados", diagLog:"Registo", diagHealth:"Fornecedores", clearLog:"Limpar registo", confirmClear:"Clique outra vez: limpar registo", noAnswer:"Sem resposta do Shard: abra o painel novamente", tabWeather:"Tempo", tabNews:"Not\u00EDcias", tabFootball:"Futebol", tabOthers:"Outros desportos", tabTech:"T\u00E9cnico",
+      modules:"M\u00F3dulos", sport:"Desporto", weather:"Tempo", news:"Not\u00EDcias", now:"Agora",
+      weatherCard:"Tempo", place:"Local", interval:"Intervalo (min)", seconds:"Banner (s)", mode:"Modo",
+      quiet:"Sil\u00EAncio 23h-07h", style:"Estilo", sound:"Som", test:"Teste", save:"Guardar", savekey:"Guardar chave",
+      checkkey:"Testar chave", check:"Verificar agora", sources:"Fontes de not\u00EDcias",
+      sourcesNote:"Escolha as que quiser. Cada fonte guarda o seu hist\u00F3rico.",
+
+      newsSettings:"Defini\u00E7\u00F5es de not\u00EDcias", headlines:"Manchetes por fonte",
+      clubs:"Clubes", league:"Liga", team:"Equipa", addClub:"Adicionar clube",
+      alerts:"Alertas", a_goal:"Golo do meu clube", a_against:"Golo do advers\u00E1rio",
+      a_card:"Cart\u00F5es (ambas as equipas)", a_sub:"Substitui\u00E7\u00F5es (meu clube)", a_var:"Golo anulado",
+      a_start:"In\u00EDcio do jogo", a_half:"Intervalo", a_end:"Fim do jogo",
+      a_start2:"In\u00EDcio", a_half2:"Intervalo / per\u00EDodo", a_end2:"Fim", a_score:"Altera\u00E7\u00F5es do resultado",
+      goalsec:"Banner de golo (s)", othersec:"Outros banners (s)", provider:"Fornecedor",
+      apikey:"Chave API-Football (s\u00F3 na TV)", testWith:"Testar com", testgoal:"Teste: golo", testag:"Teste: golo sofrido",
+      testcard:"Teste: cart\u00E3o", teststart:"Teste: in\u00EDcio", testend:"Teste: fim", testscore:"Teste: resultado",
+      testNext:"Teste: aviso de jogo",
+      picks:"Outros desportos", addPick:"Adicionar", remove:"Remover", noClubs:"Ainda sem clubes: adicione abaixo.",
+      pickTarget:"Equipa / corrida", noRaces:"Sem corridas dispon\u00EDveis.",
+      noPicks:"Ainda nada escolhido.", pickLimit:"M\u00E1ximo de picks: ", saved:"Guardado.", noneyet:"Ainda nada.", checked:"\u00DAltima verifica\u00E7\u00E3o: ",
+      err:"Erro: ", sent:"Teste enviado.", loading:"A carregar...", noTeams:"Sem lista de equipas para esta liga.",
+      keyok:"Chave v\u00E1lida - restantes hoje: ", keynone:"Ainda sem chave.", keyset:"H\u00E1 uma chave guardada.",
+      onlysoccer:"A API-Football s\u00F3 funciona para futebol.", chooseOne:"Escolha pelo menos uma fonte.",
+      clubNewsShort:"Not\u00EDcias do clube", add:"Adicionar", mode_banner:"Banner", mode_full:"Ecr\u00E3 inteiro", mode_overlay:"Bottom toast",
+      addPlaceTitle:"Adicionar local", addPlaceNote:"procurar por nome", find:"Procurar", addPlace:"Adicionar selecionado", findFirst:"Primeiro procura um local.",
+      noPlaces:"Nenhum local encontrado.", found:"Encontrados: ", placeAdded:"Adicionado", placeRemoved:"Removido",
+      none:"Nenhum", noSport:"Escolhe primeiro um desporto.",
+      savedPlaces:"Locais personalizados", typePlace:"Escreve pelo menos 2 letras.", tooManyPlaces:"M\u00E1ximo 10 locais.",
+      nextWarn:"Avisar antes do jogo", minutesBefore:"Minutos antes", nextMatch:"Pr\u00F3ximo jogo", noNext:"Sem jogo marcado.",
+      maxClubs:"M\u00E1ximo ", tabCiv:"Prote\u00E7\u00E3o Civil", civNow:"Avisos ativos", civSources:"Fontes e filtros",
+      enabled:"Ativo", district:"Distrito (IPMA)", civYellow:"Amarelo (discreto)", civOrange:"Laranja", civRed:"Vermelho",
+      civNews:"Not\u00EDcias urgentes (RSS)", keywords:"Palavras-chave", noCiv:"Sem avisos ativos neste distrito.",
+      civSource:"Fonte", civUntil:"at\u00E9", civNotice:"Aviso \u00E0 popula\u00E7\u00E3o",
+      weatherProvider:"Fornecedor", weatherWhen:"Quando notificar",
+      when_always:"Sempre", when_morning:"Manh\u00E3 at\u00E9 \u00E0s 10h (de hoje)", when_night:"Noite depois das 18h (de amanh\u00E3)",
+      wpTitle:"Avisos antecipados", wpEnable:"Ativar", wpMinutes:"Anteced\u00EAncia", wRain:"Chuva", wWind:"Vento", wHeat:"Calor", wStorm:"Trovoada",
+      wpRainPct:"Chuva %", wpWindKmh:"Vento km/h", wpHeatC:"Calor \u00B0C", wpStormCode:"C\u00F3digo trovoada \u2265",
+      clubAlertsTitle:"Alertas deste clube", custom:"personalizados", inherited:"herdados (globais)", useGlobal:"Herdar globais",
+      tabSim:"Simular golos", simTitle:"Simula\u00E7\u00E3o de golos", simNote:"Um bot\u00E3o por clube. Envia uma notifica\u00E7\u00E3o real (sem som) pelo Notification Center.",
+      simEdit:"Editar clubes de teste", simId:"Id ESPN", simMsg:"Mensagem", simColor:"Cor da faixa", volume:"Volume"
+    }
+  };
+  var lang = "en", cfg = null, dirty = false, lastSaveAt = 0;
+  function updateSaveState() {
+    var e = $("save-state");
+    if (!e) { return; }
+    if (dirty) { e.textContent = tr("unsaved"); e.className = "msg err"; }
+    else {
+      e.textContent = lastSaveAt ? (tr("savedAt") + new Date(lastSaveAt).toLocaleTimeString()) : "";
+      e.className = "msg ok";
+    }
+  }
+  var clubs = [], picks = [], feeds = [], geoResults = [], simClubs = [], pickListError = false;
+  var CLUB_ALERTS = [
+    ["goal","a_goal"], ["against","a_against"], ["card","a_card"], ["sub","a_sub"],
+    ["varNo","a_var"], ["start","a_start"], ["half","a_half"], ["end","a_end"]
+  ];
+  function effAlerts(cl) { return cl.alerts || (cfg && cfg.football && cfg.football.alerts) || {}; }
+  // The panel is served at /plugins/<id>/api/ui (or .../s/<session>/api/ui), so the API lives in the
+  // same folder. A relative "api/state" resolved to .../api/api/state and every request 404ed.
+  var BASE = (function () {
+    var p = String((window.location && window.location.pathname) || "").replace(/\/ui\/?$/, "/");
+    return p.slice(-1) === "/" ? p : p + "/";
+  })();
+
+  function tr(k) { return (T[lang] && T[lang][k]) || T.en[k] || k; }
+  function fmtWhen(iso) {
+    try {
+      return new Date(iso).toLocaleString(lang === "pt" ? "pt-PT" : "en-GB",
+        { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return String(iso).slice(0, 16); }
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function applyText() {
+    var i, els = document.querySelectorAll("[data-t]");
+    for (i = 0; i < els.length; i++) { els[i].textContent = tr(els[i].getAttribute("data-t")); }
+    $("l-en").className = lang === "en" ? "on" : "";
+    $("l-pt").className = lang === "pt" ? "on" : "";
+  }
+  function say(msg, cls) { var e = $("add-msg"); if (e) { e.textContent = msg || ""; e.className = "msg " + (cls || ""); } }
+  function sayPick(msg, cls) { var e = $("pick-msg"); if (e) { e.textContent = msg || ""; e.className = "msg " + (cls || ""); } }
+  function api(path, body) {
+    var opt = { method: body ? "POST" : "GET", cache: "no-store" };
+    if (body) { opt.headers = { "Content-Type": "application/json" }; opt.body = JSON.stringify(body); }
+    return fetch(BASE + path, opt).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) { throw new Error((j && j.error) || ("HTTP " + r.status)); }
+        return j;
+      });
+    }, function () { throw new Error(tr("noAnswer")); });
+  }
+  function act(btn, promise) {
+    if (!btn || btn.disabled) { return; }
+    var old = btn.textContent;
+    btn.disabled = true; btn.textContent = tr("loading");
+    promise.then(function () { btn.className = btn.className.replace(/ fail| done/g, "") + " done"; })
+      .catch(function (e) { btn.className = btn.className.replace(/ fail| done/g, "") + " fail"; say(tr("err") + e.message, "err"); })
+      .then(function () { btn.disabled = false; btn.textContent = old; });
+  }
+  function fillSel(el, list, value) {
+    el.innerHTML = (list || []).map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name || x.label) + "</option>"; }).join("");
+    if (value) { el.value = value; }
+  }
+  function fillMode(el, value) {
+    el.innerHTML = ["banner", "full", "overlay"].map(function (id) {
+      return '<option value="' + id + '">' + esc(tr("mode_" + id)) + "</option>";
+    }).join("");
+    el.value = value || "banner";
+  }
+  function range(id, value) { $(id).value = value; $(id + "v").textContent = value; }
+
+  // ---- lists ---------------------------------------------------------------------------------------------------------------
+  function compsFor(league) {
+    var c = null, i, out = [], country = "";
+    for (i = 0; i < cfg.comps.length; i++) { if (cfg.comps[i].id === league) { c = cfg.comps[i]; } }
+    country = c ? c.country : "";
+    for (i = 0; i < cfg.comps.length; i++) {
+      if (cfg.comps[i].country === country || cfg.comps[i].country === "eu") { out.push(cfg.comps[i]); }
+    }
+    return out;
+  }
+  function renderClubs() {
+    var box = $("clubs"), i, j, html = "";
+    if (!clubs.length) { box.innerHTML = '<div class="msg">' + esc(tr("noClubs")) + "</div>"; return; }
+    for (i = 0; i < clubs.length; i++) {
+      var cl = clubs[i], comps = compsFor(cl.league);
+      html += '<div class="club" data-id="' + esc(cl.id) + '">';
+      html += '<div class="club-head"><b>' + esc(cl.name) + '</b><span class="tag">' + esc(cl.league) + "</span>";
+      html += '<button type="button" class="x" data-act="rm">' + esc(tr("remove")) + "</button></div>";
+      html += '<div class="comps">';
+      for (j = 0; j < comps.length; j++) {
+        html += '<label class="chk"><input type="checkbox" data-comp="' + esc(comps[j].id) + '"' +
+          (cl.comps.indexOf(comps[j].id) >= 0 ? " checked" : "") + "> <span>" + esc(comps[j].name) + "</span></label>";
+      }
+      html += "</div>";
+      html += '<label class="chk"><input type="checkbox" data-act="news"' + (cl.news ? " checked" : "") +
+        "> <span>" + esc(tr("clubNewsShort")) + "</span></label>";
+      html += '<div class="small" style="margin-top:6px">' + esc(tr("clubAlertsTitle")) + ": " +
+        (cl.alerts ? esc(tr("custom")) : esc(tr("inherited"))) +
+        (cl.alerts ? ' <button type="button" class="x" data-clubreset="' + esc(cl.id) + '">' + esc(tr("useGlobal")) + "</button>" : "") + "</div>";
+      html += '<div class="comps">';
+      for (j = 0; j < CLUB_ALERTS.length; j++) {
+        html += '<label class="chk"><input type="checkbox" data-cal="' + esc(cl.id) + '" data-key="' + CLUB_ALERTS[j][0] + '"' +
+          (effAlerts(cl)[CLUB_ALERTS[j][0]] ? " checked" : "") + "> <span>" + esc(tr(CLUB_ALERTS[j][1])) + "</span></label>";
+      }
+      html += "</div>";
+      html += "</div>";
+    }
+    box.innerHTML = html;
+  }
+  // The test buttons act for one club: the one picked here, so a club with custom alerts
+  // can be checked without touching the others. The pick survives the 20 s refresh.
+  function renderTestClubs() {
+    var sel = $("test-club"), keep = sel.value, i, html = "";
+    if (!clubs.length) { sel.innerHTML = '<option value="">' + esc(tr("noClubs")) + "</option>"; return; }
+    for (i = 0; i < clubs.length; i++) {
+      html += '<option value="' + esc(clubs[i].id) + '">' + esc(clubs[i].name) + "</option>";
+    }
+    sel.innerHTML = html;
+    if (keep) { sel.value = keep; }
+    if (!sel.value) { sel.value = clubs[0].id; }
+  }
+  function updatePickButton() {
+    var sp = $("add-sport").value, i, meta = null;
+    for (i = 0; i < (cfg ? cfg.otherSports.length : 0); i++) { if (cfg.otherSports[i].id === sp) { meta = cfg.otherSports[i]; } }
+    // A race pick needs an ESPN event id: never fall back to the bare sport label, because every
+    // such pick would then follow the same race.
+    $("add-pick").disabled = !sp || !meta || !!(cfg.maxPicks && picks.length >= cfg.maxPicks) ||
+      pickListError;
+  }
+  function renderPicks() {
+    var box = $("picks"), i, k, html = "", label;
+    if (!picks.length) { box.innerHTML = '<div class="msg">' + esc(tr("noPicks")) + "</div>"; updatePickButton(); return; }
+    for (i = 0; i < picks.length; i++) {
+      label = picks[i].sport;
+      for (k = 0; k < cfg.otherSports.length; k++) {
+        if (cfg.otherSports[k].id === picks[i].sport) { label = cfg.otherSports[k].label; }
+      }
+      html += '<div class="pick" data-i="' + i + '"><span>' + esc(picks[i].name) + " <span class=\"small\">" +
+        esc(label) + "</span></span><button type=\"button\" class=\"x\" data-act=\"rm\">" + esc(tr("remove")) + "</button></div>";
+    }
+    box.innerHTML = html;
+    updatePickButton();
+  }
+  function renderFeeds() {
+    $("feeds").innerHTML = cfg.feeds.map(function (f) {
+      return '<label class="chk"><input type="checkbox" data-feed="' + esc(f.id) + '"' +
+        (feeds.indexOf(f.id) >= 0 ? " checked" : "") + "> <span>" + esc(f.name) + "</span></label>";
+    }).join("");
+  }
+  function simsay(s, cls) { var e = $("sim-msg"); if (e) { e.textContent = s || ""; e.className = "msg " + (cls || ""); } }
+  function renderSim() {
+    var box = $("sim-grid"), i, html = "";
+    if (!simClubs.length) { box.innerHTML = '<div class="msg">' + esc(tr("noClubs")) + "</div>"; return; }
+    for (i = 0; i < simClubs.length; i++) {
+      var c = simClubs[i];
+      html += '<div><button type="button" class="simbtn" data-sim="' + esc(c.id) + '">' +
+        '<img src="' + esc(c.logo) + '" alt=""><span><b>' + esc(c.name) + "</b><small>" + esc(c.msg || tr("simTitle")) +
+        "</small></span></button>" +
+        '<div class="simrow"><select data-simlevel="' + esc(c.id) + '">' +
+        ["ok","info","warn","alert"].map(function (lv) {
+          return '<option value="' + lv + '"' + (c.level === lv ? " selected" : "") + ">" + lv + "</option>";
+        }).join("") +
+        '</select><button type="button" class="x" data-simrm="' + esc(c.id) + '">x</button></div></div>';
+    }
+    box.innerHTML = html;
+  }
+  function wmsg(s, cls) { var e = $("weather-msg"); if (e) { e.textContent = s || ""; e.className = "msg " + (cls || ""); } }
+  function renderCustomPlaces() {
+    var box = $("custom-places"), list = (cfg && cfg.weather && cfg.weather.custom) || [], i;
+    if (!list.length) { box.innerHTML = ""; return; }
+    var html = '<div style="margin-top:8px">' + esc(tr("savedPlaces")) + ': ';
+    for (i = 0; i < list.length; i++) {
+      html += '<span class="tag" style="margin-right:6px">' + esc(list[i].name) +
+        ' <button type="button" class="x" data-act="rmplace" data-id="' + esc(list[i].id) + '">x</button></span>';
+    }
+    box.innerHTML = html + "</div>";
+  }
+
+  // ---- fill -----------------------------------------------------------------------------------------------------------------
+  function fill() {
+    var c = cfg;
+    $("ver").textContent = c.version ? "v" + c.version : "";
+    $("m-sport").checked = !!c.modules.sport;
+    $("m-weather").checked = !!c.modules.weather;
+    $("m-news").checked = !!c.modules.news;
+    fillSel($("w-place"), c.places, c.weather.place);
+    fillSel($("w-provider"), (c.weatherProviders || []).map(function (p) {
+      return { id: p.id, name: p.id === 'ipma' ? 'IPMA' : 'Open-Meteo' };
+    }), c.weather.provider);
+    fillSel($("w-when"), (c.weatherWhen || []).map(function (x) {
+      return { id: x.id, name: tr("when_" + x.id) };
+    }), c.weather.when);
+    renderCustomPlaces();
+    geoResults = [];
+    $("place-results").innerHTML = "";
+    $("place-results").className = "hidden";
+    range("w-interval", c.weather.interval); range("w-seconds", c.weather.seconds); range("w-volume", c.weather.volume);
+    $("w-quiet").checked = !!c.weather.quiet; $("w-sound").checked = !!c.weather.sound;
+    fillMode($("w-mode"), c.weather.mode);
+
+    range("n-interval", c.news.interval); range("n-seconds", c.news.seconds); range("n-volume", c.news.volume);
+    $("n-count").value = String(c.news.count);
+    $("n-quiet").checked = !!c.news.quiet; $("n-sound").checked = !!c.news.sound;
+    fillMode($("n-mode"), c.news.mode);
+
+    fillSel($("f-provider"), c.providers, c.football.provider);
+    fillMode($("f-mode"), c.football.mode);
+    $("f-sound").checked = !!c.football.sound;
+    range("f-goalsec", c.football.goalSeconds); range("f-othersec", c.football.otherSeconds); range("f-volume", c.football.volume);
+    $("f-next-enabled").checked = !!(c.football.nextGame && c.football.nextGame.enabled);
+    $("f-next-minutes").value = String((c.football.nextGame && c.football.nextGame.minutes) || 0);
+    var fb = document.querySelectorAll("[data-fb]"), i, k;
+    for (i = 0; i < fb.length; i++) {
+      k = fb[i].getAttribute("data-fb");
+      fb[i].checked = !!c.football.alerts[k === "card" ? "card" : k];
+    }
+
+    fillMode($("o-mode"), c.others.mode);
+    $("o-sound").checked = !!c.others.sound;
+    range("o-seconds", c.others.seconds); range("o-volume", c.others.volume);
+    var ob = document.querySelectorAll("[data-ob]");
+    for (i = 0; i < ob.length; i++) { ob[i].checked = !!c.others.alerts[ob[i].getAttribute("data-ob")]; }
+
+    clubs = JSON.parse(JSON.stringify(c.football.clubs || []));
+    picks = JSON.parse(JSON.stringify(c.others.picks || []));
+    feeds = (c.news.feeds || []).slice(0);
+    simClubs = JSON.parse(JSON.stringify((c.sim && c.sim.clubs) || []));
+    renderClubs(); renderTestClubs(); renderPicks(); renderFeeds();  renderSim();
+
+    var cv = c.civ || {}, clv = cv.levels || {};
+    var wp = (c.weather && c.weather.proactive) || {};
+    $("wp-enabled").checked = !!wp.enabled;
+    $("wp-minutes").value = String(wp.minutes || 60);
+    $("wp-rain").checked = wp.rain !== false; $("wp-wind").checked = wp.wind !== false;
+    $("wp-heat").checked = wp.heat !== false; $("wp-storm").checked = wp.storm !== false;
+    $("wp-rainpct").value = wp.rainPct || 60; $("wp-windkmh").value = wp.windKmh || 50;
+    $("wp-heatc").value = wp.heatC || 35; $("wp-stormcode").value = wp.stormCode || 95;
+
+    $("civ-enabled").checked = !!cv.enabled;
+    $("m-civ").checked = !!cv.enabled;
+    fillSel($("civ-district"), c.civAreas || [], cv.district);
+    $("civ-yellow").checked = !!clv.yellow; $("civ-orange").checked = !!clv.orange; $("civ-red").checked = !!clv.red;
+    $("civ-anepc").checked = !!cv.anepc; $("civ-news").checked = !!cv.news;
+    $("civ-keywords").value = cv.keywords || "";
+    fillMode($("civ-mode"), cv.mode);
+    $("civ-sound").checked = !!cv.sound;
+    range("civ-interval", cv.interval); range("civ-seconds", cv.seconds); range("civ-volume", cv.volume);
+
+    fillSel($("add-league"), c.clubLeagues, c.clubLeagues[0] && c.clubLeagues[0].id);
+    fillSel($("add-sport"), [{ id: "", name: tr("none") }].concat(c.otherSports), "");
+    loadTeams($("add-league").value, $("add-team"));
+    loadTeams2();
+    applyTabVisibility();
+    dirty = false;
+  }
+  function loadTeams(league, el) {
+    el.innerHTML = "<option>" + esc(tr("loading")) + "</option>";
+    api("teams", { sport: "soccer", league: league, provider: $("f-provider").value })
+      .then(function (d) { fillSel(el, d.teams); })
+      .catch(function (e) { el.innerHTML = "<option>" + esc(tr("err") + e.message) + "</option>"; });
+  }
+  function loadTeams2() {
+    var sp = $("add-sport").value, el = $("add-team2"), meta = null, i;
+    updatePickButton();
+    pickListError = false;
+    if (!sp) { el.innerHTML = '<option value="">' + esc(tr("none")) + "</option>"; return; }
+    for (i = 0; i < cfg.otherSports.length; i++) { if (cfg.otherSports[i].id === sp) { meta = cfg.otherSports[i]; } }
+    if (!meta) { el.innerHTML = '<option value="">' + esc(tr("none")) + "</option>"; return; }
+    el.innerHTML = "<option>" + esc(tr("loading")) + "</option>";
+    // Races have an ESPN event id, so two F1 picks can follow two different races.
+    var route = meta.teams ? "teams" : "races";
+    var args = meta.teams ? { sport: sp, league: sp, provider: "espn" } : {};
+    api(route, args)
+      .then(function (d) {
+        var list = d.teams || d.races || [];
+        // A past Grand Prix can never alert again: keep the picker useful.
+        if (!meta.teams) { list = list.filter(function (x) { return !x.past; }); }
+        pickListError = !list.length;
+        fillSel(el, list);
+      })
+      .catch(function () {
+        pickListError = true;
+        el.innerHTML = '<option value="">' + esc(tr(meta.teams ? "noTeams" : "noRaces")) + "</option>";
+      });
+  }
+
+  // ---- save -----------------------------------------------------------------------------------------------------------------
+  function body() {
+    var fb = {}, ob = {}, i, k;
+    var fbEls = document.querySelectorAll("[data-fb]");
+    for (i = 0; i < fbEls.length; i++) {
+      k = fbEls[i].getAttribute("data-fb");
+      if (k !== "card") { fb[k] = fbEls[i].checked; }
+    }
+    fb.card = document.querySelector('[data-fb="card"]').checked;
+    var obEls = document.querySelectorAll("[data-ob]");
+    for (i = 0; i < obEls.length; i++) { ob[obEls[i].getAttribute("data-ob")] = obEls[i].checked; }
+    return {
+      modules: { sport: $("m-sport").checked, weather: $("m-weather").checked, news: $("m-news").checked },
+      civ: {
+        enabled: $("civ-enabled").checked, district: $("civ-district").value,
+        levels: { yellow: $("civ-yellow").checked, orange: $("civ-orange").checked, red: $("civ-red").checked },
+        anepc: $("civ-anepc").checked, news: $("civ-news").checked, keywords: $("civ-keywords").value,
+        interval: parseInt($("civ-interval").value, 10), seconds: parseInt($("civ-seconds").value, 10),
+        sound: $("civ-sound").checked, mode: $("civ-mode").value, volume: parseInt($("civ-volume").value, 10)
+      },
+      weather: {
+        place: $("w-place").value, custom: ((cfg && cfg.weather && cfg.weather.custom) || []).slice(0),
+        provider: $("w-provider").value, when: $("w-when").value,
+        interval: parseInt($("w-interval").value, 10), seconds: parseInt($("w-seconds").value, 10),
+        quiet: $("w-quiet").checked, sound: $("w-sound").checked, mode: $("w-mode").value,
+        volume: parseInt($("w-volume").value, 10),
+        proactive: {
+          enabled: $("wp-enabled").checked, minutes: parseInt($("wp-minutes").value, 10),
+          rain: $("wp-rain").checked, wind: $("wp-wind").checked,
+          heat: $("wp-heat").checked, storm: $("wp-storm").checked,
+          rainPct: parseInt($("wp-rainpct").value, 10), windKmh: parseInt($("wp-windkmh").value, 10),
+          heatC: parseInt($("wp-heatc").value, 10), stormCode: parseInt($("wp-stormcode").value, 10)
+        }
+      },
+      news: {
+        feeds: feeds.slice(0), interval: parseInt($("n-interval").value, 10), seconds: parseInt($("n-seconds").value, 10),
+        count: parseInt($("n-count").value, 10), quiet: $("n-quiet").checked, sound: $("n-sound").checked, mode: $("n-mode").value,
+        volume: parseInt($("n-volume").value, 10)
+      },
+      football: {
+        provider: $("f-provider").value, clubs: clubs,
+        alerts: { goal: fb.goal, against: fb.against, card: fb.card, sub: fb.sub, varNo: fb.varNo, start: fb.start, half: fb.half, end: fb.end },
+        goalSeconds: parseInt($("f-goalsec").value, 10), otherSeconds: parseInt($("f-othersec").value, 10),
+        sound: $("f-sound").checked, mode: $("f-mode").value, volume: parseInt($("f-volume").value, 10),
+        nextGame: { enabled: $("f-next-enabled").checked, minutes: parseInt($("f-next-minutes").value, 10) }
+      },
+      others: {
+        picks: picks, alerts: { start: ob.start, half: ob.half, end: ob.end, score: ob.score },
+        seconds: parseInt($("o-seconds").value, 10), sound: $("o-sound").checked, mode: $("o-mode").value,
+        volume: parseInt($("o-volume").value, 10)
+      }
+    };
+  }
+  // `forTest` lets the test buttons work even with every news source unticked: the payload just
+  // omits the list and the backend keeps the sources it already has.
+  function save(forTest) {
+    var b = body();
+    if (!feeds.length) {
+      if (!forTest) { say(tr("chooseOne"), "err"); return Promise.reject(new Error(tr("chooseOne"))); }
+      delete b.news.feeds;
+    }
+    return api("config", b).then(function () {
+      dirty = false; lastSaveAt = Date.now(); updateSaveState(); return state();
+    });
+  }
+  function saveOnly(btn) {
+    act(btn, save().then(function () { btn.className = btn.className.replace(/ fail| done/g, "") + " done"; say(tr("saved"), "ok"); }));
+  }
+  // Test sends what is on screen: save first, otherwise a style just picked is ignored.
+  // Football events carry the club picked in "Test with", so the banner shows that club's name,
+  // crest and style; weather, news and civil protection ignore it.
+  function test(kind) {
+    return save(true).then(function () {
+      var b = { kind: kind }, tc = $("test-club");
+      if (tc && tc.value && kind !== "weather" && kind !== "news" && kind !== "civ" && kind !== "score") {
+        b.club = tc.value;
+      }
+      return api("test", b);
+    }).then(function () {
+      return new Promise(function (r) { setTimeout(r, 900); }).then(state);
+    });
+  }
+  function state() {
+    return api("state").then(function (d) {
+      var first = !cfg;
+      cfg = d.config;
+      if (cfg.version) { $("ver").textContent = "v" + cfg.version; }
+      if (first && cfg.lang && cfg.lang !== lang) { lang = cfg.lang; applyText(); }
+      if (first || !dirty) { fill(); }
+      $("sport-line").textContent = (d.status.sport && d.status.sport.line) || "-";
+      $("sport-stat").textContent = (d.status.sport && d.status.sport.at) ?
+        (tr("checked") + new Date(d.status.sport.at).toLocaleTimeString() + " \u00B7 " + (d.status.sport.state || "")) : "";
+      var nx = d.next || [], parts = [], ni;
+      for (ni = 0; ni < nx.length && ni < 4; ni++) {
+        var g = nx[ni], who = (g.club === g.home || g.club === g.away) ? "" : g.club + ": ";
+        parts.push(who + g.home + " x " + g.away + " \u00B7 " + fmtWhen(g.date));
+      }
+      $("next-line").textContent = parts.length ? tr("nextMatch") + ": " + parts.join(" | ") : tr("noNext");
+      var cl = d.civ || [], ch = "", ci, a, lv;
+      if (!cl.length) {
+        $("civ-list").innerHTML = '<div class="msg">' + esc(tr("noCiv")) + "</div>";
+      } else {
+        for (ci = 0; ci < cl.length && ci < 8; ci++) {
+          a = cl[ci];
+          lv = a.level === "red" ? tr("civRed") : (a.level === "orange" ? tr("civOrange") :
+            (a.level === "yellow" ? tr("civYellow") : tr("civNotice")));
+          ch += '<div class="club"><div class="club-head"><b>' + esc(a.title) + '</b><span class="tag">' + esc(lv) + "</span></div>";
+          ch += '<div class="small">' + esc(a.source) + (a.area ? " \u00B7 " + esc(a.area) : "") +
+            (a.endsAt ? " \u00B7 " + esc(tr("civUntil")) + " " + esc(String(a.endsAt).slice(0, 16)) : "") + "</div>";
+          if (a.message) { ch += '<div class="msg">' + esc(a.message) + "</div>"; }
+          if (a.url && /^https?:/.test(a.url)) {
+            ch += '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(tr("civSource")) + "</a>";
+          }
+          ch += "</div>";
+        }
+        $("civ-list").innerHTML = ch;
+      }
+      $("civ-status").textContent = (d.status.civ && d.status.civ.at) ?
+        (tr("checked") + new Date(d.status.civ.at).toLocaleTimeString()) : "";
+      $("weather-line").textContent = d.status.weather.line || tr("noneyet");
+      $("news-line").textContent = d.status.news.line || tr("noneyet");
+
+      var wkeys = Object.keys(d.watches || {}), wh = "", wi, wv, wname;
+      for (wi = 0; wi < wkeys.length; wi++) {
+        wv = d.watches[wkeys[wi]];
+        if (!wv) { continue; }
+        wname = wkeys[wi].replace(/^club:|^other:/, "");
+        wh += "<div><b>" + esc(wname) + "</b>: " + esc(wv.line || "\u2014") +
+          (wv.state ? ' <span class="small">' + esc(wv.state) + "</span>" : "") + "</div>";
+      }
+      $("diag-watches").innerHTML = wh || tr("noClubs");
+      var logs = (d.log || []).slice(0, 10), lh = "", li, lg;
+      for (li = 0; li < logs.length; li++) {
+        lg = logs[li];
+        lh += "<div>" + esc(new Date(lg.at).toLocaleTimeString()) + " \u00B7 " + esc(lg.mod) +
+          " \u00B7 " + esc(lg.kind) + " \u00B7 " + esc(lg.text) + "</div>";
+      }
+      $("diag-log").innerHTML = lh || "\u2014";
+      var hv = d.health || {}, hk = Object.keys(hv), hh = "", hi, hn, hp;
+      for (hi = 0; hi < hk.length; hi++) {
+        hn = hk[hi]; hp = hv[hn];
+        hh += "<div><b>" + esc(hn) + "</b>: " + esc(hp.last || "ok") +
+          (hp.fails ? ' <span class="small">(' + esc(hp.fails) + ")</span>" : "") +
+          (hp.okAt ? ' <span class="small">' + esc(fmtWhen(new Date(hp.okAt).toISOString())) + "</span>" : "") + "</div>";
+      }
+      $("diag-health").innerHTML = hh || tr("noneyet");
+      $("api-help").textContent = lang === "pt"
+        ? "Estado publico (sem chaves):\n  curl http://<TV-IP>:8099/plugins/match-alerts/api/last\n\nRotas:\n  GET  /api/state    estado completo (painel)\n  GET  /api/last     vista publica\n  POST /api/test     {kind:goal|weather|news|civ}\n  POST /api/poll     {module:sport|weather|news|civ}\n  POST /api/clearlog esvazia o registo\n\nNota: o Vetro recusa pedidos com Origin de outro site; use um script na TV ou localhost."
+        : "Public state (no keys):\n  curl http://<TV-IP>:8099/plugins/match-alerts/api/last\n\nRoutes:\n  GET  /api/state    full state (panel only)\n  GET  /api/last     public read-only view\n  POST /api/test     {kind:goal|weather|news|civ}\n  POST /api/poll     {module:sport|weather|news|civ}\n  POST /api/clearlog empties the log\n\nNote: Vetro refuses requests with an Origin from another site; use a script on the TV or localhost.";
+      $("tabnav-label").textContent = tabs[currentTab()].textContent;
+      updateSaveState();
+    });
+  }
+
+  // ---- wiring ---------------------------------------------------------------------------------------------------------------
+  var tabs = document.querySelectorAll(".tabs button");
+  function currentTab() {
+    for (var i = 0; i < tabs.length; i++) { if (tabs[i].className.indexOf("on") >= 0) { return i; } }
+    return 0;
+  }
+  // Setup and Technical are always visible. The other tabs follow the module switches in Setup;
+  // hiding a tab never clears its configuration, it only hides the button and pane.
+  function tabEnabled(name) {
+    if (name === "setup" || name === "tech") { return true; }
+    if (name === "weather") { return $("m-weather").checked; }
+    if (name === "news") { return $("m-news").checked; }
+    if (name === "civ") { return $("m-civ").checked; }
+    if (name === "football" || name === "others") { return $("m-sport").checked; }
+    return true;
+  }
+  function visibleTabs() {
+    var out = [], i;
+    for (i = 0; i < tabs.length; i++) { if (tabEnabled(tabs[i].getAttribute("data-tab"))) { out.push(i); } }
+    return out;
+  }
+  function updatePaneState() {
+    var i, name, on, active = tabs[currentTab()].getAttribute("data-tab"), pane;
+    for (i = 0; i < tabs.length; i++) {
+      name = tabs[i].getAttribute("data-tab"); on = tabEnabled(name);
+      tabs[i].hidden = !on;
+      tabs[i].setAttribute("aria-selected", name === active ? "true" : "false");
+      pane = document.getElementById("tab-" + name);
+      if (pane) { pane.hidden = !on || name !== active; }
+    }
+  }
+  function applyTabVisibility() {
+    var vis = visibleTabs();
+    if (vis.length && vis.indexOf(currentTab()) < 0) { switchTab(vis[0]); }
+    else { updatePaneState(); }
+  }
+  function stepTab(delta) {
+    var vis = visibleTabs(), pos = vis.indexOf(currentTab());
+    if (!vis.length) { return; }
+    if (pos < 0) { pos = 0; }
+    pos = Math.max(0, Math.min(vis.length - 1, pos + delta));
+    switchTab(vis[pos]);
+  }
+  function switchTab(idx) {
+    if (idx < 0) { idx = tabs.length - 1; }
+    if (idx >= tabs.length) { idx = 0; }
+    var id = tabs[idx].getAttribute("data-tab"), panes = document.querySelectorAll(".tab"), i;
+    for (i = 0; i < tabs.length; i++) { tabs[i].className = i === idx ? "on" : ""; }
+    for (i = 0; i < panes.length; i++) { panes[i].className = panes[i].id === "tab-" + id ? "tab on" : "tab"; }
+    updatePaneState();
+    $("tabnav-label").textContent = tabs[idx].textContent;
+    $("tab-prev").disabled = false; $("tab-next").disabled = false;
+    window.scrollTo(0, 0);
+  }
+  for (var ti = 0; ti < tabs.length; ti++) {
+    tabs[ti].addEventListener("click", function () {
+      for (var i = 0; i < tabs.length; i++) { if (tabs[i] === this) { switchTab(i); return; } }
+    });
+  }
+  $("tab-prev").addEventListener("click", function () { stepTab(-1); });
+  $("tab-next").addEventListener("click", function () { stepTab(1); });
+  $("save-all").addEventListener("click", function () {
+    act(this, save().then(function () { say(tr("saved"), "ok"); }));
+  });
+  // One click runs every module's test in order; the Shard spaces banners 1 s apart.
+  $("test-all").addEventListener("click", function () {
+    var chain = Promise.resolve(), kinds = ["goal", "weather", "news", "civ"];
+    kinds.forEach(function (kind) {
+      chain = chain.then(function () { return api("test", { kind: kind }); })
+        .then(function () { return new Promise(function (r) { setTimeout(r, 1100); }); });
+    });
+    act(this, chain.then(function () { say(tr("sent"), "ok"); }));
+  });
+  // Dialogs do not work in the sandbox: a second click within 5 s confirms, as in the Bedtime Shard.
+  var clearArmed = null;
+  $("clear-log").addEventListener("click", function () {
+    var btn = this;
+    if (!clearArmed) {
+      clearArmed = setTimeout(function () { clearArmed = null; btn.textContent = tr("clearLog"); }, 5000);
+      btn.textContent = tr("confirmClear");
+      return;
+    }
+    clearTimeout(clearArmed); clearArmed = null;
+    btn.textContent = tr("clearLog");
+    act(btn, api("clearlog", {}).then(function () { $("diag-log").innerHTML = "\u2014"; }));
+  });
+  // Switching the panel language must not throw away clubs or sources added but not saved yet.
+  function setLang(l) {
+    lang = l; applyText();
+    $("tabnav-label").textContent = tabs[currentTab()].textContent;
+    updateSaveState();
+    if (!dirty) { fill(); }
+    api("config", { lang: l }).catch(function () {});
+  }
+  $("l-en").addEventListener("click", function () { setLang("en"); });
+  $("l-pt").addEventListener("click", function () { setLang("pt"); });
+
+  // Any edit marks the form dirty so the 20 s refresh does not overwrite it.
+  document.body.addEventListener("input", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT")) {
+      dirty = true; updateSaveState();
+      if (t.id && t.id.indexOf("v") < 0 && $(t.id + "v")) { $(t.id + "v").textContent = t.value; }
+    }
+  }, true);
+  document.body.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT") && t.id !== "test-club") { dirty = true; updateSaveState(); }
+    if (t && (t.id === "m-civ" || t.id === "civ-enabled")) {
+      $("m-civ").checked = t.checked; $("civ-enabled").checked = t.checked;
+      applyTabVisibility();
+    } else if (t && /^m-(sport|weather|news)$/.test(t.id)) {
+      applyTabVisibility();
+    }
+    if (t && t.id === "add-league") { loadTeams(t.value, $("add-team")); }
+    if (t && t.id === "add-sport") { loadTeams2(); }
+    if (t && t.id === "f-provider") { loadTeams($("add-league").value, $("add-team")); }
+    if (t && t.getAttribute("data-feed")) {
+      var id = t.getAttribute("data-feed"), i = feeds.indexOf(id);
+      if (t.checked && i < 0) { feeds.push(id); }
+      if (!t.checked && i >= 0) { feeds.splice(i, 1); }
+      
+      save().catch(function (err) { say(tr("err") + err.message, "err"); });
+    }
+    if (t && t.getAttribute("data-cn")) {
+      var cid = t.getAttribute("data-cn"), j;
+      for (j = 0; j < clubs.length; j++) { if (clubs[j].id === cid) { clubs[j].news = t.checked; } }
+      renderClubs();
+      save().catch(function (err) { say(tr("err") + err.message, "err"); });
+    }
+    if (t && t.getAttribute("data-comp")) {
+      var card = t.parentNode;
+      while (card && !card.getAttribute("data-id")) { card = card.parentNode; }
+      if (card) {
+        var cid2 = card.getAttribute("data-id"), comp = t.getAttribute("data-comp"), k;
+        for (k = 0; k < clubs.length; k++) {
+          if (clubs[k].id === cid2) {
+            var ix = clubs[k].comps.indexOf(comp);
+            if (t.checked && ix < 0) { clubs[k].comps.push(comp); }
+            if (!t.checked && ix >= 0) { clubs[k].comps.splice(ix, 1); }
+          }
+        }
+      }
+    }
+    if (t && t.getAttribute("data-act") === "news") {
+      var card2 = t.parentNode;
+      while (card2 && !card2.getAttribute("data-id")) { card2 = card2.parentNode; }
+      if (card2) {
+        var cid3 = card2.getAttribute("data-id"), m;
+        for (m = 0; m < clubs.length; m++) { if (clubs[m].id === cid3) { clubs[m].news = t.checked; } }
+        
+        save().catch(function (err) { say(tr("err") + err.message, "err"); });
+      }
+    }
+    if (t && t.getAttribute("data-cal")) {
+      var card3 = t.parentNode;
+      while (card3 && !card3.getAttribute("data-id")) { card3 = card3.parentNode; }
+      if (card3) {
+        var cid4 = card3.getAttribute("data-id"), key = t.getAttribute("data-key"), cl4;
+        for (var ci = 0; ci < clubs.length; ci++) {
+          if (clubs[ci].id === cid4) {
+            cl4 = clubs[ci];
+            if (!cl4.alerts) {
+              var eff = effAlerts(cl4), ea = {};
+              for (var ek in eff) { if (eff.hasOwnProperty(ek)) { ea[ek] = eff[ek]; } }
+              cl4.alerts = ea;
+            }
+            cl4.alerts[key] = t.checked;
+          }
+        }
+        renderClubs();
+        save().catch(function (err) { say(tr("err") + err.message, "err"); });
+      }
+    }
+  }, true);
+
+  // Remove buttons (clubs and picks).
+  document.body.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || t.getAttribute("data-act") !== "rm") { return; }
+    var box = t.parentNode;
+    while (box && !box.getAttribute("data-id") && !box.getAttribute("data-i")) { box = box.parentNode; }
+    if (!box) { return; }
+    if (box.getAttribute("data-id")) {
+      var id = box.getAttribute("data-id"), i;
+      for (i = 0; i < clubs.length; i++) { if (clubs[i].id === id) { clubs.splice(i, 1); } }
+      renderClubs(); 
+    } else {
+      picks.splice(parseInt(box.getAttribute("data-i"), 10), 1);
+      renderPicks();
+    }
+    // Removing a club/pick is meaningless if it is lost when the panel closes: save right away.
+    save().catch(function (err) { say(tr("err") + err.message, "err"); });
+  });
+
+  $("add-club").addEventListener("click", function () {
+    var league = $("add-league").value, team = $("add-team").value, name = "", i;
+    if (!team) { say(tr("noTeams"), "err"); return; }
+    for (i = 0; i < $("add-team").options.length; i++) {
+      if ($("add-team").options[i].value === team) { name = $("add-team").options[i].text; }
+    }
+    var max = cfg.maxClubs || 3;
+    if (clubs.length >= max) { say(tr("maxClubs") + max, "err"); return; }
+    for (i = 0; i < clubs.length; i++) { if (clubs[i].id === team) { say(tr("err") + "already added", "err"); return; } }
+    clubs.push({ id: team, name: name, league: league, comps: compsFor(league).map(function (c) { return c.id; }), news: false });
+    renderClubs(); 
+    act(this, save().then(function () { say(tr("saved") + " (" + name + ")", "ok"); }));
+  });
+  $("add-pick").addEventListener("click", function () {
+    var sp = $("add-sport").value, el = $("add-team2"), meta = null, i, name = "", team = "";
+    if (!sp) { sayPick(tr("noSport"), "err"); return; }
+    if (cfg.maxPicks && picks.length >= cfg.maxPicks) { sayPick(tr("pickLimit") + cfg.maxPicks, "err"); return; }
+    for (i = 0; i < cfg.otherSports.length; i++) { if (cfg.otherSports[i].id === sp) { meta = cfg.otherSports[i]; } }
+    if (!meta) { return; }
+    if (pickListError) { sayPick(tr(meta.teams ? "noTeams" : "noRaces"), "err"); return; }
+    if (!el.value) { sayPick(tr(meta.teams ? "noTeams" : "noRaces"), "err"); return; }
+    team = el.value;
+    for (i = 0; i < el.options.length; i++) { if (el.options[i].value === team) { name = el.options[i].text; } }
+    if (!name) { name = team; }
+    // Team picks are unique by team id, race picks by ESPN event id (name only for old configs).
+    var key = team;
+    for (i = 0; i < picks.length; i++) {
+      if (picks[i].sport === sp && (picks[i].teamId || picks[i].name) === key) { sayPick(tr("err") + "already added", "err"); return; }
+    }
+    picks.push({ sport: sp, league: sp, teamId: team, name: name });
+    renderPicks();
+    act(this, save().then(function () { sayPick(tr("saved") + " (" + name + ")", "ok"); }));
+  });
+
+  // ---- custom places -------------------------------------------------------------------------------------------------------
+  $("place-find").addEventListener("click", function () {
+    var name = $("place-search").value.replace(/^\s+|\s+$/g, "");
+    if (name.length < 2) { wmsg(tr("typePlace"), "err"); return; }
+    act(this, api("geocode", { name: name }).then(function (d) {
+      geoResults = d.places || [];
+      if (!geoResults.length) {
+        $("place-results").innerHTML = "";
+        $("place-results").className = "hidden";
+        wmsg(tr("noPlaces"), "err");
+        return;
+      }
+      fillSel($("place-results"), geoResults.map(function (p, i) { return { id: String(i), name: p.name }; }), "0");
+      $("place-results").className = "";
+      wmsg(tr("found") + geoResults.length, "ok");
+    }).catch(function (e) { wmsg(tr("err") + e.message, "err"); }));
+  });
+  $("place-add").addEventListener("click", function () {
+    var p = geoResults[parseInt($("place-results").value, 10)];
+    if (!p) { wmsg(tr("findFirst"), "err"); return; }
+    var list = ((cfg && cfg.weather && cfg.weather.custom) || []).slice(0), i, exists = false;
+    for (i = 0; i < list.length; i++) { if (list[i].id === p.id) { exists = true; } }
+    if (!exists) { list.push(p); }
+    if (list.length > 10) { wmsg(tr("tooManyPlaces"), "err"); return; }
+    act(this, api("config", { weather: { custom: list, place: p.id } }).then(function () {
+      return state();
+    }).then(function () {
+      dirty = false; fill();
+      wmsg(tr("placeAdded") + ": " + p.name, "ok");
+    }));
+  });
+  document.body.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || t.getAttribute("data-act") !== "rmplace") { return; }
+    var id = t.getAttribute("data-id"), list = [], i;
+    var cur = (cfg && cfg.weather && cfg.weather.custom) || [];
+    for (i = 0; i < cur.length; i++) { if (cur[i].id !== id) { list.push(cur[i]); } }
+    var place = cfg.weather.place === id ? "lisbon" : cfg.weather.place;
+    act(t, api("config", { weather: { custom: list, place: place } }).then(function () {
+      return state();
+    }).then(function () { dirty = false; fill(); wmsg(tr("placeRemoved"), "ok"); }));
+  });
+
+  $("save-mod").addEventListener("click", function () { saveOnly(this); });
+  $("save-weather").addEventListener("click", function () { saveOnly(this); });
+  $("save-news").addEventListener("click", function () { saveOnly(this); });
+  $("save-civ").addEventListener("click", function () { saveOnly(this); });
+
+  // ---- goal simulation -----------------------------------------------------------------------------------------------
+  function saveSim() {
+    return api("config", { sim: { clubs: simClubs } }).then(function () {
+      return state();
+    }).then(function () { renderSim(); dirty = false; });
+  }
+  // The crest and the name are children of the button: a click on them must count as one click.
+  function closestData(el, attr) {
+    while (el && el !== document.body) {
+      if (el.getAttribute && el.getAttribute(attr)) { return el; }
+      el = el.parentNode;
+    }
+    return null;
+  }
+  document.body.addEventListener("click", function (e) {
+    var b = closestData(e.target, "data-sim"), id, oldBg, oldBorder;
+    if (b) {
+      id = b.getAttribute("data-sim");
+      // Do not use act(): it replaces textContent and would destroy the crest inside the button.
+      b.disabled = true;
+      simsay(tr("loading"), "");
+      api("test-club", { id: id }).then(function (d) {
+        simsay(tr("sent") + ": " + d.title + " - " + d.message, "ok");
+        // Green for 3 seconds so the click is unmistakable on the TV.
+        oldBg = b.style.background; oldBorder = b.style.borderColor;
+        b.style.background = "#1c4b2f"; b.style.borderColor = "#3fb950";
+        setTimeout(function () { b.style.background = oldBg; b.style.borderColor = oldBorder; }, 3000);
+      }).catch(function (err) { simsay(tr("err") + err.message, "err"); })
+        .then(function () { b.disabled = false; });
+      return;
+    }
+    b = closestData(e.target, "data-simrm");
+    if (b) {
+      id = b.getAttribute("data-simrm");
+      var i;
+      for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { simClubs.splice(i, 1); break; } }
+      saveSim().catch(function (err) { simsay(tr("err") + err.message, "err"); });
+    }
+    b = closestData(e.target, "data-clubreset");
+    if (b) {
+      id = b.getAttribute("data-clubreset");
+      for (var ci = 0; ci < clubs.length; ci++) { if (clubs[ci].id === id) { delete clubs[ci].alerts; break; } }
+      renderClubs();
+      save().catch(function (err) { say(tr("err") + err.message, "err"); });
+    }
+  });
+  document.body.addEventListener("change", function (e) {
+    var t = e.target, id = t && t.getAttribute("data-simlevel"), i;
+    if (!id) { return; }
+    for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { simClubs[i].level = t.value; } }
+    saveSim().catch(function (err) { simsay(tr("err") + err.message, "err"); });
+  });
+  $("sim-add").addEventListener("click", function () {
+    var name = $("sim-name").value.replace(/^\s+|\s+$/g, ""), id = $("sim-id").value.replace(/^\s+|\s+$/g, "");
+    if (!name || !/^\d{1,8}$/.test(id)) { simsay(tr("err") + " id", "err"); return; }
+    if (simClubs.length >= 10) { simsay(tr("maxClubs") + "10", "err"); return; }
+    var i;
+    for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { simsay(tr("err") + "already added", "err"); return; } }
+    simClubs.push({ id: id, name: name, msg: $("sim-text").value, level: $("sim-level").value,
+      logo: "https://a.espncdn.com/i/teamlogos/soccer/500/" + id + ".png" });
+    $("sim-name").value = ""; $("sim-id").value = ""; $("sim-text").value = "";
+    saveSim().then(function () { simsay(tr("saved") + ": " + name, "ok"); })
+      .catch(function (err) { simsay(tr("err") + err.message, "err"); });
+  });
+  $("t-civ").addEventListener("click", function () { act(this, test("civ")); });
+  $("save-football").addEventListener("click", function () { saveOnly(this); });
+  $("save-others").addEventListener("click", function () { saveOnly(this); });
+  $("check").addEventListener("click", function () {
+    act(this, api("poll", {}).then(function () { return new Promise(function (r) { setTimeout(r, 1500); }); }).then(state));
+  });
+  $("t-weather").addEventListener("click", function () { act(this, test("weather")); });
+  $("t-news").addEventListener("click", function () { act(this, test("news")); });
+  $("t-goal").addEventListener("click", function () { act(this, test("goal")); });
+  $("t-against").addEventListener("click", function () { act(this, test("against")); });
+  $("t-card").addEventListener("click", function () { act(this, test("card")); });
+  $("t-start").addEventListener("click", function () { act(this, test("start")); });
+  $("t-end").addEventListener("click", function () { act(this, test("end")); });
+  $("t-next").addEventListener("click", function () { act(this, test("next")); });
+  $("t-score").addEventListener("click", function () { act(this, test("score")); });
+  $("savekey").addEventListener("click", function () {
+    act(this, api("config", { apiKey: $("apikey").value }).then(function () {
+      $("apikey").value = ""; $("keymsg").textContent = tr("keyset"); return state();
+    }));
+  });
+  $("checkkey").addEventListener("click", function () {
+    act(this, api("keycheck", {}).then(function (d) {
+      $("keymsg").textContent = tr("keyok") + d.remaining + " (" + (d.plan || "-") + ")";
+    }).catch(function (e) { $("keymsg").textContent = tr("err") + e.message; }));
+  });
+
+  applyText();
+  $("tabnav-label").textContent = tabs[currentTab()].textContent;
+  updateSaveState();
+  state().catch(function (e) { say(tr("err") + e.message, "err"); });
+  setInterval(function () { state().catch(function () {}); }, 20000);
+})();
+</script>
+</body>
+</html>
