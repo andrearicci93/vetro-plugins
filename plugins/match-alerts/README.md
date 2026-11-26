@@ -15,7 +15,7 @@ runtime. The Shard keeps the id `match-alerts` so an existing installation keeps
 - `priority:"high"` for civil-protection warnings needs **0.13.0+**; on older versions the warning is still shown, just
   without the quiet-hours bypass.
 
-The panel has five tabs: **SETUP** (formerly General), **Weather**, **News**, **Sport** and **Technical** (Técnico).
+The panel has five tabs, in the same order as the module switches: **SETUP** (formerly General), **Sport**, **Weather**, **News** and **Technical** (Técnico).
 
 - **Weather** uses two columns, like the Notification Center Shard: meteorology (places, Open-Meteo, proactive warnings) and **Proteção Civil** (IPMA/ANEPC/RSS). The `civ.enabled` switch shows or hides the civil-protection column.
 - **Sport** has two sub-tabs: **Football** (clubs, alerts, goal simulation) and **Other sports** (picks for NBA/MLB/NHL/NFL/F1). The same `modules.sport` switch shows or hides the whole Sport tab.
@@ -301,4 +301,6 @@ the LAN — by design, since it carries no config or keys. Disable the Shard or 
   a scored penalty remains a goal. Two new switches in the Football tab, default on. 23 tests.
 - 0.5.41: official name **NEWS** (id `match-alerts` unchanged). Panel merged into five tabs with Sport sub-tabs and a two-column Weather tab; `check-nc.ps1` keeps a snapshot per TV; `build.ps1 -Install` accepts several IPs. README documents compatibility with the catalog's Notification Center 0.3.1 and the newer 0.8.0+ features.
 - 0.5.42: all 41 checkboxes replaced by Vetro-style on/off switches (`role="switch"`, pill and sliding knob, On/Off label synced on change and after each render).
+- 0.5.43: the four module switches in **SETUP → Modules** are laid out horizontally in columns instead of a vertical list.
+- 0.5.44: tab order matches the module order — SETUP, **Sport**, **Weather**, **News**, Technical (civil protection stays a column inside Weather).
 - **`mode: "overlay"` confirmed working** with Notification Center 0.8.0.

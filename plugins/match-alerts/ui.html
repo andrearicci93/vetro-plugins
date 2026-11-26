@@ -59,6 +59,8 @@ label.switch input[type=checkbox]:checked:before { transform:translateX(16px); b
 label.switch input[type=checkbox]:disabled { opacity:.45; cursor:default; }
 label.switch span { color:var(--text); }
 .sw-state { margin-left:auto; font-size:12px; color:var(--muted); font-weight:600; }
+.modgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px 14px; margin-top:10px; }
+.modgrid label.switch { width:auto; }
 select, input[type=text], input[type=password] { width:100%; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 9px; font-size:13px; }
 input[type=range] { width:100%; accent-color:var(--accent); }
 .dur input[type=number] { flex:1; min-width:70px; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; }
@@ -119,9 +121,9 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
 
 <div class="tabs" role="tablist" aria-label="Sections">
   <button type="button" id="tabbtn-setup" role="tab" aria-selected="true" aria-controls="tab-setup" data-tab="setup" class="on" data-t="tabSetup">SETUP</button>
+  <button type="button" id="tabbtn-sport" role="tab" aria-selected="false" aria-controls="tab-sport" data-tab="sport" data-t="tabSport">Sport</button>
   <button type="button" id="tabbtn-weather" role="tab" aria-selected="false" aria-controls="tab-weather" data-tab="weather" data-t="tabWeather">Weather</button>
   <button type="button" id="tabbtn-news" role="tab" aria-selected="false" aria-controls="tab-news" data-tab="news" data-t="tabNews">News</button>
-  <button type="button" id="tabbtn-sport" role="tab" aria-selected="false" aria-controls="tab-sport" data-tab="sport" data-t="tabSport">Sport</button>
   <button type="button" id="tabbtn-tech" role="tab" aria-selected="false" aria-controls="tab-tech" data-tab="tech" data-t="tabTech">Technical</button>
 </div>
 
@@ -131,10 +133,12 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     <div class="card wide">
       <details class="sec" open>
         <summary data-t="modules">Modules</summary>
-        <label class="switch"><input type="checkbox" role="switch" id="m-sport"> <span data-t="sport">Sport</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="m-weather"> <span data-t="weather">Weather</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="m-news"> <span data-t="news">News</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="m-civ"> <span data-t="tabCiv">Proteção Civil</span><b class="sw-state">On</b></label>
+        <div class="modgrid">
+          <label class="switch"><input type="checkbox" role="switch" id="m-sport"> <span data-t="sport">Sport</span><b class="sw-state">On</b></label>
+          <label class="switch"><input type="checkbox" role="switch" id="m-weather"> <span data-t="weather">Weather</span><b class="sw-state">On</b></label>
+          <label class="switch"><input type="checkbox" role="switch" id="m-news"> <span data-t="news">News</span><b class="sw-state">On</b></label>
+          <label class="switch"><input type="checkbox" role="switch" id="m-civ"> <span data-t="tabCiv">Proteção Civil</span><b class="sw-state">On</b></label>
+        </div>
       </details>
     </div>
     <div class="card wide">

@@ -2,7 +2,7 @@
   "id": "match-alerts",
   "apiVersion": 1,
   "name": "NEWS",
-  "version": "0.5.42",
+  "version": "0.5.44",
   "description": "Sport (ESPN), weather (Open-Meteo), news (RSS/Google News) and civil-protection (IPMA/ANEPC) alerts on Samsung TVs via Notification Center.",
   "author": "mclaudiopt",
   "permissions": [],
