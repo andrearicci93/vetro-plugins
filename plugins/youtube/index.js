@@ -19,7 +19,7 @@ var address = require('./address.js');
 var watchLib = require('./watch.js');
 
 var PROXY_HOST = '127.0.0.2', DEFAULT_PORT = 8101;
-var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000;
+var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000, OPEN_COOLDOWN_MS = 3500;
 
 var PAGE = '<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -41,19 +41,22 @@ var PAGE = '<!doctype html><meta charset="utf-8"><meta name="color-scheme" conte
     'function $(i){return document.getElementById(i)}' +
     'function say(t,bad){var m=$("msg");m.textContent=t;m.className=bad?"err":""}' +
     'function post(p,b){return fetch(p,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(b||{})}).then(function(r){return r.json()})}' +
-    'var busy=false;' +
+    'var busy=false,pollBusy=false,pollSeq=0,cleanArmed=false,cleanReset=0;' +
+    'function resetClean(){cleanArmed=false;clearTimeout(cleanReset);$("clean").textContent="Remove certificate and files";}' +
     'function show(d){$("s_setup").textContent=d.setup==="ready"?"ready":d.setup==="working"?"setting up…":d.setup==="nocobalt"?"Samsung YouTube not found":d.setup==="error"?"error: "+d.error:"not made yet";' +
     '$("s_script").textContent=d.script==="ready"?"TizenTube "+d.scriptVersion:d.script==="error"?"error: "+d.scriptError:"not downloaded yet";' +
     '$("s_proxy").textContent=d.proxy==="up"?"listening on "+d.proxyAddress:d.proxyError?"error: "+d.proxyError:"stopped";' +
     '$("s_pages").textContent=d.pages?d.pages+(d.lastPage?" (last "+d.lastPage+")":""):"none yet";' +
     'if(!busy){$("tile").checked=!!d.tileOn}' +
     '$("tilenote").textContent=d.tileState==="on"?"On.":d.tileState==="waiting"?"Waiting: "+d.tileNote:d.tileState==="unsupported"||d.tileState==="error"?d.tileNote:""}' +
-    'function poll(){fetch("status").then(function(r){return r.json()}).then(show).catch(function(){})}' +
-    '$("open").onclick=function(){say("Preparing and starting… the first time takes up to a minute.");post("open").then(function(d){say(d.ok?(d.warning||"YouTube is starting on the TV."):d.error,!d.ok||!!d.warning);poll()})};' +
-    '$("close").onclick=function(){post("close").then(function(){say("YouTube closed.");poll()})};' +
-    '$("tile").onchange=function(){busy=true;var on=$("tile").checked;say(on?"Preparing…":"Switching off…");post("tile",{on:on}).then(function(d){busy=false;say(d.ok?"":d.error,!d.ok);poll()},function(){busy=false})};' +
-    '$("clean").onclick=function(){if(!confirm("Remove the certificate, the downloaded script and the copy of YouTube’s files?"))return;post("cleanup").then(function(d){say(d.ok?"Removed.":d.error,!d.ok);poll()})};' +
-    'poll();setInterval(poll,3000);' +
+    'function poll(force){if(pollBusy&&!force)return;pollBusy=true;var seq=++pollSeq;fetch("status").then(function(r){return r.json()}).then(function(d){if(seq===pollSeq){pollBusy=false;show(d)}},function(){if(seq===pollSeq)pollBusy=false})}' +
+    'function fail(e){say(e&&e.message||"Request failed",true)}' +
+    '$("open").onclick=function(){say("Preparing and starting… the first time takes up to a minute.");post("open").then(function(d){say(d.ok?(d.warning||"YouTube is starting on the TV."):d.error,!d.ok||!!d.warning);poll(true)}).catch(fail)};' +
+    '$("close").onclick=function(){post("close").then(function(d){say(d&&d.ok===false?(d.error||"Failed to close."):"YouTube closed.",d&&d.ok===false);poll(true)}).catch(fail)};' +
+    '$("tile").onchange=function(){busy=true;var on=$("tile").checked;say(on?"Preparing…":"Switching off…");post("tile",{on:on}).then(function(d){busy=false;say(d.ok?"":d.error,!d.ok);poll(true)},function(e){busy=false;fail(e)})};' +
+    '$("clean").onclick=function(){if(!cleanArmed){cleanArmed=true;$("clean").textContent="Click again to remove files";clearTimeout(cleanReset);cleanReset=setTimeout(resetClean,5000);return;}resetClean();post("cleanup").then(function(d){say(d.ok?"Removed.":d.error,!d.ok);poll(true)}).catch(fail)};' +
+    'document.addEventListener("visibilitychange",function(){if(!document.hidden)poll(true)});' +
+    'poll();setInterval(function(){if(!document.hidden)poll()},3000);' +
     '</script></body>';
 
 module.exports = function (ctx) {
@@ -67,9 +70,10 @@ module.exports = function (ctx) {
     var BIND = MODE === 'lan' ? '0.0.0.0' : PROXY_HOST;
     // The address put in the app's flags: the TV's own when it has one (it can change with the router), else loopback.
     function proxyHost() { return MODE === 'lan' ? (address.lanAddress(os.networkInterfaces()) || PROXY_HOST) : PROXY_HOST; }
-    var logLines = [], preparing = null, alive = false, timer = null, watchTimer = null;
+    var logLines = [], preparing = null, settingUp = null, opening = null, alive = false, timer = null, watchTimer = null;
     var tileOn = cfg.tile === true;
-    var lastSetup = 0, nextScriptTry = 0;
+    var lastSetup = 0, nextScriptTry = 0, lastOpenAt = 0, lastOpenWarning = null;
+    var leafCache = null, leafStamp = null;
     var st = { setup: 'idle', error: null, script: 'idle', scriptError: null, proxyError: null, pages: 0, lastPage: null, tileState: 'off', tileNote: '' };
 
     function log(m) { logLines.push(new Date().toISOString().slice(11, 19) + ' ' + m); if (logLines.length > 150) logLines.shift(); }
@@ -85,11 +89,25 @@ module.exports = function (ctx) {
     function readText(file) { try { return fs.readFileSync(file, 'utf8'); } catch (e) { return ''; } }
 
     function readLeaf() {
+        var keyFile = path.join(setup.DIR, 'leaf.key');
+        var crtFile = path.join(setup.DIR, 'leaf.crt');
+        var caFile = path.join(setup.DIR, 'ca.crt');
         try {
-            var key = fs.readFileSync(path.join(setup.DIR, 'leaf.key'));
-            var cert = fs.readFileSync(path.join(setup.DIR, 'leaf.crt'), 'utf8') + fs.readFileSync(path.join(setup.DIR, 'ca.crt'), 'utf8');
-            return { key: key, cert: cert };
-        } catch (e) { return null; }
+            var ks = fs.statSync(keyFile), cs = fs.statSync(crtFile), as = fs.statSync(caFile);
+            var stamp = ks.mtime.getTime() + ':' + ks.size + '|' + cs.mtime.getTime() + ':' + cs.size + '|' + as.mtime.getTime() + ':' + as.size;
+            if (leafCache && leafStamp === stamp) return leafCache;
+            var key = fs.readFileSync(keyFile);
+            var cert = fs.readFileSync(crtFile, 'utf8') + fs.readFileSync(caFile, 'utf8');
+            leafCache = { key: key, cert: cert };
+            leafStamp = stamp;
+            return leafCache;
+        } catch (e) {
+            if (preparing && leafCache) return leafCache;
+            if (settingUp && leafCache) return leafCache;
+            leafCache = null;
+            leafStamp = null;
+            return null;
+        }
     }
     function contentThere() { try { return fs.statSync(path.join(setup.CONTENT, 'ssl', 'certs')).isDirectory(); } catch (e) { return false; } }
 
@@ -111,13 +129,20 @@ module.exports = function (ctx) {
     }
 
     function runSetup() {
+        if (settingUp) return settingUp;
         st.setup = 'working'; st.error = null;
-        return exec(setup.setupScript(), 90000).then(function (r) {
+        settingUp = exec(setup.setupScript(), 90000).then(function (r) {
+            settingUp = null;
             var out = String((r && r.stdout) || '');
             if (/^nocobalt$/m.test(out)) { st.setup = 'nocobalt'; throw new Error('Samsung’s YouTube app was not found on this TV'); }
             if (!/^ready$/m.test(out)) { st.setup = 'error'; st.error = String((r && r.stderr) || out || 'setup failed').slice(0, 200); throw new Error(st.error); }
             st.setup = 'ready'; lastSetup = Date.now();
-        }, function (e) { if (st.setup === 'working') { st.setup = 'error'; st.error = e.message; } throw e; });
+        }, function (e) {
+            settingUp = null;
+            if (st.setup === 'working') { st.setup = 'error'; st.error = e.message; }
+            throw e;
+        });
+        return settingUp;
     }
 
     function runScript() {
@@ -162,9 +187,16 @@ module.exports = function (ctx) {
     // The plugin starts before Vetro's root agent has connected (every boot), so the first jobs fail with "no root agent
     // connected". Try again every few seconds instead of waiting for the next minute tick.
     function retrySoon() {
-        if (!alive || retryTimer || bootTries++ >= 60) return;
-        retryTimer = setTimeout(function () { retryTimer = null; if (alive) reconcile(); }, 3000);
-        if (retryTimer.unref) retryTimer.unref();
+        if (!alive || !tileOn || retryTimer || bootTries++ >= 60) return;
+        retryTimer = setTimeout(function () {
+            retryTimer = null;
+            if (!alive || !tileOn) return;
+            var chain = !(readLeaf() && script.load() && contentThere())
+                ? prepare().catch(function (e) { log('retry: ' + e.message); retrySoon(); })
+                : (!proxy.listening() ? listen().catch(function (e) { log('proxy: ' + e.message); }) : Promise.resolve());
+            chain.then(function () { return reconcile(); }).catch(function (e) { log('retry: ' + e.message); });
+        }, 3000);
+        if (retryTimer && retryTimer.unref) retryTimer.unref();
     }
     function reconcile() {
         if (waiting) return waiting;
@@ -178,9 +210,9 @@ module.exports = function (ctx) {
                     if (state === 'error' || state === 'raced' || state === 'patched' || state === 'stuck') {
                         log('row restore: ' + state);
                         // The flags are still there. Try again soon, a few times; the direct:// fallback keeps YouTube opening meanwhile.
-                        if (restoreTries++ < 5 && !retryTimer) {
-                            retryTimer = setTimeout(function () { retryTimer = null; reconcile(); }, 5000);
-                            if (retryTimer.unref) retryTimer.unref();
+                        if (alive && restoreTries++ < 5 && !retryTimer) {
+                            retryTimer = setTimeout(function () { retryTimer = null; if (alive) reconcile(); }, 5000);
+                            if (retryTimer && retryTimer.unref) retryTimer.unref();
                         }
                     } else restoreTries = 0;
                     return state;
@@ -193,7 +225,7 @@ module.exports = function (ctx) {
                 else { st.tileState = 'error'; st.tileNote = 'The TV’s app list could not be updated (' + state + '); trying again.'; log('row: ' + state); retrySoon(); }
                 if (st.tileState === 'on') bootTries = 0;
                 return state;
-            }, function (e) { st.tileState = 'error'; st.tileNote = 'Could not reach the TV’s app list: ' + e.message; log('row: ' + e.message); retrySoon(); return 'error'; });
+            }, function (e) { st.tileState = 'error'; st.tileNote = 'Could not reach the TV’s app list: ' + e.message; log('row: ' + e.message); if (!why) retrySoon(); return 'error'; });
         });
         return waiting;
     }
@@ -201,11 +233,12 @@ module.exports = function (ctx) {
     // Once a minute while the button is on: keeps the proxy up, renews what expires, retries a failed download, and puts the row
     // right again if Samsung rewrote it (an app update does).
     function tick() {
-        if (!alive || !tileOn) return;
+        if (!alive || !tileOn || preparing || settingUp) return;
+        bootTries = 0;
         var chain = Promise.resolve();
-        if (Date.now() - lastSetup > SETUP_EVERY_MS && !preparing) chain = chain.then(function () { return runSetup().catch(function (e) { log('setup: ' + e.message); }); });
+        if (Date.now() - lastSetup > SETUP_EVERY_MS) chain = chain.then(function () { return runSetup().catch(function (e) { log('setup: ' + e.message); }); });
         if (!script.load() && Date.now() > nextScriptTry && contentThere()) chain = chain.then(function () { return runScript().catch(noop); });
-        chain.then(function () { if (!proxy.listening() && readLeaf() && script.load()) return listen().catch(function (e) { log('proxy: ' + e.message); }); })
+        chain.then(function () { if (!proxy.listening() && readLeaf() && script.load() && contentThere()) return listen().catch(function (e) { log('proxy: ' + e.message); }); })
             .then(function () { return reconcile(); }).catch(function (e) { log('tick: ' + e.message); });
     }
 
@@ -218,7 +251,7 @@ module.exports = function (ctx) {
     function relaunch(how) {
         relaunches.push(Date.now());
         log('YouTube was started without the patches (' + how + '): starting it again through the proxy');
-        return ctx.execute(setup.launchScript(proxyHost(), PORT), 25000);
+        return exec(setup.launchScript(proxyHost(), PORT), 25000);
     }
     function watch() {
         if (!alive || !tileOn || watchBusy) return;
@@ -259,13 +292,27 @@ module.exports = function (ctx) {
     // Gets the certificate and script ready (the first time up to a minute) and starts YouTube through the proxy.
     // Resolves with { warning } and rejects when YouTube did not start. Used by the Open button and by the launcher tile.
     function openYoutube() {
+        if (opening) return opening;
+        if (lastOpenAt && Date.now() - lastOpenAt < OPEN_COOLDOWN_MS && proxy.listening() && readLeaf() && contentThere() && (script.load() || lastOpenWarning)) {
+            return Promise.resolve({ warning: lastOpenWarning });
+        }
         var warning = null;
-        return prepare().then(function (r) { warning = r.warning; return ctx.execute(setup.launchScript(proxyHost(), PORT), 25000); }).then(function (r) {
+        var p = prepare().then(function (r) { warning = r.warning; return exec(setup.launchScript(proxyHost(), PORT), 25000); }).then(function (r) {
             var out = String((r && r.stdout) || '');
             if (!/successfully launched/.test(out)) throw new Error('YouTube did not start: ' + out.replace(/\s+/g, ' ').slice(0, 120));
+            lastOpenAt = Date.now();
+            lastOpenWarning = warning;
             log('YouTube started');
             return { warning: warning };
+        }).then(function (res) {
+            if (opening === p) opening = null;
+            return res;
+        }, function (e) {
+            if (opening === p) opening = null;
+            throw e;
         });
+        opening = p;
+        return p;
     }
 
     function snapshot() {
@@ -280,47 +327,63 @@ module.exports = function (ctx) {
         // manifest "intercepts": Vetro's launcher calls this when the YouTube tile is pressed, instead of starting the app itself.
         // Anything but a failure to start (declining, an error) makes Vetro start YouTube the normal way, unpatched.
         launch: function (appId) {
-            if (appId !== 'com.samsung.tv.cobalt-yt') return Promise.resolve(false);
+            if (appId !== setup.APP) return Promise.resolve(false);
             return openYoutube().then(function () { return true; });
         },
-        // Starts the proxy when a certificate and script from an earlier run are there (a YouTube that was left open keeps
-        // working after Vetro restarts), and brings the row in line: patched when the button is on, original otherwise.
+        // Starts the proxy only when certificate, script AND content folder from an earlier run are all present (preventing
+        // MITM-before-content TLS errors), and brings the row in line: patched when the button is on, original otherwise.
         // A first run does nothing until the page asks.
         start: function () {
             alive = true;
+            restoreTries = 0;
+            bootTries = 0;
+            if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
             if (timer) clearInterval(timer);
             timer = setInterval(function () { try { tick(); } catch (e) { log('tick: ' + e.message); } }, TICK_MS);
             if (timer.unref) timer.unref();
             if (watchTimer) clearInterval(watchTimer);
             watchTimer = setInterval(function () { try { watch(); } catch (e) { log('watch: ' + e.message); } }, watchLib.SCAN_MS);
             if (watchTimer.unref) watchTimer.unref();
-            var ready = readLeaf() && script.load() ? listen().catch(function (e) { log('start: ' + e.message); }) : Promise.resolve();
-            ready.then(function () { return tileOn && !(readLeaf() && script.load() && contentThere()) ? prepare().catch(function (e) { log('start: ' + e.message); }) : null; })
+            var allReady = !!(readLeaf() && script.load() && contentThere());
+            var ready = allReady ? listen().catch(function (e) { log('start: ' + e.message); }) : Promise.resolve();
+            ready.then(function () { return tileOn && !allReady ? prepare().catch(function (e) { log('start: ' + e.message); retrySoon(); }) : null; })
                 .then(function () { return reconcile(); }).catch(function (e) { log('start: ' + e.message); });
         },
-        // Puts the row back first: with the plugin off nothing is there to answer the proxy. A YouTube that is open keeps running
-        // (its proxy list falls back to a direct connection), so nothing is closed here.
+        // Puts the tile row back first so YouTube never sees a patched row pointing at a closed port, then stops listening.
         stop: function () {
             alive = false;
+            opening = null;
+            lastOpenAt = 0;
+            lastOpenWarning = null;
             if (timer) { clearInterval(timer); timer = null; }
             if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
-            // The proxy stays up until the row is back (a YouTube started in between still finds it), then stops listening.
-            // Resolves when that is done, so the fallback timer never outlives the stop.
+            if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+            // Resolves once the row is restored and the proxy closes (or timeout elapses), so a fallback timer never outlives stop().
             return new Promise(function (resolve) {
                 var done = false, late = null;
-                var shut = function () {
+                var closeProxy = function () {
                     if (done) return;
                     done = true;
                     if (late) clearTimeout(late);
                     if (!alive) proxy.close();
                     resolve();
                 };
-                late = setTimeout(shut, 30000);
+                late = setTimeout(closeProxy, 30000);
                 if (late.unref) late.unref();
-                reconcile().then(shut, shut);
+                reconcile().then(closeProxy, closeProxy);
             });
         },
         status: function () { return { running: alive, proxy: proxy.listening(), setup: st.setup, script: script.load() ? scriptLib.VERSION : null, tile: st.tileState }; },
+        onAgent: function (connected) {
+            if (!connected || !alive || !tileOn) return;
+            bootTries = 0;
+            if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+            watcher.failed();
+            var chain = !(readLeaf() && script.load() && contentThere())
+                ? prepare().catch(function (e) { log('agent: ' + e.message); retrySoon(); })
+                : (!proxy.listening() ? listen().catch(function (e) { log('proxy: ' + e.message); }) : Promise.resolve());
+            chain.then(function () { return reconcile(); }).catch(function (e) { log('agent: ' + e.message); });
+        },
 
         route: function (req, res, sub) {
             if (sub === 'ui' && req.method === 'GET') {
@@ -338,6 +401,7 @@ module.exports = function (ctx) {
                 return true;
             }
             if (sub === 'close') {
+                lastOpenAt = 0; lastOpenWarning = null;
                 ctx.execute(setup.closeScript(), 15000).then(function () { json(res, 200, { ok: true }); }, function (e) { json(res, 200, { ok: false, error: e.message }); });
                 return true;
             }
@@ -354,14 +418,15 @@ module.exports = function (ctx) {
             }
             if (sub === 'cleanup') {
                 // The row first, in line with every other change to it: it points at files that are about to go.
+                lastOpenAt = 0; lastOpenWarning = null;
                 tileOn = false; saveConfig({ tile: false });
                 serial(function () {
                     return tile.restore(exec).then(function (state) {
                         if (state !== 'original' && state !== 'absent' && state !== 'foreign') throw new Error('Samsung’s YouTube button could not be put back (' + state + '): nothing was removed');
-                        proxy.close(true); script.forget();
+                        proxy.close(true); script.forget(); leafCache = null; leafStamp = null;
                         return ctx.execute(setup.cleanupScript(), 30000);
                     });
-                }).then(function () { st.setup = 'idle'; st.script = 'idle'; st.tileState = 'off'; st.tileNote = ''; lastSetup = 0; json(res, 200, { ok: true }); },
+                }).then(function () { st.setup = 'idle'; st.script = 'idle'; st.tileState = 'off'; st.tileNote = ''; lastSetup = 0; lastOpenAt = 0; lastOpenWarning = null; json(res, 200, { ok: true }); },
                     function (e) { json(res, 200, { ok: false, error: e.message }); });
                 return true;
             }

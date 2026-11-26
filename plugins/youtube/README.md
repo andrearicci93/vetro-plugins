@@ -125,12 +125,13 @@ takes it out again. The rules:
 
 ## Commands it runs, all as root
 
+- Every root command is passed via `base64 -d | sh`; `launch` and `check` also use `base64`, `grep`, `awk`, and `tr` to decode `/proc/<pid>/cmdline` tokens on Tizen 9, and `usleep` (200 ms poll) while waiting for an existing YouTube instance to exit.
 - Open: `openssl` (make or renew the authority and the youtube.com certificate), `cp -R` of the YouTube app's content folder
-  (about 3 MB), `app_launcher -t` and `app_launcher -s` for `com.samsung.tv.cobalt-yt`.
+  (about 3 MB), `app_launcher -t` (and `-k` if it does not exit) and `app_launcher -s` for `com.samsung.tv.cobalt-yt`.
 - Close: `app_launcher -t com.samsung.tv.cobalt-yt`.
 - The Home tile switch: `sqlite3` on that database (read the one row, compare-and-swap update), then `chown` of the database back to its owner.
 - Remove certificate and files: puts the row back, closes YouTube and runs `rm -rf <DIR>`.
-- With **Samsung's YouTube button opens this** on, also without a button: the watch's `pgrep` check (see *After a boot*) and,
+- With **Samsung's YouTube button opens this** on, also without a button: the watch's `pgrep` and `vconftool` check (see *After a boot*) and,
   once a minute, a read of the row.
 
 Switching the plugin off stops the proxy but does not close a YouTube that is already open: connections already made keep
