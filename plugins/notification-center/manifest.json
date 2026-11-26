@@ -1,11 +1,13 @@
 {
   "id": "notification-center",
   "name": "Notification Center",
-  "version": "0.3.1",
+  "version": "0.6.1",
   "apiVersion": 1,
-  "permissions": [],
+  "permissions": [
+    "exec"
+  ],
   "author": "mclaudiopt",
-  "description": "Show LAN notifications as native TV banners via a companion app. Talks to Vetro on 127.0.0.1:8099 and fetches a sender's image/wallpaper URL only if sent.",
+  "description": "Native TV banners for notifications from any LAN device, with optional sounds. Runs one fixed paplay command; fetches a sender's image URL only if sent.",
   "main": "index.js",
   "ui": {
     "label": "Notifications"
