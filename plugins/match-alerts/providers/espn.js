@@ -25,6 +25,9 @@ module.exports = function (env) {
         var typ = (d.type && d.type.text) || '', tl = typ.toLowerCase();
         var kind = '';
         if (d.scoringPlay || /goal|penalty - scored|own goal/.test(tl)) { kind = 'goal'; }
+        // ESPN reports a saved/missed penalty as "Penalty - Saved" with scoringPlay=false, so it
+        // used to be dropped entirely: no goal and no banner. Announce it as its own event.
+        else if (/penalty/.test(tl)) { kind = /award/.test(tl) ? 'penalty' : 'penMiss'; }
         else if (/yellow card/.test(tl)) { kind = 'cardY'; }
         else if (/red card/.test(tl)) { kind = 'cardR'; }
         else if (/substitution/.test(tl)) { kind = 'sub'; }

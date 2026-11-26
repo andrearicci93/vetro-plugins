@@ -1,10 +1,26 @@
-# TV alerts
+# NEWS
 
-One Vetro Shard for Samsung TVs that sends **sport, weather, news and civil-protection** alerts through
-[Notification Center](https://github.com/mclaudiopt/tv-notification-center) (Shard 0.8.0+ and companion app 0.2.2+ on the same TV).
-Everything runs on the TV; no PC is needed at runtime. The Shard keeps the id `match-alerts` so an existing installation keeps its configuration.
+The official name of this Vetro Shard is **NEWS**. It sends **sport, weather, news and civil-protection** alerts through
+[Notification Center](https://github.com/mclaudiopt/tv-notification-center). Everything runs on the TV; no PC is needed at
+runtime. The Shard keeps the id `match-alerts` so an existing installation keeps its configuration.
 
-The panel has seven tabs: **SETUP** (formerly General), **Weather**, **News**, **Proteção Civil**, **Football**, **Other sports** and **Technical** (Técnico). The Modules switches in SETUP control which tabs are available: **Sport** shows/hides both Football and Other sports, **Weather** and **News** show/hide their own tabs, and **Proteção Civil** uses the existing `civ.enabled` setting (the two switches stay in sync). SETUP and Technical are always visible, Previous/Next skip hidden tabs, and hiding a tab keeps all its saved parameters. Each tab is split into collapsible sections, and the goal simulation lives inside Football. The tab bar stays at the top while scrolling, and the header has **Test all** (runs the sport, weather, news and civil-protection tests in order) and **Save all**, which shows whether anything is still unsaved. The **Technical** tab holds Diagnostics: watched matches, last log lines, provider health (last success/failure and consecutive failures) and a **Clear log** button — the same place the Notification Center Shard puts its technical information.
+### Which Notification Center version is needed
+
+- The public catalog currently publishes Notification Center **0.3.1**; PR #34 proposes **0.6.1** (not merged). With those
+  versions the basic `banner` path works: `title`, `message`, `level`, `duration`, `source` and `group:false`. The Shard's
+  `refreshSounds()` calls `GET /api/api`, which 0.3.1 does not have, so sounds are simply omitted; sound, volume and the
+  `theme`/`action` fields are ignored. `overlay` mode does not exist before **0.8.0** and falls back to `banner`.
+- `overlay`, adaptive sounds and per-section volume need Notification Center **0.8.0+**; the TVs in use here have
+  **0.16.0** (.7) and **0.17.1** (.3), installed from file. No catalog version offers `overlay` yet; PR #34 (0.6.1) does not.
+- `priority:"high"` for civil-protection warnings needs **0.13.0+**; on older versions the warning is still shown, just
+  without the quiet-hours bypass.
+
+The panel has five tabs: **SETUP** (formerly General), **Weather**, **News**, **Sport** and **Technical** (Técnico).
+
+- **Weather** uses two columns, like the Notification Center Shard: meteorology (places, Open-Meteo, proactive warnings) and **Proteção Civil** (IPMA/ANEPC/RSS). The `civ.enabled` switch shows or hides the civil-protection column.
+- **Sport** has two sub-tabs: **Football** (clubs, alerts, goal simulation) and **Other sports** (picks for NBA/MLB/NHL/NFL/F1). The same `modules.sport` switch shows or hides the whole Sport tab.
+- The Modules switches in SETUP control tab visibility: **Sport**, **Weather** and **News**; SETUP and Technical are always visible. Previous/Next skip hidden tabs, and hiding a tab keeps all its saved parameters.
+- Each tab is split into collapsible sections. The tab bar stays at the top while scrolling, and the header has **Test all** (sport, weather, news, civil protection, 1 s apart) and **Save all**. The **Technical** tab holds Diagnostics: watched lines, log, provider health and **Clear log**, plus a `curl` example and the route list.
 
 ## SETUP (General)
 
@@ -118,7 +134,7 @@ The default list is Sporting (2250, `ok`), Benfica (1929, `alert`), Porto (437, 
 useful for testing Porto–Feyenoord. The list is editable in the panel (add by name/ESPN id/message/colour, change the
 colour, remove a club) and is stored in `config.sim.clubs`, separate from the clubs the Shard actually follows.
 
-## Proteção Civil (new tab)
+## Proteção Civil (column in the Weather tab)
 
 A separate module polls three official/complementary sources every 10 min and sends only what is relevant to the chosen district:
 
@@ -170,8 +186,10 @@ No API-Football key is shipped in this repository. The key is stored in `ctx.con
 ## Network and permissions
 
 - Permissions: none (no `exec`).
-- Outgoing HTTPS: `site.api.espn.com`, `v3.football.api-sports.io` (only with a key), `api.open-meteo.com`,
-  `geocoding-api.open-meteo.com` (custom places), `news.google.com` and the selected RSS hosts (CNN is plain HTTP).
+- Outgoing HTTPS: `site.api.espn.com` and `a.espncdn.com` (club/race crests sent as `image` to Notification Center),
+  `v3.football.api-sports.io` (only with a key), `api.open-meteo.com`, `geocoding-api.open-meteo.com` (custom places),
+  `news.google.com`, the selected RSS hosts (CNN is plain HTTP), and for civil protection `api.ipma.pt`, `prociv.gov.pt`
+  and `www.noticiasaominuto.com`. The set is fixed by the code and the config only accepts known feed ids.
 - Local: `POST http://127.0.0.1:8099/plugins/notification-center/api/notify`.
 - Stored in `ctx.config`: modules, clubs with their competitions, other sports, news sources, options and, if set, the
   API-Football key. Match baselines, seen events and news baselines are persisted in `ctx.config.history` so a restart
@@ -222,7 +240,8 @@ current-scoreboard fallback),
 `/api/geocode` (POST with `name`), `/api/config`, `/api/test`, `/api/poll`, `/api/clearlog` (POST, empties the log)
 and `/api/keycheck`. Note: Vetro's own auth gate still refuses cross-origin browser requests to plugin routes, so
 `/api/last` is readable by scripts on the TV / local LAN (no `Origin` header) but not by a browser mini-site on another
-host.
+host. When pairing is off it therefore shows the followed clubs, the weather line and the last results to anything on
+the LAN — by design, since it carries no config or keys. Disable the Shard or keep pairing on if that is not wanted.
 
 ## Tested / not tested
 
@@ -274,4 +293,11 @@ host.
   `role`/`aria-live`/`aria-selected` and `hidden` panes, focus ring, two-click Clear log, friendly offline error, and
   `curl`/route examples in the Technical tab. Added a **Control center card** with four "Check now" actions plus the
   next fixture, `civ`/`health` in `status()`, and an ES5 syntax gate in CI.
+- 0.5.39: half-time detection fix — ESPN's `First Half` / `Second Half` are playing time, not the
+  interval; only `Halftime` / `Half Time` / `HT` / `Intervalo` with state `in` announce "Intervalo".
+  A kick-off no longer sends both "Começou o jogo" and "Intervalo". 22 mocked tests.
+- 0.5.40: penalty alerts — ESPN's `Penalty - Saved` / `Penalty - Missed` (scoringPlay=false) now
+  announce "Penalty falhado" with the taker's name; `Penalty Awarded` announces "Penalty marcado";
+  a scored penalty remains a goal. Two new switches in the Football tab, default on. 23 tests.
+- 0.5.41: official name **NEWS** (id `match-alerts` unchanged). Panel merged into five tabs with Sport sub-tabs and a two-column Weather tab; `check-nc.ps1` keeps a snapshot per TV; `build.ps1 -Install` accepts several IPs. README documents compatibility with the catalog's Notification Center 0.3.1 and the newer 0.8.0+ features.
 - **`mode: "overlay"` confirmed working** with Notification Center 0.8.0.

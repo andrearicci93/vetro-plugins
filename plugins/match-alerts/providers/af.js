@@ -25,7 +25,10 @@ module.exports = function (env) {
             if (/missed/i.test(extra)) { continue; }
             if (/card/i.test(kind) || /card/i.test(extra)) {
                 kind = /red/i.test(extra) ? 'cardR' : 'cardY';
-            } else if (/goal/i.test(kind) || /penalty/i.test(extra)) { kind = 'goal'; }
+            } else if (/penalty/i.test(kind) || /penalty/i.test(extra)) {
+                kind = /scored|goal/i.test(extra) ? 'goal' :
+                    (/miss|save|post|wide|over/i.test(extra) ? 'penMiss' : 'penalty');
+            } else if (/goal/i.test(kind)) { kind = 'goal'; }
             else if (/subst/i.test(kind)) { kind = 'sub'; }
             else { continue; }
             out.push({

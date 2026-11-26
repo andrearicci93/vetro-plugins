@@ -135,7 +135,7 @@ var DEFAULTS = {
     modules: { sport: true, weather: false, news: false },
     football: {
         provider: 'espn', clubs: [],
-        alerts: { goal: true, against: true, card: true, sub: true, varNo: true, start: true, half: true, end: true },
+        alerts: { goal: true, against: true, card: true, sub: true, varNo: true, penalty: true, penMiss: true, start: true, half: true, end: true },
         goalSeconds: 30, otherSeconds: 10, sound: true, mode: 'overlay', volume: 100,
         nextGame: { enabled: true, minutes: 30 }
     },
@@ -169,7 +169,7 @@ var DEFAULTS = {
 var TXT = {
     en: {
         goal: 'GOAL', against: 'Goal for ', cardY: 'Yellow card', cardR: 'Red card', sub: 'Substitution',
-        varNo: 'Goal disallowed', start: 'Kick-off', half: 'Half-time', end: 'Full time', score: 'Score update',
+        varNo: 'Goal disallowed', penalty: 'Penalty awarded', penMiss: 'Penalty missed', start: 'Kick-off', half: 'Half-time', end: 'Full time', score: 'Score update',
         test: 'Test', weather: 'Weather', news: 'News', quiet: 'Quiet hours', rain: 'Rain',
         win: 'WIN', lose: 'LOSS', team: 'Team', clubNews: 'Club news', soon: TITLE_PRE,
         today: 'today', tomorrow: 'tomorrow', weatherSoon: 'Weather ahead',
@@ -177,7 +177,7 @@ var TXT = {
     },
     pt: {
         goal: 'GOLO', against: 'Golo do ', cardY: 'Cart\u00E3o amarelo', cardR: 'Cart\u00E3o vermelho',
-        sub: 'Substitui\u00E7\u00E3o', varNo: 'Golo anulado', start: 'Come\u00E7ou o jogo', half: 'Intervalo',
+        sub: 'Substitui\u00E7\u00E3o', varNo: 'Golo anulado', penalty: 'Penalty marcado', penMiss: 'Penalty falhado', start: 'Come\u00E7ou o jogo', half: 'Intervalo',
         end: 'Fim do jogo', score: 'Resultado atualizado', test: 'Teste', weather: 'Tempo', news: 'Not\u00EDcias',
         quiet: 'Hor\u00E1rio de sil\u00EAncio', rain: 'Chuva', win: 'VIT\u00D3RIA', lose: 'DERROTA', team: 'Equipa',
         clubNews: 'Not\u00EDcias do clube', soon: TITLE_PRE,
@@ -490,7 +490,7 @@ module.exports = function (ctx) {
     // ever unknown, so this list does not depend on the NC version.
     var SOUND = {
         goal: 'reward', against: 'reward', cardR: 'reward', cardY: 'reward', sub: 'reward', var: 'reward',
-        start: 'reward', half: 'reward', end: 'reward', score: 'reward', race: 'reward'
+        penalty: 'reward', penMiss: 'reward', start: 'reward', half: 'reward', end: 'reward', score: 'reward', race: 'reward'
     };
     function lineOf(m) {
         if (m.race) { return clean(m.desc + ' \u00B7 ' + m.home.name, 160); }
@@ -517,6 +517,8 @@ module.exports = function (ctx) {
         else if (kind === 'cardR') { title = t.cardR + (ex.team ? ' \u00B7 ' + ex.team : ''); level = 'alert'; icon = E.red; }
         else if (kind === 'sub') { title = t.sub + ' \u00B7 ' + w.name; }
         else if (kind === 'var') { title = t.varNo; level = 'warn'; icon = E.no; }
+        else if (kind === 'penalty') { title = t.penalty; icon = E.whistle; }
+        else if (kind === 'penMiss') { title = t.penMiss; level = 'warn'; icon = E.no; }
         else if (kind === 'start') { title = t.start; icon = E.whistle; }
         else if (kind === 'half') { title = t.half; icon = E.pause; }
         else if (kind === 'score') { title = t.score; icon = E.star; }
@@ -931,9 +933,22 @@ module.exports = function (ctx) {
             if (w.alerts.card && once('ev|' + m.id + '|' + evKey(ev))) { announce(ev.kind, w, m, ex); }
             return;
         }
+        if (ev.kind === 'penalty' || ev.kind === 'penMiss') {
+            // A saved/missed penalty has no goal, so it used to be silent. Announce the outcome
+            // (and the taker) for either team, deduped like every other event.
+            if (w.alerts[ev.kind] && once('ev|' + m.id + '|' + evKey(ev))) { announce(ev.kind, w, m, ex); }
+            return;
+        }
         if (ev.kind === 'sub' && w.alerts.sub && mine && once('ev|' + m.id + '|' + evKey(ev))) {
             announce('sub', w, m, ex);
         }
+    }
+    // ESPN describes the two halves as "First Half" / "Second Half": those are playing time,
+    // not the break. Only the real interval ("Halftime", "Half Time", "HT", "Intervalo") counts,
+    // otherwise a kick-off announced "Intervalo" together with "Come\u00E7ou o jogo".
+    function isHalfTime(m) {
+        var d = String(m.desc || '').replace(/^\s+|\s+$/g, '');
+        return m.state === 'in' && /^(half[\s-]?time|ht|intervalo|descanso)\b/i.test(d);
     }
     function analyse(m, w) {
         var key = w.key + '|' + m.id, prev = last[key], keys = {}, i, ev, fresh = [], goals = [], us, them;
@@ -998,7 +1013,7 @@ module.exports = function (ctx) {
             announce('score', w, m);
         }
         if (prev.state === 'pre' && m.state === 'in' && w.alerts.start && once('st|' + m.id + '|start')) { announce('start', w, m); }
-        if (/half/i.test(m.desc) && !/half/i.test(prev.desc) && w.alerts.half && once('st|' + m.id + '|half')) { announce('half', w, m); }
+        if (isHalfTime(m) && !isHalfTime(prev) && w.alerts.half && once('st|' + m.id + '|half')) { announce('half', w, m); }
         if (prev.state === 'in' && m.state === 'post' && w.alerts.end && once('st|' + m.id + '|end')) { announce('end', w, m); }
     }
 
@@ -2001,7 +2016,7 @@ module.exports = function (ctx) {
                             goalSeconds: c.others.seconds, otherSeconds: c.others.seconds,
                             sound: c.others.sound, mode: c.others.mode, lang: c.lang, volume: c.others.volume };
                     }
-                    var known = { goal: 1, against: 1, cardY: 1, cardR: 1, sub: 1, var: 1, start: 1, half: 1, end: 1, score: 1 };
+                    var known = { goal: 1, against: 1, cardY: 1, cardR: 1, sub: 1, var: 1, penalty: 1, penMiss: 1, start: 1, half: 1, end: 1, score: 1 };
                     if (kind === 'card') { kind = 'cardY'; }
                     var line = status.sport.line || (w.name + ' 1-0 ' + t.test);
                     var m = {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>TV alerts</title>
+<title>NEWS</title>
 <style>
 :root {
   --bg:#12151b; --surface:#1b1f27; --raised:#242b38; --border:#2b3140;
@@ -40,6 +40,12 @@ h1 { font-size:19px; margin:0; flex:1; font-weight:600; }
 .tab.on { display:block; }
 .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
 .stack { display:flex; flex-direction:column; gap:12px; }
+.appcols { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; align-items:start; }
+.subtabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.subtabs button { background:var(--raised); color:var(--muted); border:1px solid var(--border); border-radius:var(--radius-control); padding:7px 12px; cursor:pointer; font-size:12px; font-weight:600; }
+.subtabs button.on { color:var(--text); border-color:var(--action); background:var(--surface); }
+.subtab { display:none; }
+.subtab.on { display:block; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
 .card.wide { grid-column:1/-1; }
 h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 10px; font-weight:700; }
@@ -96,7 +102,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
 <body>
 <div class="head">
   <div class="logo">&#9917;</div>
-  <h1 data-t="title">TV alerts</h1>
+  <h1 data-t="title">NEWS</h1>
   <span class="ver" id="ver"></span>
   <span class="msg" id="save-state" aria-live="polite"></span>
   <button type="button" class="g" id="test-all" data-t="testAll">Test all</button>
@@ -108,9 +114,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   <button type="button" id="tabbtn-setup" role="tab" aria-selected="true" aria-controls="tab-setup" data-tab="setup" class="on" data-t="tabSetup">SETUP</button>
   <button type="button" id="tabbtn-weather" role="tab" aria-selected="false" aria-controls="tab-weather" data-tab="weather" data-t="tabWeather">Weather</button>
   <button type="button" id="tabbtn-news" role="tab" aria-selected="false" aria-controls="tab-news" data-tab="news" data-t="tabNews">News</button>
-  <button type="button" id="tabbtn-civ" role="tab" aria-selected="false" aria-controls="tab-civ" data-tab="civ" data-t="tabCiv">Prote\u00E7\u00E3o Civil</button>
-  <button type="button" id="tabbtn-football" role="tab" aria-selected="false" aria-controls="tab-football" data-tab="football" data-t="tabFootball">Football</button>
-  <button type="button" id="tabbtn-others" role="tab" aria-selected="false" aria-controls="tab-others" data-tab="others" data-t="tabOthers">Other sports</button>
+  <button type="button" id="tabbtn-sport" role="tab" aria-selected="false" aria-controls="tab-sport" data-tab="sport" data-t="tabSport">Sport</button>
   <button type="button" id="tabbtn-tech" role="tab" aria-selected="false" aria-controls="tab-tech" data-tab="tech" data-t="tabTech">Technical</button>
 </div>
 
@@ -145,8 +149,9 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
 
 <!-- ============ WEATHER ============ -->
 <div class="tab" id="tab-weather" role="tabpanel" aria-labelledby="tabbtn-weather" hidden>
-  <div class="stack">
-    <div class="card wide"><div class="live" id="weather-line"></div></div>
+  <div class="appcols">
+    <div class="stack" id="weather-column">
+      <div class="card wide"><div class="live" id="weather-line"></div></div>
     <div class="card wide">
       <details class="sec" open>
         <summary data-t="weatherCard">Weather</summary>
@@ -204,6 +209,46 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       <div class="row"><button type="button" class="p" id="save-weather" data-t="save">Save</button><button type="button" class="g" id="t-weather" data-t="test">Test</button></div>
     </div>
   </div>
+<div class="stack" id="civ-column">
+    <div class="card wide"><h2 data-t="tabCiv">Proteção Civil</h2></div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="civNow">Active warnings</summary>
+        <div id="civ-list"></div>
+        <div class="msg" id="civ-status" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="civSources">Sources and filters</summary>
+        <label class="chk"><input type="checkbox" id="civ-enabled"> <span data-t="enabled">Enabled</span></label>
+        <label class="f" data-t="district">District (IPMA)</label>
+        <select id="civ-district"></select>
+        <label class="chk"><input type="checkbox" id="civ-yellow"> <span data-t="civYellow">Yellow (discreet)</span></label>
+        <label class="chk"><input type="checkbox" id="civ-orange"> <span data-t="civOrange">Orange</span></label>
+        <label class="chk"><input type="checkbox" id="civ-red"> <span data-t="civRed">Red</span></label>
+        <label class="chk"><input type="checkbox" id="civ-anepc"> <span>ANEPC - Aviso \u00E0 popula\u00E7\u00E3o</span></label>
+        <label class="chk"><input type="checkbox" id="civ-news"> <span data-t="civNews">Breaking news (RSS)</span></label>
+        <label class="f" data-t="keywords">Keywords</label>
+        <input type="text" id="civ-keywords">
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="style">Style</summary>
+        <label class="f" data-t="mode">Mode</label>
+        <select id="civ-mode"></select>
+        <label class="chk"><input type="checkbox" id="civ-sound"> <span data-t="sound">Sound</span></label>
+        <div class="dur"><span data-t="interval">Interval (min)</span><input type="range" id="civ-interval" min="5" max="240" step="5"><b id="civ-intervalv"></b></div>
+        <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="civ-seconds" min="3" max="60"><b id="civ-secondsv"></b></div>
+        <div class="dur"><span data-t="volume">Volume</span><input type="range" id="civ-volume" min="10" max="100" step="5"><b id="civ-volumev"></b></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="p" id="save-civ" data-t="save">Save</button><button type="button" class="g" id="t-civ" data-t="test">Test</button></div>
+    </div>
+  </div>
+  </div>
 </div>
 
 <!-- ============ NEWS ============ -->
@@ -242,50 +287,13 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   </div>
 </div>
 
-<!-- ============ PROTECAO CIVIL ============ -->
-<div class="tab" id="tab-civ" role="tabpanel" aria-labelledby="tabbtn-civ" hidden>
-  <div class="stack">
-    <div class="card wide">
-      <details class="sec" open>
-        <summary data-t="civNow">Active warnings</summary>
-        <div id="civ-list"></div>
-        <div class="msg" id="civ-status" aria-live="polite"></div>
-      </details>
-    </div>
-    <div class="card wide">
-      <details class="sec" open>
-        <summary data-t="civSources">Sources and filters</summary>
-        <label class="chk"><input type="checkbox" id="civ-enabled"> <span data-t="enabled">Enabled</span></label>
-        <label class="f" data-t="district">District (IPMA)</label>
-        <select id="civ-district"></select>
-        <label class="chk"><input type="checkbox" id="civ-yellow"> <span data-t="civYellow">Yellow (discreet)</span></label>
-        <label class="chk"><input type="checkbox" id="civ-orange"> <span data-t="civOrange">Orange</span></label>
-        <label class="chk"><input type="checkbox" id="civ-red"> <span data-t="civRed">Red</span></label>
-        <label class="chk"><input type="checkbox" id="civ-anepc"> <span>ANEPC - Aviso \u00E0 popula\u00E7\u00E3o</span></label>
-        <label class="chk"><input type="checkbox" id="civ-news"> <span data-t="civNews">Breaking news (RSS)</span></label>
-        <label class="f" data-t="keywords">Keywords</label>
-        <input type="text" id="civ-keywords">
-      </details>
-    </div>
-    <div class="card wide">
-      <details class="sec" open>
-        <summary data-t="style">Style</summary>
-        <label class="f" data-t="mode">Mode</label>
-        <select id="civ-mode"></select>
-        <label class="chk"><input type="checkbox" id="civ-sound"> <span data-t="sound">Sound</span></label>
-        <div class="dur"><span data-t="interval">Interval (min)</span><input type="range" id="civ-interval" min="5" max="240" step="5"><b id="civ-intervalv"></b></div>
-        <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="civ-seconds" min="3" max="60"><b id="civ-secondsv"></b></div>
-        <div class="dur"><span data-t="volume">Volume</span><input type="range" id="civ-volume" min="10" max="100" step="5"><b id="civ-volumev"></b></div>
-      </details>
-    </div>
-    <div class="card wide">
-      <div class="row"><button type="button" class="p" id="save-civ" data-t="save">Save</button><button type="button" class="g" id="t-civ" data-t="test">Test</button></div>
-    </div>
-  </div>
-</div>
-
 <!-- ============ FOOTBALL ============ -->
-<div class="tab" id="tab-football" role="tabpanel" aria-labelledby="tabbtn-football" hidden>
+<div class="tab" id="tab-sport" role="tabpanel" aria-labelledby="tabbtn-sport" hidden>
+  <div class="subtabs" role="tablist" aria-label="Sport sections">
+    <button type="button" id="subbtn-football" role="tab" aria-selected="true" aria-controls="subtab-football" data-subtab="football" data-t="tabFootball">Football</button>
+    <button type="button" id="subbtn-others" role="tab" aria-selected="false" aria-controls="subtab-others" data-subtab="others" data-t="tabOthers">Other sports</button>
+  </div>
+  <div class="subtab on" id="subtab-football">
   <div class="stack">
     <div class="card wide">
       <details class="sec" open>
@@ -313,6 +321,8 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
         <label class="chk"><input type="checkbox" data-fb="card"> <span data-t="a_card">Cards (both teams)</span></label>
         <label class="chk"><input type="checkbox" data-fb="sub"> <span data-t="a_sub">Substitutions (my club)</span></label>
         <label class="chk"><input type="checkbox" data-fb="varNo"> <span data-t="a_var">Goal disallowed</span></label>
+        <label class="chk"><input type="checkbox" data-fb="penalty"> <span data-t="a_pen">Penalty awarded</span></label>
+        <label class="chk"><input type="checkbox" data-fb="penMiss"> <span data-t="a_penMiss">Penalty missed or saved</span></label>
         <label class="chk"><input type="checkbox" data-fb="start"> <span data-t="a_start">Kick-off</span></label>
         <label class="chk"><input type="checkbox" data-fb="half"> <span data-t="a_half">Half-time</span></label>
         <label class="chk"><input type="checkbox" data-fb="end"> <span data-t="a_end">Full time</span></label>
@@ -387,7 +397,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
 </div>
 
 <!-- ============ OTHER SPORTS ============ -->
-<div class="tab" id="tab-others" role="tabpanel" aria-labelledby="tabbtn-others" hidden>
+<div class="subtab" id="subtab-others" hidden>
   <div class="stack">
     <div class="card wide">
       <details class="sec" open>
@@ -430,6 +440,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       <div class="row"><button type="button" class="p" id="save-others" data-t="save">Save</button><button type="button" class="g" id="t-score" data-t="testscore">Test: score</button></div>
     </div>
   </div>
+</div>
 </div>
 
 <!-- ============ TECHNICAL ============ -->
@@ -476,8 +487,8 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   var $ = function (id) { return document.getElementById(id); };
   var T = {
     en: {
-      title:"TV alerts", saveAll:"Save all", testAll:"Test all", tabPrev:"Previous", tabNext:"Next", unsaved:"Unsaved changes", savedAt:"Saved at ",
-      tabSetup:"SETUP", techApi:"API and examples", diagTitle:"Diagnostics", diagWatches:"Watched", diagLog:"Log", diagHealth:"Providers", clearLog:"Clear log", confirmClear:"Click again: clear log", noAnswer:"No answer from the Shard: open the panel again", tabWeather:"Weather", tabNews:"News", tabFootball:"Football", tabOthers:"Other sports", tabTech:"Technical",
+      title:"NEWS", saveAll:"Save all", testAll:"Test all", tabPrev:"Previous", tabNext:"Next", unsaved:"Unsaved changes", savedAt:"Saved at ",
+      tabSetup:"SETUP", tabSport:"Sport", techApi:"API and examples", diagTitle:"Diagnostics", diagWatches:"Watched", diagLog:"Log", diagHealth:"Providers", clearLog:"Clear log", confirmClear:"Click again: clear log", noAnswer:"No answer from the Shard: open the panel again", tabWeather:"Weather", tabNews:"News", tabFootball:"Football", tabOthers:"Other sports", tabTech:"Technical",
       modules:"Modules", sport:"Sport", weather:"Weather", news:"News", now:"Right now",
       weatherCard:"Weather", place:"Place", interval:"Interval (min)", seconds:"Banner (s)", mode:"Mode",
       quiet:"Quiet hours 23h-07h", style:"Style", sound:"Sound", test:"Test", save:"Save", savekey:"Save key",
@@ -488,6 +499,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       clubs:"Clubs", league:"League", team:"Team", addClub:"Add club",
       alerts:"Alerts", a_goal:"Goal for my club", a_against:"Goal for the opponent",
       a_card:"Cards (both teams)", a_sub:"Substitutions (my club)", a_var:"Goal disallowed",
+      a_pen:"Penalty awarded", a_penMiss:"Penalty missed or saved",
       a_start:"Kick-off", a_half:"Half-time", a_end:"Full time",
       a_start2:"Start", a_half2:"Half / period", a_end2:"End", a_score:"Score changes",
       goalsec:"Goal banner (s)", othersec:"Other banners (s)", provider:"Provider",
@@ -519,8 +531,8 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       simEdit:"Edit the test clubs", simId:"ESPN id", simMsg:"Message", simColor:"Stripe colour", volume:"Volume"
     },
     pt: {
-      title:"Alertas TV", saveAll:"Guardar tudo", testAll:"Testar tudo", tabPrev:"Anterior", tabNext:"Seguinte", unsaved:"Altera\u00E7\u00F5es por guardar", savedAt:"Guardado \u00E0s ",
-      tabSetup:"SETUP", techApi:"API e exemplos", diagTitle:"Diagn\u00F3stico", diagWatches:"Acompanhados", diagLog:"Registo", diagHealth:"Fornecedores", clearLog:"Limpar registo", confirmClear:"Clique outra vez: limpar registo", noAnswer:"Sem resposta do Shard: abra o painel novamente", tabWeather:"Tempo", tabNews:"Not\u00EDcias", tabFootball:"Futebol", tabOthers:"Outros desportos", tabTech:"T\u00E9cnico",
+      title:"NEWS", saveAll:"Guardar tudo", testAll:"Testar tudo", tabPrev:"Anterior", tabNext:"Seguinte", unsaved:"Altera\u00E7\u00F5es por guardar", savedAt:"Guardado \u00E0s ",
+      tabSetup:"SETUP", tabSport:"Desporto", techApi:"API e exemplos", diagTitle:"Diagn\u00F3stico", diagWatches:"Acompanhados", diagLog:"Registo", diagHealth:"Fornecedores", clearLog:"Limpar registo", confirmClear:"Clique outra vez: limpar registo", noAnswer:"Sem resposta do Shard: abra o painel novamente", tabWeather:"Tempo", tabNews:"Not\u00EDcias", tabFootball:"Futebol", tabOthers:"Outros desportos", tabTech:"T\u00E9cnico",
       modules:"M\u00F3dulos", sport:"Desporto", weather:"Tempo", news:"Not\u00EDcias", now:"Agora",
       weatherCard:"Tempo", place:"Local", interval:"Intervalo (min)", seconds:"Banner (s)", mode:"Modo",
       quiet:"Sil\u00EAncio 23h-07h", style:"Estilo", sound:"Som", test:"Teste", save:"Guardar", savekey:"Guardar chave",
@@ -531,6 +543,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       clubs:"Clubes", league:"Liga", team:"Equipa", addClub:"Adicionar clube",
       alerts:"Alertas", a_goal:"Golo do meu clube", a_against:"Golo do advers\u00E1rio",
       a_card:"Cart\u00F5es (ambas as equipas)", a_sub:"Substitui\u00E7\u00F5es (meu clube)", a_var:"Golo anulado",
+      a_pen:"Penalty marcado", a_penMiss:"Penalty falhado ou defendido",
       a_start:"In\u00EDcio do jogo", a_half:"Intervalo", a_end:"Fim do jogo",
       a_start2:"In\u00EDcio", a_half2:"Intervalo / per\u00EDodo", a_end2:"Fim", a_score:"Altera\u00E7\u00F5es do resultado",
       goalsec:"Banner de golo (s)", othersec:"Outros banners (s)", provider:"Fornecedor",
@@ -575,7 +588,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   var clubs = [], picks = [], feeds = [], geoResults = [], simClubs = [], pickListError = false;
   var CLUB_ALERTS = [
     ["goal","a_goal"], ["against","a_against"], ["card","a_card"], ["sub","a_sub"],
-    ["varNo","a_var"], ["start","a_start"], ["half","a_half"], ["end","a_end"]
+    ["varNo","a_var"], ["penalty","a_pen"], ["penMiss","a_penMiss"], ["start","a_start"], ["half","a_half"], ["end","a_end"]
   ];
   function effAlerts(cl) { return cl.alerts || (cfg && cfg.football && cfg.football.alerts) || {}; }
   // The panel is served at /plugins/<id>/api/ui (or .../s/<session>/api/ui), so the API lives in the
@@ -888,7 +901,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       },
       football: {
         provider: $("f-provider").value, clubs: clubs,
-        alerts: { goal: fb.goal, against: fb.against, card: fb.card, sub: fb.sub, varNo: fb.varNo, start: fb.start, half: fb.half, end: fb.end },
+        alerts: { goal: fb.goal, against: fb.against, card: fb.card, sub: fb.sub, varNo: fb.varNo, penalty: fb.penalty, penMiss: fb.penMiss, start: fb.start, half: fb.half, end: fb.end },
         goalSeconds: parseInt($("f-goalsec").value, 10), otherSeconds: parseInt($("f-othersec").value, 10),
         sound: $("f-sound").checked, mode: $("f-mode").value, volume: parseInt($("f-volume").value, 10),
         nextGame: { enabled: $("f-next-enabled").checked, minutes: parseInt($("f-next-minutes").value, 10) }
@@ -1013,8 +1026,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     if (name === "setup" || name === "tech") { return true; }
     if (name === "weather") { return $("m-weather").checked; }
     if (name === "news") { return $("m-news").checked; }
-    if (name === "civ") { return $("m-civ").checked; }
-    if (name === "football" || name === "others") { return $("m-sport").checked; }
+    if (name === "sport") { return $("m-sport").checked; }
     return true;
   }
   function visibleTabs() {
@@ -1031,6 +1043,8 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       pane = document.getElementById("tab-" + name);
       if (pane) { pane.hidden = !on || name !== active; }
     }
+    var civColumn = $("civ-column");
+    if (civColumn) { civColumn.hidden = !$("m-civ").checked; }
   }
   function applyTabVisibility() {
     var vis = visibleTabs();
@@ -1058,6 +1072,21 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   for (var ti = 0; ti < tabs.length; ti++) {
     tabs[ti].addEventListener("click", function () {
       for (var i = 0; i < tabs.length; i++) { if (tabs[i] === this) { switchTab(i); return; } }
+    });
+  }
+  var subtabs = document.querySelectorAll(".subtabs button");
+  function switchSubtab(idx) {
+    var i, name = subtabs[idx].getAttribute("data-subtab"), panes = document.querySelectorAll(".subtab");
+    for (i = 0; i < subtabs.length; i++) {
+      subtabs[i].className = i === idx ? "on" : "";
+      subtabs[i].setAttribute("aria-selected", i === idx ? "true" : "false");
+    }
+    for (i = 0; i < panes.length; i++) { panes[i].className = "subtab" + (panes[i].id === "subtab-" + name ? " on" : ""); }
+    window.scrollTo(0, 0);
+  }
+  for (var si = 0; si < subtabs.length; si++) {
+    subtabs[si].addEventListener("click", function () {
+      for (var i = 0; i < subtabs.length; i++) { if (subtabs[i] === this) { switchSubtab(i); return; } }
     });
   }
   $("tab-prev").addEventListener("click", function () { stepTab(-1); });
