@@ -300,4 +300,5 @@ the LAN — by design, since it carries no config or keys. Disable the Shard or 
   announce "Penalty falhado" with the taker's name; `Penalty Awarded` announces "Penalty marcado";
   a scored penalty remains a goal. Two new switches in the Football tab, default on. 23 tests.
 - 0.5.41: official name **NEWS** (id `match-alerts` unchanged). Panel merged into five tabs with Sport sub-tabs and a two-column Weather tab; `check-nc.ps1` keeps a snapshot per TV; `build.ps1 -Install` accepts several IPs. README documents compatibility with the catalog's Notification Center 0.3.1 and the newer 0.8.0+ features.
+- 0.5.42: all 41 checkboxes replaced by Vetro-style on/off switches (`role="switch"`, pill and sliding knob, On/Off label synced on change and after each render).
 - **`mode: "overlay"` confirmed working** with Notification Center 0.8.0.

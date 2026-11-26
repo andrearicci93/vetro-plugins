@@ -71,13 +71,13 @@
     {
       "id": "match-alerts",
       "name": "NEWS",
-      "version": "0.5.41",
+      "version": "0.5.42",
       "author": "mclaudiopt",
       "description": "Sport (ESPN), weather (Open-Meteo), news (RSS/Google News) and civil-protection (IPMA/ANEPC) alerts on Samsung TVs via Notification Center.",
       "permissions": [],
-      "url": "dist/match-alerts-0.5.41.vplugin",
-      "sha256": "1a4b89b78f75d22bd09d8729ec60562ddac124b27bce99265f4283f215868c0a",
-      "size": 275727,
+      "url": "dist/match-alerts-0.5.42.vplugin",
+      "sha256": "35f0711a64aa3c29cb972684013452519c68fa5b056213581af5ab8392301e4d",
+      "size": 279362,
       "controlCenter": {
         "label": "NEWS"
       }
