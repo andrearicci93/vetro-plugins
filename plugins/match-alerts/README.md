@@ -20,7 +20,7 @@ The panel has five tabs, in the same order as the module switches: **SETUP** (fo
 - **Weather** uses two columns, like the Notification Center Shard: meteorology (places, Open-Meteo, proactive warnings) and **Proteção Civil** (IPMA/ANEPC/RSS). The `civ.enabled` switch shows or hides the civil-protection column.
 - **Sport** has two sub-tabs: **Football** (clubs, alerts, goal simulation) and **Other sports** (picks for NBA/MLB/NHL/NFL/F1). The same `modules.sport` switch shows or hides the whole Sport tab.
 - The Modules switches in SETUP control tab visibility: **Sport**, **Weather** and **News**; SETUP and Technical are always visible. Previous/Next skip hidden tabs, and hiding a tab keeps all its saved parameters.
-- Each tab is split into collapsible sections. The tab bar stays at the top while scrolling, and the header has **Test all** (sport, weather, news, civil protection, 1 s apart) and **Save all**. The **Technical** tab holds Diagnostics: watched lines, log, provider health and **Clear log**, plus a `curl` example and the route list.
+- Each tab is split into collapsible sections. The tab bar stays at the top while scrolling, and the header has **Test all** (sport, weather, news, civil protection, 1 s apart) and **Save all**. The **Technical** tab holds the **Right now** card (status lines and Check now), Diagnostics: watched lines, log, provider health and **Clear log**, plus a `curl` example and the route list.
 
 ## SETUP (General)
 
@@ -300,7 +300,9 @@ the LAN — by design, since it carries no config or keys. Disable the Shard or 
   announce "Penalty falhado" with the taker's name; `Penalty Awarded` announces "Penalty marcado";
   a scored penalty remains a goal. Two new switches in the Football tab, default on. 23 tests.
 - 0.5.41: official name **NEWS** (id `match-alerts` unchanged). Panel merged into five tabs with Sport sub-tabs and a two-column Weather tab; `check-nc.ps1` keeps a snapshot per TV; `build.ps1 -Install` accepts several IPs. README documents compatibility with the catalog's Notification Center 0.3.1 and the newer 0.8.0+ features.
-- 0.5.42: all 41 checkboxes replaced by Vetro-style on/off switches (`role="switch"`, pill and sliding knob, On/Off label synced on change and after each render).
+- 0.5.42: all 41 checkboxes replaced by `role="switch"` pills with a sliding knob; 0.5.46 finished the conversion to the shared Vetro `.setting` + CSS On/Off pattern.
 - 0.5.43: the four module switches in **SETUP → Modules** are laid out horizontally in columns instead of a vertical list.
 - 0.5.44: tab order matches the module order — SETUP, **Sport**, **Weather**, **News**, Technical (civil protection stays a column inside Weather).
+- 0.5.45: the **Right now** card (status lines and Check now) moved from SETUP to **Technical**, and the On/Off text labels were removed from all switches — the pill alone shows the state.
+- 0.5.46: panel follows the shared `VETRO-UI-SHARDS.md` convention — dark Vetro tokens, every option as a `.setting` with the name on the left and an on/off switch on the right (`On/Off`, or `Ligado/Desligado` in Portuguese), no visible checkboxes, Vetro-style tabs, cards, buttons and focus rings.
 - **`mode: "overlay"` confirmed working** with Notification Center 0.8.0.

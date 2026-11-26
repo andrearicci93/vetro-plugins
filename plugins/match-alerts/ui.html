@@ -6,26 +6,21 @@
 <meta name="color-scheme" content="light dark">
 <title>NEWS</title>
 <style>
-:root {
-  --bg:#12151b; --surface:#1b1f27; --raised:#242b38; --border:#2b3140;
-  --text:#e8ecf3; --muted:#9aa4b5; --action:#4c8dff; --focus:#8fbaff;
-  --ok:#3fb950; --warn:#d29922; --bad:#f85149;
-  --radius:12px; --radius-control:9px;
-  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+/* Tokens from VETRO-UI-SHARDS.md (vetro app/design-system/tokens.css). Dark only. */
+:root { color-scheme:dark;
+  --bg:#080f23; --surface:#101c35; --raised:#192943; --text:#f5f8ff; --muted:#aab8d1;
+  --border:#344360; --control:#7183a2; --action:#123bb5; --action-hover:#0e3095;
+  --accent:#8fbaff; --ok:#7fcba0; --warn:#e2b867; --danger:#ef8a80;
+  --r:8px; --r-surface:16px; --pill:999px; --fast:120ms; --ease:cubic-bezier(.2,0,0,1);
+  --font:-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
-  /* aliases kept so the rest of the stylesheet does not need a rewrite */
-  --card:var(--surface); --line:var(--border); --fg:var(--text); --dim:var(--muted); --accent:var(--action);
-}
-@media (prefers-color-scheme:light) {
-  :root {
-    --bg:#f3f6fc; --surface:#fff; --raised:#eef2fa; --border:#d5ddeb;
-    --text:#0b1530; --muted:#4d5b78; --action:#123bb5; --focus:#0450ef;
-    --ok:#137a4b; --warn:#8a5a00; --bad:#b3261e;
-  }
+  /* aliases for the rest of this stylesheet */
+  --card:var(--surface); --line:var(--border); --fg:var(--text); --dim:var(--muted);
+  --radius:var(--r-surface); --radius-control:var(--r); --focus:var(--accent); --bad:var(--danger);
 }
 * { box-sizing:border-box; }
 body { margin:0 auto; max-width:1040px; padding:20px 16px 40px; background:var(--bg); color:var(--text); font:14px/1.45 var(--font); }
-:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 [hidden] { display:none !important; }
 .head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
 .logo { width:34px; height:34px; border-radius:9px; background:var(--card); display:flex; align-items:center; justify-content:center; font-size:19px; }
@@ -33,9 +28,9 @@ h1 { font-size:19px; margin:0; flex:1; font-weight:600; }
 .ver { font-size:12px; font-weight:600; color:var(--dim); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:2px 8px; }
 .lang button { background:var(--card); color:var(--dim); border:1px solid var(--line); border-radius:8px; padding:5px 9px; margin-left:5px; cursor:pointer; font-size:12px; }
 .lang button.on { color:#fff; border-color:var(--accent); }
-.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; z-index:10; background:var(--bg); padding:6px 0; }
-.tabs button { background:var(--card); color:var(--dim); border:1px solid var(--line); border-radius:9px; padding:8px 14px; cursor:pointer; font-size:13px; font-weight:600; }
-.tabs button.on { color:#fff; background:#243044; border-color:var(--accent); }
+.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; z-index:10; background:var(--bg); padding:6px 0; border-bottom:1px solid var(--border); }
+.tabs button { background:none; color:var(--muted); border:0; border-bottom:2px solid transparent; border-radius:0; min-height:44px; padding:8px 14px; cursor:pointer; font-size:14px; font-weight:500; }
+.tabs button.on { color:var(--text); border-bottom-color:var(--accent); }
 .tab { display:none; }
 .tab.on { display:block; }
 .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
@@ -46,21 +41,28 @@ h1 { font-size:19px; margin:0; flex:1; font-weight:600; }
 .subtabs button.on { color:var(--text); border-color:var(--action); background:var(--surface); }
 .subtab { display:none; }
 .subtab.on { display:block; }
-.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-surface); padding:12px 14px; }
 .card.wide { grid-column:1/-1; }
 h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 10px; font-weight:700; }
 label.f { display:block; font-size:12px; color:var(--dim); margin:10px 0 4px; }
-/* Vetro-style switch: pill with a sliding knob and an On/Off state label. */
-label.switch { display:flex; min-height:44px; width:max-content; max-width:100%; align-items:center; gap:10px; padding:2px 0; cursor:pointer; }
-label.switch input[type=checkbox] { appearance:none; -webkit-appearance:none; width:40px; height:24px; padding:0; margin:0; border:1px solid var(--border); border-radius:999px; background:var(--raised); position:relative; flex-shrink:0; cursor:pointer; transition:background .15s ease; }
-label.switch input[type=checkbox]:before { content:""; position:absolute; left:3px; top:3px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:transform .15s ease, background .15s ease; }
-label.switch input[type=checkbox]:checked { background:var(--action); border-color:var(--action); }
-label.switch input[type=checkbox]:checked:before { transform:translateX(16px); background:#fff; }
-label.switch input[type=checkbox]:disabled { opacity:.45; cursor:default; }
-label.switch span { color:var(--text); }
-.sw-state { margin-left:auto; font-size:12px; color:var(--muted); font-weight:600; }
+/* VETRO-UI-SHARDS.md: option name left, switch with On/Off right. */
+.setting { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:8px 0; }
+.setting > label:first-child { flex:1; min-width:0; cursor:pointer; }
+.switch { display:flex; min-height:44px; align-items:center; gap:12px; cursor:pointer; flex:none; }
+.switch input { appearance:none; -webkit-appearance:none; width:40px; height:24px; margin:0; padding:0; border:1px solid var(--control); border-radius:var(--pill); background:var(--raised); position:relative; flex-shrink:0; cursor:pointer; transition:background var(--fast) var(--ease); }
+.switch input::before { content:""; position:absolute; left:3px; top:3px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:transform var(--fast) var(--ease), background var(--fast) var(--ease); }
+.switch input:checked { background:var(--action); border-color:var(--accent); }
+.switch input:checked::before { transform:translateX(16px); background:var(--text); }
+.switch input:disabled { opacity:.45; cursor:default; }
+.switch span { font-size:.875rem; color:var(--muted); min-width:24px; }
+.switch span::after { content:"Off"; }
+.switch input:checked + span::after { content:"On"; }
+html[lang=pt] .switch span { min-width:80px; }
+html[lang=pt] .switch span::after { content:"Desligado"; }
+html[lang=pt] .switch input:checked + span::after { content:"Ligado"; }
+@media (forced-colors:active) { .switch input { appearance:auto; -webkit-appearance:auto; } .switch input::before { display:none; } }
 .modgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px 14px; margin-top:10px; }
-.modgrid label.switch { width:auto; }
+.modgrid .setting { margin:0; }
 select, input[type=text], input[type=password] { width:100%; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 9px; font-size:13px; }
 input[type=range] { width:100%; accent-color:var(--accent); }
 .dur input[type=number] { flex:1; min-width:70px; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; }
@@ -68,7 +70,7 @@ input[type=range] { width:100%; accent-color:var(--accent); }
 .dur span { flex:0 0 45%; }
 .dur b { flex:0 0 34px; text-align:right; color:var(--fg); }
 .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
-button.p, button.g, button.x { border-radius:var(--radius-control); padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--raised); color:var(--text); }
+button.p, button.g, button.x { border-radius:var(--r); min-height:44px; padding:9px 14px; font-size:14px; font-weight:500; cursor:pointer; border:1px solid var(--control); background:var(--raised); color:var(--text); }
 button.p { background:var(--action); border-color:var(--action); color:#fff; }
 button.g { background:var(--raised); border-color:var(--ok); }
 button.x { padding:5px 9px; font-size:12px; background:var(--surface); border-color:var(--bad); color:var(--bad); }
@@ -134,21 +136,11 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       <details class="sec" open>
         <summary data-t="modules">Modules</summary>
         <div class="modgrid">
-          <label class="switch"><input type="checkbox" role="switch" id="m-sport"> <span data-t="sport">Sport</span><b class="sw-state">On</b></label>
-          <label class="switch"><input type="checkbox" role="switch" id="m-weather"> <span data-t="weather">Weather</span><b class="sw-state">On</b></label>
-          <label class="switch"><input type="checkbox" role="switch" id="m-news"> <span data-t="news">News</span><b class="sw-state">On</b></label>
-          <label class="switch"><input type="checkbox" role="switch" id="m-civ"> <span data-t="tabCiv">Proteção Civil</span><b class="sw-state">On</b></label>
+          <div class="setting"><label for="m-sport" id="m-sport-name" data-t="sport">Sport</label><label class="switch"><input type="checkbox" role="switch" id="m-sport" aria-labelledby="m-sport-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="m-weather" id="m-weather-name" data-t="weather">Weather</label><label class="switch"><input type="checkbox" role="switch" id="m-weather" aria-labelledby="m-weather-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="m-news" id="m-news-name" data-t="news">News</label><label class="switch"><input type="checkbox" role="switch" id="m-news" aria-labelledby="m-news-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="m-civ" id="m-civ-name" data-t="tabCiv">Proteção Civil</label><label class="switch"><input type="checkbox" role="switch" id="m-civ" aria-labelledby="m-civ-name"><span aria-hidden="true"></span></label></div>
         </div>
-      </details>
-    </div>
-    <div class="card wide">
-      <details class="sec" open>
-        <summary data-t="now">Right now</summary>
-        <div class="live" id="sport-line">-</div>
-        <div class="msg" id="sport-stat" aria-live="polite"></div>
-        <div class="msg" id="next-line" aria-live="polite"></div>
-        <div class="msg" id="news-line" aria-live="polite"></div>
-        <div class="row"><button type="button" class="g" id="check" data-t="check">Check now</button></div>
       </details>
     </div>
     <div class="card wide">
@@ -181,8 +173,8 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
           <div>
             <label class="f" data-t="mode">Mode</label>
             <select id="w-mode"></select>
-            <label class="switch"><input type="checkbox" role="switch" id="w-sound"> <span data-t="sound">Sound</span><b class="sw-state">On</b></label>
-            <label class="switch"><input type="checkbox" role="switch" id="w-quiet"> <span data-t="quiet">Quiet hours 23h-07h</span><b class="sw-state">On</b></label>
+            <div class="setting"><label for="w-sound" id="w-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="w-sound" aria-labelledby="w-sound-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="w-quiet" id="w-quiet-name" data-t="quiet">Quiet hours 23h-07h</label><label class="switch"><input type="checkbox" role="switch" id="w-quiet" aria-labelledby="w-quiet-name"><span aria-hidden="true"></span></label></div>
           </div>
         </div>
       </details>
@@ -201,13 +193,13 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
         <summary data-t="wpTitle">Advance warnings</summary>
         <div class="grid">
           <div>
-            <label class="switch"><input type="checkbox" role="switch" id="wp-enabled"> <span data-t="wpEnable">Enable</span><b class="sw-state">On</b></label>
+            <div class="setting"><label for="wp-enabled" id="wp-enabled-name" data-t="wpEnable">Enable</label><label class="switch"><input type="checkbox" role="switch" id="wp-enabled" aria-labelledby="wp-enabled-name"><span aria-hidden="true"></span></label></div>
             <label class="f" data-t="wpMinutes">Look ahead</label>
             <select id="wp-minutes"><option value="30">30 min</option><option value="60">60 min</option><option value="120">120 min</option><option value="180">180 min</option></select>
-            <label class="switch"><input type="checkbox" role="switch" id="wp-rain"> <span data-t="wRain">Rain</span><b class="sw-state">On</b></label>
-            <label class="switch"><input type="checkbox" role="switch" id="wp-wind"> <span data-t="wWind">Wind</span><b class="sw-state">On</b></label>
-            <label class="switch"><input type="checkbox" role="switch" id="wp-heat"> <span data-t="wHeat">Heat</span><b class="sw-state">On</b></label>
-            <label class="switch"><input type="checkbox" role="switch" id="wp-storm"> <span data-t="wStorm">Thunderstorm</span><b class="sw-state">On</b></label>
+            <div class="setting"><label for="wp-rain" id="wp-rain-name" data-t="wRain">Rain</label><label class="switch"><input type="checkbox" role="switch" id="wp-rain" aria-labelledby="wp-rain-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="wp-wind" id="wp-wind-name" data-t="wWind">Wind</label><label class="switch"><input type="checkbox" role="switch" id="wp-wind" aria-labelledby="wp-wind-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="wp-heat" id="wp-heat-name" data-t="wHeat">Heat</label><label class="switch"><input type="checkbox" role="switch" id="wp-heat" aria-labelledby="wp-heat-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="wp-storm" id="wp-storm-name" data-t="wStorm">Thunderstorm</label><label class="switch"><input type="checkbox" role="switch" id="wp-storm" aria-labelledby="wp-storm-name"><span aria-hidden="true"></span></label></div>
           </div>
           <div>
             <div class="dur"><span data-t="wpRainPct">Rain %</span><input type="number" id="wp-rainpct" min="10" max="100" step="5"><b></b></div>
@@ -232,14 +224,14 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     <div class="card wide">
       <details class="sec" open>
         <summary data-t="civSources">Sources and filters</summary>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-enabled"> <span data-t="enabled">Enabled</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="civ-enabled" id="civ-enabled-name" data-t="enabled">Enabled</label><label class="switch"><input type="checkbox" role="switch" id="civ-enabled" aria-labelledby="civ-enabled-name"><span aria-hidden="true"></span></label></div>
         <label class="f" data-t="district">District (IPMA)</label>
         <select id="civ-district"></select>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-yellow"> <span data-t="civYellow">Yellow (discreet)</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-orange"> <span data-t="civOrange">Orange</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-red"> <span data-t="civRed">Red</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-anepc"> <span>ANEPC - Aviso \u00E0 popula\u00E7\u00E3o</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-news"> <span data-t="civNews">Breaking news (RSS)</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="civ-yellow" id="civ-yellow-name" data-t="civYellow">Yellow (discreet)</label><label class="switch"><input type="checkbox" role="switch" id="civ-yellow" aria-labelledby="civ-yellow-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-orange" id="civ-orange-name" data-t="civOrange">Orange</label><label class="switch"><input type="checkbox" role="switch" id="civ-orange" aria-labelledby="civ-orange-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-red" id="civ-red-name" data-t="civRed">Red</label><label class="switch"><input type="checkbox" role="switch" id="civ-red" aria-labelledby="civ-red-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-anepc" id="civ-anepc-name">ANEPC - Aviso \u00E0 popula\u00E7\u00E3o</label><label class="switch"><input type="checkbox" role="switch" id="civ-anepc" aria-labelledby="civ-anepc-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-news" id="civ-news-name" data-t="civNews">Breaking news (RSS)</label><label class="switch"><input type="checkbox" role="switch" id="civ-news" aria-labelledby="civ-news-name"><span aria-hidden="true"></span></label></div>
         <label class="f" data-t="keywords">Keywords</label>
         <input type="text" id="civ-keywords">
       </details>
@@ -249,7 +241,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
         <summary data-t="style">Style</summary>
         <label class="f" data-t="mode">Mode</label>
         <select id="civ-mode"></select>
-        <label class="switch"><input type="checkbox" role="switch" id="civ-sound"> <span data-t="sound">Sound</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="civ-sound" id="civ-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="civ-sound" aria-labelledby="civ-sound-name"><span aria-hidden="true"></span></label></div>
         <div class="dur"><span data-t="interval">Interval (min)</span><input type="range" id="civ-interval" min="5" max="240" step="5"><b id="civ-intervalv"></b></div>
         <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="civ-seconds" min="3" max="60"><b id="civ-secondsv"></b></div>
         <div class="dur"><span data-t="volume">Volume</span><input type="range" id="civ-volume" min="10" max="100" step="5"><b id="civ-volumev"></b></div>
@@ -286,8 +278,8 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
         <div>
           <label class="f" data-t="mode">Mode</label>
           <select id="n-mode"></select>
-          <label class="switch"><input type="checkbox" role="switch" id="n-sound"> <span data-t="sound">Sound</span><b class="sw-state">On</b></label>
-          <label class="switch"><input type="checkbox" role="switch" id="n-quiet"> <span data-t="quiet">Quiet hours 23h-07h</span><b class="sw-state">On</b></label>
+          <div class="setting"><label for="n-sound" id="n-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="n-sound" aria-labelledby="n-sound-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="n-quiet" id="n-quiet-name" data-t="quiet">Quiet hours 23h-07h</label><label class="switch"><input type="checkbox" role="switch" id="n-quiet" aria-labelledby="n-quiet-name"><span aria-hidden="true"></span></label></div>
         </div>
         </div>
       </details>
@@ -327,16 +319,16 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     <div class="card wide">
       <details class="sec" open>
         <summary data-t="alerts">Alerts</summary>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="goal"> <span data-t="a_goal">Goal for my club</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="against"> <span data-t="a_against">Goal for the opponent</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="card"> <span data-t="a_card">Cards (both teams)</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="sub"> <span data-t="a_sub">Substitutions (my club)</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="varNo"> <span data-t="a_var">Goal disallowed</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="penalty"> <span data-t="a_pen">Penalty awarded</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="penMiss"> <span data-t="a_penMiss">Penalty missed or saved</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="start"> <span data-t="a_start">Kick-off</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="half"> <span data-t="a_half">Half-time</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-fb="end"> <span data-t="a_end">Full time</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="sw-21" id="sw-21-name" data-t="a_goal">Goal for my club</label><label class="switch"><input type="checkbox" role="switch" id="sw-21" data-fb="goal" aria-labelledby="sw-21-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-22" id="sw-22-name" data-t="a_against">Goal for the opponent</label><label class="switch"><input type="checkbox" role="switch" id="sw-22" data-fb="against" aria-labelledby="sw-22-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-23" id="sw-23-name" data-t="a_card">Cards (both teams)</label><label class="switch"><input type="checkbox" role="switch" id="sw-23" data-fb="card" aria-labelledby="sw-23-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-24" id="sw-24-name" data-t="a_sub">Substitutions (my club)</label><label class="switch"><input type="checkbox" role="switch" id="sw-24" data-fb="sub" aria-labelledby="sw-24-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-25" id="sw-25-name" data-t="a_var">Goal disallowed</label><label class="switch"><input type="checkbox" role="switch" id="sw-25" data-fb="varNo" aria-labelledby="sw-25-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-26" id="sw-26-name" data-t="a_pen">Penalty awarded</label><label class="switch"><input type="checkbox" role="switch" id="sw-26" data-fb="penalty" aria-labelledby="sw-26-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-27" id="sw-27-name" data-t="a_penMiss">Penalty missed or saved</label><label class="switch"><input type="checkbox" role="switch" id="sw-27" data-fb="penMiss" aria-labelledby="sw-27-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-28" id="sw-28-name" data-t="a_start">Kick-off</label><label class="switch"><input type="checkbox" role="switch" id="sw-28" data-fb="start" aria-labelledby="sw-28-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-29" id="sw-29-name" data-t="a_half">Half-time</label><label class="switch"><input type="checkbox" role="switch" id="sw-29" data-fb="half" aria-labelledby="sw-29-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-30" id="sw-30-name" data-t="a_end">Full time</label><label class="switch"><input type="checkbox" role="switch" id="sw-30" data-fb="end" aria-labelledby="sw-30-name"><span aria-hidden="true"></span></label></div>
       </details>
     </div>
     <div class="card wide">
@@ -344,11 +336,11 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
         <summary data-t="style">Style</summary>
         <label class="f" data-t="mode">Mode</label>
         <select id="f-mode"></select>
-        <label class="switch"><input type="checkbox" role="switch" id="f-sound"> <span data-t="sound">Sound</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="f-sound" id="f-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="f-sound" aria-labelledby="f-sound-name"><span aria-hidden="true"></span></label></div>
         <div class="dur"><span data-t="goalsec">Goal banner (s)</span><input type="range" id="f-goalsec" min="5" max="60"><b id="f-goalsecv"></b></div>
         <div class="dur"><span data-t="othersec">Other banners (s)</span><input type="range" id="f-othersec" min="3" max="30"><b id="f-othersecv"></b></div>
         <div class="dur"><span data-t="volume">Volume</span><input type="range" id="f-volume" min="10" max="100" step="5"><b id="f-volumev"></b></div>
-        <label class="switch"><input type="checkbox" role="switch" id="f-next-enabled"> <span data-t="nextWarn">Warn before kick-off</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="f-next-enabled" id="f-next-enabled-name" data-t="nextWarn">Warn before kick-off</label><label class="switch"><input type="checkbox" role="switch" id="f-next-enabled" aria-labelledby="f-next-enabled-name"><span aria-hidden="true"></span></label></div>
         <label class="f" data-t="minutesBefore">Minutes before</label>
         <select id="f-next-minutes"><option value="0">0</option><option value="15">15</option><option value="30">30</option><option value="60">60</option></select>
       </details>
@@ -431,10 +423,10 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     <div class="card wide">
       <details class="sec" open>
         <summary data-t="alerts">Alerts</summary>
-        <label class="switch"><input type="checkbox" role="switch" data-ob="start"> <span data-t="a_start2">Start</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-ob="half"> <span data-t="a_half2">Half / period</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-ob="end"> <span data-t="a_end2">End</span><b class="sw-state">On</b></label>
-        <label class="switch"><input type="checkbox" role="switch" data-ob="score"> <span data-t="a_score">Score changes</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="sw-33" id="sw-33-name" data-t="a_start2">Start</label><label class="switch"><input type="checkbox" role="switch" id="sw-33" data-ob="start" aria-labelledby="sw-33-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-34" id="sw-34-name" data-t="a_half2">Half / period</label><label class="switch"><input type="checkbox" role="switch" id="sw-34" data-ob="half" aria-labelledby="sw-34-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-35" id="sw-35-name" data-t="a_end2">End</label><label class="switch"><input type="checkbox" role="switch" id="sw-35" data-ob="end" aria-labelledby="sw-35-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-36" id="sw-36-name" data-t="a_score">Score changes</label><label class="switch"><input type="checkbox" role="switch" id="sw-36" data-ob="score" aria-labelledby="sw-36-name"><span aria-hidden="true"></span></label></div>
       </details>
     </div>
     <div class="card wide">
@@ -442,7 +434,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
         <summary data-t="style">Style</summary>
         <label class="f" data-t="mode">Mode</label>
         <select id="o-mode"></select>
-        <label class="switch"><input type="checkbox" role="switch" id="o-sound"> <span data-t="sound">Sound</span><b class="sw-state">On</b></label>
+        <div class="setting"><label for="o-sound" id="o-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="o-sound" aria-labelledby="o-sound-name"><span aria-hidden="true"></span></label></div>
         <div class="dur"><span data-t="seconds">Banner (s)</span><input type="range" id="o-seconds" min="3" max="30"><b id="o-secondsv"></b></div>
         <div class="dur"><span data-t="volume">Volume</span><input type="range" id="o-volume" min="10" max="100" step="5"><b id="o-volumev"></b></div>
       </details>
@@ -457,6 +449,16 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
 <!-- ============ TECHNICAL ============ -->
 <div class="tab" id="tab-tech" role="tabpanel" aria-labelledby="tabbtn-tech" hidden>
   <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="now">Right now</summary>
+        <div class="live" id="sport-line">-</div>
+        <div class="msg" id="sport-stat" aria-live="polite"></div>
+        <div class="msg" id="next-line" aria-live="polite"></div>
+        <div class="msg" id="news-line" aria-live="polite"></div>
+        <div class="row"><button type="button" class="g" id="check" data-t="check">Check now</button></div>
+      </details>
+    </div>
     <div class="card wide">
       <details class="sec" open>
         <summary data-t="diagTitle">Diagnostics</summary>
@@ -623,13 +625,6 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     $("l-en").className = lang === "en" ? "on" : "";
     $("l-pt").className = lang === "pt" ? "on" : "";
   }
-  function syncSwitches() {
-    var all = document.querySelectorAll("label.switch input[type=checkbox]"), i, b;
-    for (i = 0; i < all.length; i++) {
-      b = all[i].parentNode && all[i].parentNode.querySelector(".sw-state");
-      if (b) { b.textContent = all[i].checked ? "On" : "Off"; }
-    }
-  }
   function say(msg, cls) { var e = $("add-msg"); if (e) { e.textContent = msg || ""; e.className = "msg " + (cls || ""); } }
   function sayPick(msg, cls) { var e = $("pick-msg"); if (e) { e.textContent = msg || ""; e.className = "msg " + (cls || ""); } }
   function api(path, body) {
@@ -682,25 +677,26 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
       html += '<button type="button" class="x" data-act="rm">' + esc(tr("remove")) + "</button></div>";
       html += '<div class="comps">';
       for (j = 0; j < comps.length; j++) {
-        html += '<label class="switch"><input type="checkbox" role="switch" data-comp="' + esc(comps[j].id) + '"' +
-          (cl.comps.indexOf(comps[j].id) >= 0 ? " checked" : "") + "> <span>" + esc(comps[j].name) + "</span>" + '<b class="sw-state">On</b>' + "</label>";
+        html += '<div class="setting"><label for="cmp-' + esc(cl.id) + '-' + j + '" id="cmp-' + esc(cl.id) + '-' + j + '-name">' + esc(comps[j].name) + '</label>' +
+          '<label class="switch"><input type="checkbox" role="switch" id="cmp-' + esc(cl.id) + '-' + j + '" data-comp="' + esc(comps[j].id) + '" aria-labelledby="cmp-' + esc(cl.id) + '-' + j + '-name"' +
+          (cl.comps.indexOf(comps[j].id) >= 0 ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
       }
       html += "</div>";
-      html += '<label class="switch"><input type="checkbox" role="switch" data-act="news"' + (cl.news ? " checked" : "") +
-        "> <span>" + esc(tr("clubNewsShort")) + "</span>" + '<b class="sw-state">On</b>' + "</label>";
+      html += '<div class="setting"><label for="cnews-' + esc(cl.id) + '" id="cnews-' + esc(cl.id) + '-name">' + esc(tr("clubNewsShort")) + '</label>' +
+        '<label class="switch"><input type="checkbox" role="switch" id="cnews-' + esc(cl.id) + '" data-act="news" aria-labelledby="cnews-' + esc(cl.id) + '-name"' + (cl.news ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
       html += '<div class="small" style="margin-top:6px">' + esc(tr("clubAlertsTitle")) + ": " +
         (cl.alerts ? esc(tr("custom")) : esc(tr("inherited"))) +
         (cl.alerts ? ' <button type="button" class="x" data-clubreset="' + esc(cl.id) + '">' + esc(tr("useGlobal")) + "</button>" : "") + "</div>";
       html += '<div class="comps">';
       for (j = 0; j < CLUB_ALERTS.length; j++) {
-        html += '<label class="switch"><input type="checkbox" role="switch" data-cal="' + esc(cl.id) + '" data-key="' + CLUB_ALERTS[j][0] + '"' +
-          (effAlerts(cl)[CLUB_ALERTS[j][0]] ? " checked" : "") + "> <span>" + esc(tr(CLUB_ALERTS[j][1])) + "</span>" + '<b class="sw-state">On</b>' + "</label>";
+        html += '<div class="setting"><label for="cal-' + esc(cl.id) + '-' + j + '" id="cal-' + esc(cl.id) + '-' + j + '-name">' + esc(tr(CLUB_ALERTS[j][1])) + '</label>' +
+          '<label class="switch"><input type="checkbox" role="switch" id="cal-' + esc(cl.id) + '-' + j + '" data-cal="' + esc(cl.id) + '" data-key="' + CLUB_ALERTS[j][0] + '" aria-labelledby="cal-' + esc(cl.id) + '-' + j + '-name"' +
+          (effAlerts(cl)[CLUB_ALERTS[j][0]] ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
       }
       html += "</div>";
       html += "</div>";
     }
     box.innerHTML = html;
-    syncSwitches();
   }
   // The test buttons act for one club: the one picked here, so a club with custom alerts
   // can be checked without touching the others. The pick survives the 20 s refresh.
@@ -738,10 +734,10 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   }
   function renderFeeds() {
     $("feeds").innerHTML = cfg.feeds.map(function (f) {
-      return '<label class="switch"><input type="checkbox" role="switch" data-feed="' + esc(f.id) + '"' +
-        (feeds.indexOf(f.id) >= 0 ? " checked" : "") + "> <span>" + esc(f.name) + "</span>" + '<b class="sw-state">On</b>' + "</label>";
+      return '<div class="setting"><label for="feed-' + esc(f.id) + '" id="feed-' + esc(f.id) + '-name">' + esc(f.name) + '</label>' +
+        '<label class="switch"><input type="checkbox" role="switch" id="feed-' + esc(f.id) + '" data-feed="' + esc(f.id) + '" aria-labelledby="feed-' + esc(f.id) + '-name"' +
+        (feeds.indexOf(f.id) >= 0 ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
     }).join("");
-    syncSwitches();
   }
   function simsay(s, cls) { var e = $("sim-msg"); if (e) { e.textContent = s || ""; e.className = "msg " + (cls || ""); } }
   function renderSim() {
@@ -847,7 +843,6 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
     loadTeams($("add-league").value, $("add-team"));
     loadTeams2();
     applyTabVisibility();
-    syncSwitches();
     dirty = false;
   }
   function loadTeams(league, el) {
@@ -1139,7 +1134,7 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   });
   // Switching the panel language must not throw away clubs or sources added but not saved yet.
   function setLang(l) {
-    lang = l; applyText();
+    lang = l; document.documentElement.lang = l; applyText();
     $("tabnav-label").textContent = tabs[currentTab()].textContent;
     updateSaveState();
     if (!dirty) { fill(); }
@@ -1159,7 +1154,6 @@ pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(-
   document.body.addEventListener("change", function (e) {
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "SELECT") && t.id !== "test-club") { dirty = true; updateSaveState(); }
-    if (t && t.type === "checkbox" && t.getAttribute("role") === "switch") { syncSwitches(); }
     if (t && (t.id === "m-civ" || t.id === "civ-enabled")) {
       $("m-civ").checked = t.checked; $("civ-enabled").checked = t.checked;
       applyTabVisibility();
