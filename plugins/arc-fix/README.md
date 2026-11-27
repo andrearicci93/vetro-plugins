@@ -8,6 +8,9 @@ RoutingChange away from ARC, waits a few seconds (default 4) and sets the TV as 
 change: from one Dolby stream to the next in the same format (the next episode) the receiver keeps up by itself. The receiver
 re-locks onto the bitstream; the running app is not interrupted. Switched off, the watcher is stopped.
 
+The watcher never resets when it finds no CEC receiver, and it does at most 3 resets in 5 minutes; both are written
+to the log. The reset also works while the TV is on another HDMI input (tried with a PS4): the TV stays on that input.
+
 Page: **Plugins → ARC fix**: manual reset, wait time (1–10 s), HDMI port (auto or 1–4), live receiver and stream info, log.
 
 ## Tested with
@@ -61,7 +64,7 @@ time and port.
 
 ## Data it keeps
 
-- `config.json`: the wait time and the HDMI port.
+- `config.json`: the wait time, the HDMI port and `since`, the time the plugin was last switched on.
 - While on: `vetro-arc-fix.pid` and `vetro-arc-fix.log` (last 40–60 lines) in the plugin's own folder.
   `vetro-arc-fix.log.tmp` exists for a moment each time the log is cut back to 40 lines. The PID file is removed
   when the plugin is switched off.

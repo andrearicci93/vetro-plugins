@@ -12,8 +12,8 @@
         "exec"
       ],
       "url": "dist/arc-fix-0.1.0.vplugin",
-      "sha256": "0134173088eaf4f005c05215deb18c4ce59c63933050c09e46db797a1ab70512",
-      "size": 33208
+      "sha256": "23d709c961f134e4f5d940fdbf55b98da211b11b195dfdd0cf1625cd4bad46a9",
+      "size": 36373
     },
     {
       "id": "art-sql",

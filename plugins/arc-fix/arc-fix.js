@@ -5,7 +5,7 @@
 // Sending CEC <Routing Change> (0.0.0.0 -> <port>.0.0.0) via org.tizen.tv.HdmiCec.SendRoutingChange
 // without starting Tizen's One-Touch-Play timer switches only the AV receiver's internal input away
 // from ARC (e.g. AV1 -> HDMI 1) while leaving the TV's active app (Stremio, Netflix, etc.) untouched.
-// Waiting ~3 seconds and calling org.tizen.tv.HdmiCec.SetActiveSource returns the receiver to ARC,
+// Waiting a few seconds (4 by default) and calling org.tizen.tv.HdmiCec.SetActiveSource returns the receiver to ARC,
 // forcing its S/PDIF DSP to re-lock onto the AC3/EAC3 bitstream.
 //
 // This is the logic of the "arc-fix" Vetro plugin (API 1). The plugin being switched on is what turns the watcher on:
@@ -25,7 +25,8 @@ var SPDIF_FORMATS = {
     4: 'ES AAC', 5: 'ES DD+', 6: 'MAT', 7: 'MCH PCM'
 };
 
-function b64(s) { return (typeof Buffer.from === 'function' ? Buffer.from(s, 'utf8') : new Buffer(s, 'utf8')).toString('base64'); }
+// Node 4 has Buffer.from, but it is the Uint8Array one and throws on a string; only Node 4.5+ has the real one.
+function b64(s) { return (Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(s, 'utf8') : new Buffer(s, 'utf8')).toString('base64'); }
 // Shell functions every script uses to find the receiver, so the page, the watcher and the manual reset all agree.
 // find_receiver prints the CEC index of the device that reports AUDIO_SYSTEM; when none does but the TV says a
 // receiver is there, index 0. Prints nothing when there is no receiver; the resets still try index 0 then, as the
@@ -76,6 +77,7 @@ function ArcFix(options) {
     this.pidFile = shellQuote(o.dir + '/vetro-arc-fix.pid');
     this.logFile = shellQuote(o.dir + '/vetro-arc-fix.log');
     this.now = o.now || function () { return Date.now(); };
+    this.cancelWait = null;       // set while a manual reset waits between its two steps
     this.active = false;          // the plugin is switched on: the watcher should be running
     this.busy = false;
     this.lastError = null;
@@ -213,6 +215,7 @@ ArcFix.prototype.daemonFileContent = function (delaySeconds, configuredPort) {
         'DELAY=' + delay,
         'FIXED_PORT=' + (fixedPort || 0),
         'LAST_RUN=0',
+        'RESET_TIMES=""',
         'log_msg() {',
         '  ts=$(date "+%H:%M:%S" 2>/dev/null || echo "--:--:--")',
         '  echo "[$ts] $1" >> ' + this.logFile,
@@ -223,7 +226,7 @@ ArcFix.prototype.daemonFileContent = function (delaySeconds, configuredPort) {
         RECEIVER_SHELL_FUNCTIONS,
         'resolve_port() {',
         '  if [ "$FIXED_PORT" -ge 1 ] && [ "$FIXED_PORT" -le 4 ]; then echo "$FIXED_PORT"; return; fi',
-        '  idx=$(find_receiver); p=$(port_of "${idx:-0}")',
+        '  p=$(port_of "$1")',
         '  case "$p" in 1|2|3|4) echo "$p" ;; *) echo 3 ;; esac',
         '}',
         'read_ctl() { amixer cget numid=$1 2>/dev/null | sed -n \'s/.*: values=\\([0-9]*\\).*/\\1/p\'; }',
@@ -231,30 +234,49 @@ ArcFix.prototype.daemonFileContent = function (delaySeconds, configuredPort) {
         // same format (the next episode) it keeps up by itself, so the watcher remembers the last S/PDIF format and
         // skips the reset only when it has not changed. A different bitstream (DTS to Dolby) still gets a reset.
         'LAST_SPDIF=$(read_ctl 20)',
-        'log_msg "Watcher started (delay=${DELAY}s, port=${FIXED_PORT:-auto}, spdif=${LAST_SPDIF:-?})"',
+        'log_msg "Watcher started (delay=${DELAY}s, port=$([ "$FIXED_PORT" -ge 1 ] && echo "$FIXED_PORT" || echo auto), spdif=${LAST_SPDIF:-?})"',
         'busctl --system --augment-creds=no -j monitor 2>/dev/null | grep --line-buffered -E \'"member":"SetAudioInformation"|"member":"DigitalAudioFormatChanged"\' | while read -r line; do',
         '  now=$(date +%s 2>/dev/null || echo 0)',
         '  if [ $((now - LAST_RUN)) -lt 8 ]; then continue; fi',
         '  enc=$(echo "$line" | sed -n \'s/.*"data":\\[\\[[0-9-]*,[0-9-]*,\\([0-9-]*\\),.*/\\1/p\')',
-        '  sleep 1',
-        '  dec0=$(read_ctl 89)',
-        '  spdif=$(read_ctl 20)',
-        '  prev=${LAST_SPDIF:-3}; LAST_SPDIF=${spdif:-3}',
+        // The S/PDIF format can flip to a bitstream before the decoder reports its codec: wait up to 4 s for it.
+        '  tries=0',
+        '  while :; do',
+        '    sleep 1',
+        '    dec0=$(read_ctl 89)',
+        '    spdif=$(read_ctl 20)',
+        '    case "${spdif:-3}" in 3|7) break ;; esac',
+        '    case "${dec0:-0}" in 1|3|9|15|16|18|19) break ;; esac',
+        '    tries=$((tries + 1)); if [ "$tries" -ge 4 ]; then break; fi',
+        '  done',
+        '  prev=${LAST_SPDIF:-3}',
         '  case "${spdif:-3}" in 3|7)',
+        '    LAST_SPDIF=${spdif:-3}',
         '    case "$prev" in 3|7) ;; *) log_msg "Back to PCM (spdif ${prev} -> ${spdif:-?})" ;; esac',
         '    continue ;;',
         '  esac',
         '  if [ "$prev" = "$spdif" ]; then log_msg "Same bitstream (spdif ${spdif}), receiver already locked: no reset"; continue; fi',
         '  case "${dec0:-0}" in',
         '    1|3|9|15|16|18|19)',
-        '      port=$(resolve_port)',
+        '      idx=$(find_receiver)',
+        '      if [ -z "$idx" ]; then log_msg "No CEC receiver found: no reset"; continue; fi',
+        // A receiver that needs more than the 8 s debounce to re-lock would be reset again and again: at most 3 per 5 minutes.
+        '      recent=""; n=0',
+        '      for t in $RESET_TIMES; do if [ $((now - t)) -lt 300 ]; then recent="$recent $t"; n=$((n + 1)); fi; done',
+        '      RESET_TIMES=$recent',
+        '      if [ "$n" -ge 3 ]; then log_msg "3 resets in the last 5 minutes: pausing, no reset"; continue; fi',
+        '      port=$(resolve_port "$idx")',
+        '      LAST_SPDIF=$spdif',
         '      log_msg "Dolby/DTS bitstream start (enc=${enc:-?}, dec0=${dec0}, spdif=${spdif}) -> RoutingChange(0->${port}), wait ${DELAY}s, SetActiveSource"',
         '      dbus-send --system --print-reply --dest=org.tizen.tv.hdmicec /org/tizen/tv/hdmicec org.tizen.tv.HdmiCec.SendRoutingChange int32:0 int32:"$port" >/dev/null 2>&1',
         '      sleep "$DELAY"',
         '      dbus-send --system --print-reply --dest=org.tizen.tv.hdmicec /org/tizen/tv/hdmicec org.tizen.tv.HdmiCec.SetActiveSource >/dev/null 2>&1',
         '      LAST_RUN=$(date +%s 2>/dev/null || echo 0)',
+        '      RESET_TIMES="$RESET_TIMES $LAST_RUN"',
         '      log_msg "ARC reset complete on HDMI ${port}"',
         '      ;;',
+        // The format is only remembered once handled, so the next event tries again.
+        '    *) log_msg "Bitstream (spdif ${spdif}) but decoder ${dec0:-?} is not Dolby/DTS: no reset" ;;',
         '  esac',
         'done'
     ].join('\n') + '\n';
@@ -315,10 +337,12 @@ ArcFix.prototype.begin = function () {
     }), function () { self.busy = false; });
 };
 
-// The plugin was switched off: stop the watcher and remove its script.
+// The plugin was switched off: stop the watcher.
 ArcFix.prototype.end = function () {
     var self = this;
     this.active = false;
+    // A manual reset is waiting between its two steps: end the wait now, so the receiver does not stay away from ARC.
+    if (this.cancelWait) this.cancelWait();
     return this.execute(wrap(this.stopLines()), 8000).then(function (r) {
         check(r, 'ARC watcher stop');
     }).catch(function (e) { self.lastError = e.message; });
@@ -346,6 +370,30 @@ ArcFix.prototype.trigger = function (options) {
     var state = this.readState();
     var delay = options && options.delaySeconds !== undefined ? clampDelay(options.delaySeconds) : state.delaySeconds;
     var reqPort = options && options.port !== undefined ? validPort(options.port) : state.port;
+    // Two root commands with the wait in between done here, so the TV's root agent is not held during the wait and
+    // each dbus-send reports its own failure.
+    var run = this.sendRoutingChange(reqPort).then(function (usedPort) {
+        return new Promise(function (resolve) {
+            self.cancelWait = function () { clearTimeout(timer); self.cancelWait = null; resolve(); };
+            var timer = setTimeout(self.cancelWait, delay * 1000);
+        }).then(function () {
+            return self.sendActiveSource(usedPort).catch(function (e) {
+                throw new Error('The receiver was switched away from ARC but SetActiveSource failed: ' + e.message);
+            });
+        }).then(function () {
+            return self.status();
+        }).then(function (st) {
+            return Object.assign(st, {triggered: true, usedPort: usedPort, usedDelaySeconds: delay});
+        });
+    }).catch(function (e) {
+        self.lastError = e.message;
+        throw e;
+    });
+    return settle(run, function () { self.busy = false; });
+};
+
+// First half of the manual reset: the receiver leaves ARC. Resolves with the HDMI port it was sent to.
+ArcFix.prototype.sendRoutingChange = function (reqPort) {
     var script = [
         RECEIVER_SHELL_FUNCTIONS,
         'port=' + (reqPort || 0),
@@ -354,26 +402,24 @@ ArcFix.prototype.trigger = function (options) {
         '  case "$p" in 1|2|3|4) port=$p ;; *) port=3 ;; esac',
         'fi',
         'ts=$(date "+%H:%M:%S" 2>/dev/null || echo "--:--:--")',
-        'echo "[$ts] Manual reset -> RoutingChange(0->${port}), wait ' + delay + 's, SetActiveSource" >> ' + this.logFile,
-        'dbus-send --system --print-reply --dest=org.tizen.tv.hdmicec /org/tizen/tv/hdmicec org.tizen.tv.HdmiCec.SendRoutingChange int32:0 int32:"$port" >/dev/null',
-        'sleep ' + delay,
-        'dbus-send --system --print-reply --dest=org.tizen.tv.hdmicec /org/tizen/tv/hdmicec org.tizen.tv.HdmiCec.SetActiveSource >/dev/null',
-        'ts2=$(date "+%H:%M:%S" 2>/dev/null || echo "--:--:--")',
-        'echo "[$ts2] Manual ARC reset complete on HDMI ${port}" >> ' + this.logFile,
+        'echo "[$ts] Manual reset -> RoutingChange(0->${port})" >> ' + this.logFile,
+        'dbus-send --system --print-reply --dest=org.tizen.tv.hdmicec /org/tizen/tv/hdmicec org.tizen.tv.HdmiCec.SendRoutingChange int32:0 int32:"$port" >/dev/null || exit 1',
         'echo "reset_port=$port"'
     ].join('\n');
-    var run = this.execute(wrap(script), (delay + 10) * 1000).then(function (r) {
-        var out = check(r, 'ARC reset');
-        var m = /^reset_port=(\d+)$/m.exec(out);
-        var usedPort = m ? +m[1] : (reqPort || 3);
-        return self.status().then(function (st) {
-            return Object.assign(st, {triggered: true, usedPort: usedPort, usedDelaySeconds: delay});
-        });
-    }).catch(function (e) {
-        self.lastError = e.message;
-        throw e;
+    return this.execute(wrap(script), 10000).then(function (r) {
+        var m = /^reset_port=(\d+)$/m.exec(check(r, 'ARC RoutingChange'));
+        return m ? +m[1] : (reqPort || 3);
     });
-    return settle(run, function () { self.busy = false; });
+};
+
+// Second half of the manual reset: the TV is the active source again and the receiver goes back to ARC.
+ArcFix.prototype.sendActiveSource = function (port) {
+    var script = [
+        'dbus-send --system --print-reply --dest=org.tizen.tv.hdmicec /org/tizen/tv/hdmicec org.tizen.tv.HdmiCec.SetActiveSource >/dev/null || exit 1',
+        'ts=$(date "+%H:%M:%S" 2>/dev/null || echo "--:--:--")',
+        'echo "[$ts] Manual ARC reset complete on HDMI ' + port + '" >> ' + this.logFile
+    ].join('\n');
+    return this.execute(wrap(script), 10000).then(function (r) { check(r, 'ARC SetActiveSource'); });
 };
 
 // Called on a timer while the plugin is on. If the root agent is not connected yet the commands fail and the retry
