@@ -1,0 +1,11 @@
+{
+  "id": "channels",
+  "name": "TV Channels",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": ["exec"],
+  "author": "abdoghanem2011",
+  "description": "Browse and switch satellite and IP channels with frequency search, transponder details, and channel management.",
+  "main": "index.js",
+  "ui": { "label": "Channels" }
+}
