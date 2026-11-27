@@ -11,6 +11,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | [`art-sql`](plugins/art-sql) | Read-only SQL API (Datasette-style JSON) over the Art app's database, for other apps on your network | `exec` | bertrandom |
 | [`bedtime`](plugins/bedtime) | Turn the TV off at set times or after a sleep timer, or open an app on a schedule | `exec` | piecifra |
 | [`eightbitdo-guide`](plugins/eightbitdo-guide) | Open Vetro with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes | `exec` | augusto1024 |
+| [`elm-leak-fix`](plugins/elm-leak-fix) | Fixes a firmware memory leak (msf-server rewrites the Elementary config every second) that freezes the UI after a few hours | `exec` | elmasevmem |
 | [`home-assistant`](plugins/home-assistant) | A **Control center card** (Vetro 0.7.0): switch Home Assistant lights, switches, scenes and scripts from the TV's remote. The example Shard for the card API | none | andrearicci93 |
 | [`keyboard`](plugins/keyboard) | Text typing for system inputs, live 1080p screen preview, and full TV remote with navigation, volume, channel, playback and color keys | `exec` | abdoghanem2011 |
 | [`prometheus`](plugins/prometheus) | Prometheus metrics for the TV (CPU, memory, network, Wi-Fi signal, SoC temperature), `node_exporter` names | none | piecifra |

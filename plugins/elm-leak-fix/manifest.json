@@ -1,0 +1,15 @@
+{
+  "id": "elm-leak-fix",
+  "name": "EFL leak fix",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "permissions": [
+    "exec"
+  ],
+  "main": "index.js",
+  "ui": {
+    "label": "Leak fix"
+  },
+  "description": "Stops msf-server rewriting the Elementary config every second (pw-show-lastset), which leaks memory in every EFL app and freezes the UI.",
+  "author": "elmasevmem"
+}
