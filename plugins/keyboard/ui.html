@@ -478,7 +478,7 @@ button.danger:hover { background: rgba(248, 81, 73, .22); }
   cursor: crosshair;
   touch-action: none;
 }
-.screen-frame img {
+.screen-frame img, .screen-frame canvas {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -748,7 +748,7 @@ button.danger:hover { background: rgba(248, 81, 73, .22); }
   height: 15px;
   accent-color: var(--action);
 }
-.preset-switch button {
+.preset-switch button, .capture-switch button {
   padding: 2px 8px;
   font-size: 11px;
   height: 22px;
@@ -960,6 +960,7 @@ body.is-screen-only #only-theater-actions {
       <div class="screen-stage" id="screen-stage">
         <div class="screen-frame" id="screen-frame">
           <img id="screen-img" src="" alt="TV Screen" draggable="false">
+          <canvas id="screen-canvas" width="960" height="540" aria-label="TV Screen"></canvas>
           <div id="tv-cursor" aria-hidden="true"></div>
           <div id="dpad-overlay" aria-hidden="true">
             <span class="dpad-zone-hint dpad-zone-up">▲</span>
@@ -1005,7 +1006,11 @@ body.is-screen-only #only-theater-actions {
               <span id="lbl-stream-quality">55</span>
             </label>
           </span>
-          <span id="screen-time" style="font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;display:inline-block;vertical-align:middle"></span>
+          <div class="mode-switch capture-switch" id="capture-mode-switch" role="group" aria-label="Capture backend">
+            <button type="button" id="btn-cap-auto" class="active" title="Hardware direct capture with automatic Wayland fallback (captures live TV &amp; video)">Auto</button>
+            <button type="button" id="btn-cap-wayland" title="Force Wayland software capture (use if hardware capture shows wrong colors or aspect ratio)">Wayland</button>
+          </div>
+          <span id="screen-time" style="font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;display:inline-block;vertical-align:middle"></span>
         </div>
         <div class="screen-action-group">
           <span id="only-theater-actions">
@@ -1662,6 +1667,9 @@ Promise.all([
   if (d && d.stream) {
     updateStreamConfigUI(d.stream);
   }
+  if (d && d.capture) {
+    updateCaptureUI(d.capture);
+  }
   if (tokRes && tokRes.ok) {
     tvDeviceTag = (typeof tokRes.deviceTag === "string" && /^[0-9a-f]{4}$/i.test(tokRes.deviceTag))
       ? tokRes.deviceTag.toLowerCase()
@@ -2249,6 +2257,7 @@ var screenHeader = document.getElementById("screen-header");
 var screenStage = document.getElementById("screen-stage");
 var screenFrame = document.getElementById("screen-frame");
 var screenImg = document.getElementById("screen-img");
+var screenCanvas = document.getElementById("screen-canvas");
 var tvCursor = document.getElementById("tv-cursor");
 var screenSpinner = document.getElementById("screen-spinner");
 var screenTime = document.getElementById("screen-time");
@@ -2259,6 +2268,8 @@ var streamQualityControls = document.getElementById("stream-quality-controls");
 var btnPresetFast = document.getElementById("btn-preset-fast");
 var btnPresetBalanced = document.getElementById("btn-preset-balanced");
 var btnPresetHd = document.getElementById("btn-preset-hd");
+var btnCapAuto = document.getElementById("btn-cap-auto");
+var btnCapWayland = document.getElementById("btn-cap-wayland");
 var rngStreamQuality = document.getElementById("rng-stream-quality");
 var lblStreamQuality = document.getElementById("lbl-stream-quality");
 
@@ -2288,6 +2299,7 @@ var btnPreviewBack = document.getElementById("btn-preview-back");
 
 var screenCapturing = false;
 var hasScreenImage = false;
+var lastShotBlobUrl = null;
 var autoRefreshTimer = null;
 var previewMode = "pointer";
 var rightClickArmed = false;
@@ -2564,8 +2576,14 @@ function spawnRipple(pctX, pctY, altColor) {
   }, 450);
 }
 
+function getActiveScreenEl() {
+  if (screenCanvas && screenCanvas.style.display !== "none") return screenCanvas;
+  return screenImg;
+}
+
 function getTvCoords(clientX, clientY) {
-  var rect = screenImg.getBoundingClientRect();
+  var el = getActiveScreenEl();
+  var rect = el ? el.getBoundingClientRect() : { width: 0, height: 0, left: 0, top: 0 };
   if (!rect.width || !rect.height) {
     return { x: 960, y: 540, pctX: 50, pctY: 50, relX: 0.5, relY: 0.5 };
   }
@@ -2880,7 +2898,7 @@ if (btnPreviewBack) {
 }
 
 function isPreviewInteractive() {
-  return !!(hasScreenImage && screenImg && screenFrame);
+  return !!(hasScreenImage && screenFrame && (screenImg || screenCanvas));
 }
 
 if (screenFrame) {
@@ -3113,15 +3131,118 @@ if (screenFrame) {
 
 var streamFailCount = 0;
 var streamFallbackPolling = false;
+var forceImgStreamFallback = false;
 var currentStreamPreset = "balanced";
 var currentStreamWidth = 960;
 var currentStreamHeight = 540;
 var currentStreamQuality = 55;
+var captureMode = "auto";
+var captureBackendInfo = null;
+var binStreamAbort = null;
+var canvasDecodeBusy = false;
+var canvasPendingFrame = null;
+var fpsWindowCount = 0;
+var fpsWindowStart = 0;
+var currentLiveFps = 0;
+var lastLiveLabelText = "";
+var lastStreamFrameW = 0;
+var lastStreamFrameH = 0;
+var binFirstFrameReceived = false;
+var shotRequestId = 0;
+var supportsBinCanvas = !!(window.fetch && window.ReadableStream && window.createImageBitmap &&
+  window.AbortController && screenCanvas && screenCanvas.getContext);
 var STREAM_PRESET_DEFAULTS = {
   fast: { width: 640, height: 360, quality: 45 },
   balanced: { width: 960, height: 540, quality: 55 },
   hd: { width: 1280, height: 720, quality: 72 }
 };
+
+function updateCaptureUI(cap) {
+  if (!cap || typeof cap !== "object") return;
+  if (cap.mode === "auto" || cap.mode === "wayland") {
+    captureMode = cap.mode;
+  }
+  captureBackendInfo = cap;
+  if (btnCapAuto) btnCapAuto.classList.toggle("active", captureMode === "auto");
+  if (btnCapWayland) btnCapWayland.classList.toggle("active", captureMode === "wayland");
+  if (screenTime) {
+    var parts = [];
+    if (cap.activeBackend) parts.push("backend=" + cap.activeBackend);
+    if (cap.hwArch) parts.push("arch=" + cap.hwArch);
+    if (cap.hwAbi) parts.push("abi=" + cap.hwAbi);
+    if (cap.hwReason) parts.push("info=" + cap.hwReason);
+    screenTime.title = parts.join(" · ");
+  }
+}
+
+function refreshCaptureStatus() {
+  fetch("status", { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.capture) {
+        updateCaptureUI(d.capture);
+        if (chkAutoRefresh && chkAutoRefresh.checked && !streamFallbackPolling && currentLiveFps >= 0) {
+          formatLiveStreamLabel(lastStreamFrameW || currentStreamWidth, lastStreamFrameH || currentStreamHeight);
+        }
+      }
+    })
+    .catch(function () {});
+}
+
+function getBackendBadgeText() {
+  var ab = captureBackendInfo && captureBackendInfo.activeBackend;
+  if (ab === "hw") return "⚡ HW";
+  if (ab === "wayland") return "Wayland";
+  return (captureMode === "wayland") ? "Wayland" : "🔴 Live";
+}
+
+function setScreenTimeText(txt) {
+  if (!screenTime || txt === lastLiveLabelText) return;
+  lastLiveLabelText = txt;
+  screenTime.textContent = txt;
+}
+
+function formatLiveStreamLabel(w, h) {
+  var badge = getBackendBadgeText();
+  var fpsPart = currentLiveFps > 0 ? (" · " + currentLiveFps + " fps") : "";
+  var dimPart = (w && h) ? (" · " + w + "×" + h) : "";
+  setScreenTimeText(badge + fpsPart + dimPart + " · Q" + currentStreamQuality);
+}
+
+function postCaptureMode(mode) {
+  if (mode !== "auto" && mode !== "wayland") return;
+  captureMode = mode;
+  if (btnCapAuto) btnCapAuto.classList.toggle("active", captureMode === "auto");
+  if (btnCapWayland) btnCapWayland.classList.toggle("active", captureMode === "wayland");
+  if (chkAutoRefresh && chkAutoRefresh.checked && screenTime) {
+    screenTime.textContent = "Switching capture to " + (mode === "auto" ? "Auto (HW)" : "Wayland") + "…";
+  }
+  fetch("capture_mode", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ mode: mode })
+  }).then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.ok && d.capture) {
+        updateCaptureUI(d.capture);
+      }
+      setTimeout(refreshCaptureStatus, 450);
+    })
+    .catch(function () {});
+}
+
+if (btnCapAuto) {
+  btnCapAuto.addEventListener("click", function () {
+    postCaptureMode("auto");
+    btnCapAuto.blur();
+  });
+}
+if (btnCapWayland) {
+  btnCapWayland.addEventListener("click", function () {
+    postCaptureMode("wayland");
+    btnCapWayland.blur();
+  });
+}
 
 function updateStreamQualityVisibility() {
   if (!streamQualityControls) return;
@@ -3165,7 +3286,7 @@ function postStreamConfig(payload) {
       if (d && d.ok) {
         updateStreamConfigUI(d);
         if (chkAutoRefresh && chkAutoRefresh.checked && !streamFallbackPolling) {
-          screenTime.textContent = "🔴 Live stream · " + currentStreamWidth + "×" + currentStreamHeight + " · Q" + currentStreamQuality;
+          formatLiveStreamLabel(currentStreamWidth, currentStreamHeight);
         }
       }
     })
@@ -3177,7 +3298,7 @@ function setStreamPreset(mode) {
   if (!p) return;
   updateStreamConfigUI({ preset: mode, width: p.width, height: p.height, quality: p.quality });
   if (chkAutoRefresh && chkAutoRefresh.checked && !streamFallbackPolling) {
-    screenTime.textContent = "🔴 Switching to " + p.width + "×" + p.height + "…";
+    screenTime.textContent = "Switching to " + p.width + "×" + p.height + "…";
   }
   postStreamConfig({ preset: mode });
 }
@@ -3217,30 +3338,191 @@ if (rngStreamQuality) {
   });
 }
 
-function startLiveStream() {
-  if (autoRefreshTimer) {
-    clearTimeout(autoRefreshTimer);
-    autoRefreshTimer = null;
+function abortBinStream() {
+  if (binStreamAbort) {
+    var ac = binStreamAbort;
+    binStreamAbort = null;
+    try { ac.abort(); } catch (e) {}
   }
-  screenCapturing = false;
-  streamFallbackPolling = false;
-  btnRefreshScreen.disabled = false;
-  btnRefreshScreen.textContent = "🔄 Reconnect";
-  screenTime.textContent = "🔴 Connecting live stream…";
+  canvasPendingFrame = null;
+}
+
+function concatUint8(a, b) {
+  if (!a || a.length === 0) return b;
+  if (!b || b.length === 0) return a;
+  var out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+function pumpCanvasDecode() {
+  if (canvasDecodeBusy || !canvasPendingFrame) return;
+  var item = canvasPendingFrame;
+  canvasPendingFrame = null;
+  canvasDecodeBusy = true;
+  var ctx2d = screenCanvas ? screenCanvas.getContext("2d") : null;
+  if (!ctx2d) {
+    canvasDecodeBusy = false;
+    return;
+  }
+  window.createImageBitmap(item.blob).then(function (bmp) {
+    try {
+      var srcW = item.w || bmp.width || 960;
+      var srcH = item.h || bmp.height || 540;
+      var targetW = Math.max(960, srcW);
+      var targetH = Math.round(targetW * 9 / 16);
+      if (screenCanvas.width !== targetW || screenCanvas.height !== targetH) {
+        screenCanvas.width = targetW;
+        screenCanvas.height = targetH;
+      }
+      ctx2d.drawImage(bmp, 0, 0, screenCanvas.width, screenCanvas.height);
+      streamFailCount = 0;
+      lastStreamFrameW = srcW;
+      lastStreamFrameH = srcH;
+      if (!binFirstFrameReceived) {
+        binFirstFrameReceived = true;
+        refreshCaptureStatus();
+      }
+      var now = Date.now();
+      if (!fpsWindowStart) fpsWindowStart = now;
+      fpsWindowCount++;
+      if (now - fpsWindowStart >= 1000) {
+        currentLiveFps = Math.max(1, Math.round(fpsWindowCount * 1000 / (now - fpsWindowStart)));
+        fpsWindowCount = 0;
+        fpsWindowStart = now;
+      }
+      formatLiveStreamLabel(srcW, srcH);
+    } finally {
+      if (bmp && typeof bmp.close === "function") bmp.close();
+      canvasDecodeBusy = false;
+      if (canvasPendingFrame) pumpCanvasDecode();
+    }
+  }, function () {
+    canvasDecodeBusy = false;
+    if (canvasPendingFrame) pumpCanvasDecode();
+  });
+}
+
+function startBinCanvasStream() {
+  abortBinStream();
+  fpsWindowCount = 0;
+  fpsWindowStart = Date.now();
+  currentLiveFps = 0;
+  lastStreamFrameW = 0;
+  lastStreamFrameH = 0;
+  binFirstFrameReceived = false;
+
+  var ctrl = new window.AbortController();
+  binStreamAbort = ctrl;
+
+  if (screenImg) {
+    screenImg.onerror = null;
+    screenImg.onload = null;
+    screenImg.src = "";
+    screenImg.style.display = "none";
+  }
+  if (screenCanvas) screenCanvas.style.display = "block";
+  if (screenSpinner) screenSpinner.style.display = "none";
+  if (screenFrame) screenFrame.classList.add("has-image");
+  hasScreenImage = true;
+
+  var statusTimer = setTimeout(refreshCaptureStatus, 450);
+
+  function handleBinFailure() {
+    clearTimeout(statusTimer);
+    if (binStreamAbort !== ctrl) return;
+    binStreamAbort = null;
+    if (!chkAutoRefresh || !chkAutoRefresh.checked) return;
+    if (document.hidden) return;
+    if (boxScreen.classList.contains("is-collapsed") && !isScreenOnly) return;
+    streamFailCount++;
+    if (streamFailCount === 1) {
+      screenTime.textContent = "Reconnecting live stream…";
+      autoRefreshTimer = setTimeout(startLiveStream, 1500);
+    } else if (!forceImgStreamFallback && streamFailCount === 2) {
+      forceImgStreamFallback = true;
+      screenTime.textContent = "Switching to MJPEG compatibility mode…";
+      autoRefreshTimer = setTimeout(startLiveStream, 500);
+    } else {
+      streamFallbackPolling = true;
+      screenTime.textContent = "Live fallback (polling)";
+      fetchScreenshot();
+    }
+  }
+
+  fetch("stream?format=bin&t=" + Date.now(), {
+    signal: ctrl.signal,
+    cache: "no-store"
+  }).then(function (res) {
+    if (!res.ok || !res.body || typeof res.body.getReader !== "function") {
+      throw new Error("Binary stream HTTP " + res.status);
+    }
+    var reader = res.body.getReader();
+    var buf = new Uint8Array(0);
+
+    function readNext() {
+      return reader.read().then(function (chunkRes) {
+        if (binStreamAbort !== ctrl) {
+          try { reader.cancel(); } catch (e) {}
+          return;
+        }
+        if (chunkRes.done) {
+          handleBinFailure();
+          return;
+        }
+        if (chunkRes.value && chunkRes.value.length > 0) {
+          buf = concatUint8(buf, chunkRes.value);
+          while (buf.length >= 8) {
+            var frameLen = ((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]) >>> 0;
+            var fw = (buf[4] << 8) | buf[5];
+            var fh = (buf[6] << 8) | buf[7];
+            if (frameLen === 0 || frameLen > 4194304) {
+              throw new Error("Bad binary frame length");
+            }
+            if (buf.length < 8 + frameLen) break;
+            var jpegSlice = buf.subarray(8, 8 + frameLen);
+            buf = buf.subarray(8 + frameLen);
+            canvasPendingFrame = {
+              blob: new Blob([jpegSlice], { type: "image/jpeg" }),
+              w: fw,
+              h: fh
+            };
+            pumpCanvasDecode();
+          }
+        }
+        return readNext();
+      });
+    }
+
+    return readNext();
+  }).catch(function (err) {
+    if (err && err.name === "AbortError") return;
+    handleBinFailure();
+  });
+}
+
+function startImgMjpegStream() {
+  abortBinStream();
+  if (screenCanvas) screenCanvas.style.display = "none";
   screenImg.style.display = "block";
   screenSpinner.style.display = "none";
   if (screenFrame) screenFrame.classList.add("has-image");
   hasScreenImage = true;
 
+  var statusTimer = setTimeout(refreshCaptureStatus, 450);
+
   screenImg.onload = function () {
+    clearTimeout(statusTimer);
     streamFailCount = 0;
     var dim = (screenImg.naturalWidth && screenImg.naturalHeight)
       ? (screenImg.naturalWidth + "×" + screenImg.naturalHeight)
       : (currentStreamWidth + "×" + currentStreamHeight);
-    screenTime.textContent = "🔴 Live stream · " + dim + " · Q" + currentStreamQuality;
+    screenTime.textContent = getBackendBadgeText() + " · " + dim + " · Q" + currentStreamQuality;
     if (isScreenOnly) fitScreenFrame();
   };
   screenImg.onerror = function () {
+    clearTimeout(statusTimer);
     if (!chkAutoRefresh || !chkAutoRefresh.checked) return;
     if (document.hidden) return;
     if (boxScreen.classList.contains("is-collapsed") && !isScreenOnly) return;
@@ -3257,29 +3539,54 @@ function startLiveStream() {
     }
   };
   screenImg.src = "stream?t=" + Date.now();
-  if (isScreenOnly) fitScreenFrame();
 }
 
-function stopLiveStream(keepSnapshot) {
+function startLiveStream() {
+  shotRequestId++;
   if (autoRefreshTimer) {
     clearTimeout(autoRefreshTimer);
     autoRefreshTimer = null;
   }
+  screenCapturing = false;
+  streamFallbackPolling = false;
+  lastLiveLabelText = "";
+  btnRefreshScreen.disabled = false;
+  btnRefreshScreen.textContent = "🔄 Reconnect";
+  setScreenTimeText("Connecting live stream…");
+  if (supportsBinCanvas && !forceImgStreamFallback) {
+    startBinCanvasStream();
+  } else {
+    startImgMjpegStream();
+  }
+  if (isScreenOnly) fitScreenFrame();
+}
+
+function stopLiveStream(keepSnapshot) {
+  shotRequestId++;
+  if (autoRefreshTimer) {
+    clearTimeout(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+  abortBinStream();
   streamFailCount = 0;
   streamFallbackPolling = false;
+  currentLiveFps = 0;
+  lastStreamFrameW = 0;
+  lastStreamFrameH = 0;
+  lastLiveLabelText = "";
   btnRefreshScreen.disabled = false;
   btnRefreshScreen.textContent = "🔄 Capture / Refresh";
   screenImg.onerror = null;
   screenImg.onload = null;
   if (keepSnapshot && hasScreenImage) {
-    screenImg.src = "screenshot?t=" + Date.now();
-    screenTime.textContent = "Stream paused";
+    fetchScreenshot();
   } else {
     hasScreenImage = false;
     screenImg.src = "";
     screenImg.style.display = "none";
+    if (screenCanvas) screenCanvas.style.display = "none";
     if (screenFrame) screenFrame.classList.remove("has-image");
-    if (!keepSnapshot) screenTime.textContent = "";
+    if (!keepSnapshot) setScreenTimeText("");
   }
 }
 
@@ -3290,10 +3597,11 @@ document.addEventListener("visibilitychange", function () {
       clearTimeout(autoRefreshTimer);
       autoRefreshTimer = null;
     }
+    abortBinStream();
     screenImg.onerror = null;
     screenImg.onload = null;
     screenImg.src = "";
-    screenTime.textContent = "Stream paused (tab hidden)";
+    setScreenTimeText("Stream paused (tab hidden)");
   } else if (!boxScreen.classList.contains("is-collapsed") || isScreenOnly) {
     startLiveStream();
   }
@@ -3301,11 +3609,50 @@ document.addEventListener("visibilitychange", function () {
 
 window.addEventListener("pagehide", function () {
   if (chkAutoRefresh && chkAutoRefresh.checked) {
+    abortBinStream();
     screenImg.onerror = null;
     screenImg.onload = null;
     screenImg.src = "";
   }
 });
+
+function finishScreenshotSuccess(w, h) {
+  streamFailCount = 0;
+  hasScreenImage = true;
+  if (screenCanvas) screenCanvas.style.display = "none";
+  screenImg.style.display = "block";
+  if (screenFrame) screenFrame.classList.add("has-image");
+  screenSpinner.style.display = "none";
+  screenCapturing = false;
+  btnRefreshScreen.disabled = false;
+  btnRefreshScreen.textContent = (chkAutoRefresh && chkAutoRefresh.checked) ? "🔄 Reconnect" : "🔄 Capture / Refresh";
+  var d = new Date();
+  var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  var resLabel = (w && h) ? (w + "×" + h + " ") : "";
+  setScreenTimeText(streamFallbackPolling
+    ? ("Live fallback · " + resLabel + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()))
+    : ("Captured " + resLabel + "at " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds())));
+  if (isScreenOnly) fitScreenFrame();
+
+  if (chkAutoRefresh && chkAutoRefresh.checked && streamFallbackPolling && (!boxScreen.classList.contains("is-collapsed") || isScreenOnly) && !document.hidden) {
+    autoRefreshTimer = setTimeout(fetchScreenshot, 2500);
+  }
+}
+
+function finishScreenshotError() {
+  if (!hasScreenImage) {
+    screenSpinner.textContent = "Failed to capture screen from TV";
+  } else {
+    setScreenTimeText("Refresh failed — retrying");
+  }
+  screenCapturing = false;
+  btnRefreshScreen.disabled = false;
+  btnRefreshScreen.textContent = (chkAutoRefresh && chkAutoRefresh.checked) ? "🔄 Reconnect" : "🔄 Capture / Refresh";
+
+  if (chkAutoRefresh && chkAutoRefresh.checked && streamFallbackPolling && (!boxScreen.classList.contains("is-collapsed") || isScreenOnly) && !document.hidden) {
+    autoRefreshTimer = setTimeout(fetchScreenshot, 4000);
+  }
+}
 
 function fetchScreenshot() {
   if (chkAutoRefresh && chkAutoRefresh.checked && !streamFallbackPolling) {
@@ -3313,55 +3660,64 @@ function fetchScreenshot() {
     return;
   }
   if (screenCapturing) return;
+  var myShotId = ++shotRequestId;
   screenCapturing = true;
   if (!hasScreenImage) {
     screenSpinner.textContent = "Capturing 1080p screen from TV…";
     screenSpinner.style.display = "block";
   } else {
-    screenTime.textContent = streamFallbackPolling ? "Live fallback (polling)" : "Capturing 1080p…";
+    setScreenTimeText(streamFallbackPolling ? "Live fallback (polling)" : "Capturing 1080p…");
   }
   btnRefreshScreen.disabled = true;
   btnRefreshScreen.textContent = "⏳ Capturing…";
 
-  var img = new Image();
   var url = "screenshot?t=" + Date.now();
+  if (typeof window.fetch === "function" && window.URL && typeof URL.createObjectURL === "function") {
+    fetch(url, { cache: "no-store" }).then(function (res) {
+      if (!res || !res.ok) throw new Error("http_" + (res ? res.status : "err"));
+      return res.blob();
+    }).then(function (blob) {
+      if (myShotId !== shotRequestId) return;
+      var blobUrl = URL.createObjectURL(blob);
+      screenImg.onload = function () {
+        screenImg.onload = null;
+        screenImg.onerror = null;
+        if (myShotId !== shotRequestId) {
+          try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+          return;
+        }
+        if (lastShotBlobUrl && lastShotBlobUrl !== blobUrl) {
+          try { URL.revokeObjectURL(lastShotBlobUrl); } catch (e) {}
+        }
+        lastShotBlobUrl = blobUrl;
+        finishScreenshotSuccess(screenImg.naturalWidth, screenImg.naturalHeight);
+      };
+      screenImg.onerror = function () {
+        screenImg.onload = null;
+        screenImg.onerror = null;
+        try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+        if (myShotId !== shotRequestId) return;
+        finishScreenshotError();
+      };
+      screenImg.src = blobUrl;
+    }).catch(function () {
+      if (myShotId !== shotRequestId) return;
+      finishScreenshotError();
+    });
+    return;
+  }
+
+  var img = new Image();
   img.onload = function () {
-    streamFailCount = 0;
-    hasScreenImage = true;
+    if (myShotId !== shotRequestId) return;
     screenImg.onerror = null;
     screenImg.onload = null;
     screenImg.src = url;
-    screenImg.style.display = "block";
-    if (screenFrame) screenFrame.classList.add("has-image");
-    screenSpinner.style.display = "none";
-    screenCapturing = false;
-    btnRefreshScreen.disabled = false;
-    btnRefreshScreen.textContent = (chkAutoRefresh && chkAutoRefresh.checked) ? "🔄 Reconnect" : "🔄 Capture / Refresh";
-    var d = new Date();
-    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
-    var resLabel = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth + "×" + img.naturalHeight + " ") : "";
-    screenTime.textContent = streamFallbackPolling
-      ? ("Live fallback · " + resLabel + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()))
-      : ("Captured " + resLabel + "at " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()));
-    if (isScreenOnly) fitScreenFrame();
-
-    if (chkAutoRefresh && chkAutoRefresh.checked && streamFallbackPolling && (!boxScreen.classList.contains("is-collapsed") || isScreenOnly) && !document.hidden) {
-      autoRefreshTimer = setTimeout(fetchScreenshot, 2500);
-    }
+    finishScreenshotSuccess(img.naturalWidth, img.naturalHeight);
   };
   img.onerror = function () {
-    if (!hasScreenImage) {
-      screenSpinner.textContent = "Failed to capture screen from TV";
-    } else {
-      screenTime.textContent = "Refresh failed — retrying";
-    }
-    screenCapturing = false;
-    btnRefreshScreen.disabled = false;
-    btnRefreshScreen.textContent = (chkAutoRefresh && chkAutoRefresh.checked) ? "🔄 Reconnect" : "🔄 Capture / Refresh";
-
-    if (chkAutoRefresh && chkAutoRefresh.checked && streamFallbackPolling && (!boxScreen.classList.contains("is-collapsed") || isScreenOnly) && !document.hidden) {
-      autoRefreshTimer = setTimeout(fetchScreenshot, 4000);
-    }
+    if (myShotId !== shotRequestId) return;
+    finishScreenshotError();
   };
   img.src = url;
 }
