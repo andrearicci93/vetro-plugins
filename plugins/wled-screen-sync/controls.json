@@ -1,0 +1,558 @@
+[
+ {
+  "group": "Lighting",
+  "key": "Lighting",
+  "label": "Output mode",
+  "default": "screen",
+  "options": {
+   "screen": "Screen sync",
+   "screen-audio": "Screen + TV audio",
+   "tv-audio": "TV audio sync"
+  },
+  "hint": "Screen + TV audio combines the picture and live TV sound."
+ },
+ {
+  "group": "TV audio",
+  "key": "AudioSampling",
+  "label": "Audio profile",
+  "default": "balanced",
+  "options": {
+   "impact": "Loud impacts",
+   "balanced": "Balanced",
+   "music": "Music",
+   "custom": "Custom"
+  },
+  "hint": "Loud impacts emphasizes abrupt, high-energy sounds. Balanced follows everyday dynamics. Music follows sustained sound and rhythmic accents."
+ },
+ {
+  "group": "TV audio",
+  "key": "CustomDetector",
+  "label": "Custom response style",
+  "default": "balanced",
+  "options": {
+   "impact": "Impact detector",
+   "balanced": "Full-range loudness",
+   "music": "Rhythmic accents"
+  }
+ },
+ {
+  "group": "TV audio",
+  "key": "CustomThreshold",
+  "label": "Accent trigger threshold",
+  "default": 29,
+  "min": 10,
+  "max": 90,
+  "unit": "%",
+  "hint": "Higher values require a sharper rise above recent audio energy."
+ },
+ {
+  "group": "TV audio",
+  "key": "ImpactEffect",
+  "label": "Profile effect",
+  "default": "beat",
+  "options": {
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Center pulse expands from the center of the TV. Spectrum expands from that same point with the bass, midrange and treble. Set edge lengths under Strip sides in Advanced view."
+ },
+ {
+  "group": "TV audio",
+  "key": "PictureImpactEffect",
+  "label": "Profile effect",
+  "default": "intensity",
+  "options": {
+   "intensity": "Picture intensity only",
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Each effect uses the sampled screen colors. Picture intensity only changes brightness across the whole strip."
+ },
+ {
+  "group": "TV audio",
+  "key": "BalancedEffect",
+  "label": "Profile effect",
+  "default": "pulse",
+  "options": {
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Center pulse expands from the center of the TV. Spectrum expands from that same point with the bass, midrange and treble. Set edge lengths under Strip sides in Advanced view."
+ },
+ {
+  "group": "TV audio",
+  "key": "PictureBalancedEffect",
+  "label": "Profile effect",
+  "default": "intensity",
+  "options": {
+   "intensity": "Picture intensity only",
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Each effect uses the sampled screen colors. Picture intensity only changes brightness across the whole strip."
+ },
+ {
+  "group": "TV audio",
+  "key": "MusicEffect",
+  "label": "Profile effect",
+  "default": "spectrum",
+  "options": {
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Center pulse expands from the center of the TV. Spectrum expands from that same point with the bass, midrange and treble. Set edge lengths under Strip sides in Advanced view."
+ },
+ {
+  "group": "TV audio",
+  "key": "PictureMusicEffect",
+  "label": "Profile effect",
+  "default": "intensity",
+  "options": {
+   "intensity": "Picture intensity only",
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Each effect uses the sampled screen colors. Picture intensity only changes brightness across the whole strip."
+ },
+ {
+  "group": "TV audio",
+  "key": "AudioReaction",
+  "label": "Custom effect",
+  "default": "spectrum",
+  "options": {
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Center pulse expands from the center of the TV. Spectrum expands from that same point with the bass, midrange and treble. Set edge lengths under Strip sides in Advanced view."
+ },
+ {
+  "group": "TV audio",
+  "key": "PictureAudioReaction",
+  "label": "Profile effect",
+  "default": "intensity",
+  "options": {
+   "intensity": "Picture intensity only",
+   "pulse": "Center pulse · full range",
+   "bass": "Bass wave · low frequencies",
+   "spectrum": "Spectrum",
+   "beat": "Beat flash · transients",
+   "ambient": "Ambient color"
+  },
+  "hint": "Each effect uses the sampled screen colors. Picture intensity only changes brightness across the whole strip."
+ },
+ {
+  "group": "TV audio",
+  "key": "AudioSensitivity",
+  "label": "Audio sensitivity",
+  "default": 100,
+  "min": 25,
+  "max": 300,
+  "unit": "%"
+ },
+ {
+  "group": "TV audio",
+  "key": "AudioResponse",
+  "label": "Audio response smoothing",
+  "default": 160,
+  "min": 40,
+  "max": 600,
+  "unit": "ms",
+  "hint": "Longer values calm rapid level changes and hold the light response longer."
+ },
+ {
+  "group": "TV audio",
+  "key": "AudioBlend",
+  "label": "Combined audio intensity",
+  "default": 35,
+  "min": 0,
+  "max": 100,
+  "unit": "%",
+  "hint": "At 100%, picture colors appear only where the reaction lights the strip. Lower values blend in the rest of the picture."
+ },
+ {
+  "group": "Display",
+  "key": "UiView",
+  "label": "Settings view",
+  "default": "simple",
+  "options": {
+   "simple": "Simple",
+   "advanced": "Advanced"
+  }
+ },
+ {
+  "group": "WLED target",
+  "key": "Protocol",
+  "label": "Receiver protocol",
+  "default": "ddp",
+  "options": {
+   "ddp": "DDP · RGB",
+   "dnrgb": "WLED UDP · DNRGB"
+  }
+ },
+ {
+  "group": "Color",
+  "key": "Hdr",
+  "label": "HDR decoding",
+  "default": "auto",
+  "options": {
+   "auto": "Follow TV",
+   "on": "Force HDR10",
+   "off": "Force SDR"
+  },
+  "hint": "Applies to full-picture capture. The fallback already supplies RGB."
+ },
+ {
+  "group": "Color",
+  "key": "Saturation",
+  "label": "Saturation",
+  "default": 100,
+  "min": 0,
+  "max": 200,
+  "unit": "%"
+ },
+ {
+  "group": "Color",
+  "key": "Brightness",
+  "label": "LED brightness",
+  "default": 100,
+  "min": 0,
+  "max": 100,
+  "unit": "%",
+  "hint": "Scales the colors sent by Ambilight Studio."
+ },
+ {
+  "group": "Color",
+  "key": "Gamma",
+  "label": "Output gamma",
+  "default": 100,
+  "min": 50,
+  "max": 250,
+  "unit": "×100",
+  "hint": "100 is neutral. Higher values darken midtones."
+ },
+ {
+  "group": "Color",
+  "key": "Reference",
+  "label": "HDR reference white",
+  "default": 203,
+  "min": 100,
+  "max": 1000,
+  "unit": "nits",
+  "hint": "Higher values preserve more highlight detail."
+ },
+ {
+  "group": "Color",
+  "key": "Black",
+  "label": "Black cutoff",
+  "default": 0,
+  "min": 0,
+  "max": 40,
+  "unit": "/255",
+  "hint": "Switch a zone off when all three channels are at or below this level."
+ },
+ {
+  "group": "White balance",
+  "key": "Red",
+  "label": "Red gain",
+  "default": 100,
+  "min": 0,
+  "max": 150,
+  "unit": "%"
+ },
+ {
+  "group": "White balance",
+  "key": "Green",
+  "label": "Green gain",
+  "default": 100,
+  "min": 0,
+  "max": 150,
+  "unit": "%"
+ },
+ {
+  "group": "White balance",
+  "key": "Blue",
+  "label": "Blue gain",
+  "default": 100,
+  "min": 0,
+  "max": 150,
+  "unit": "%"
+ },
+ {
+  "group": "Motion",
+  "key": "Smooth",
+  "label": "Smoothing time",
+  "default": 125,
+  "min": 0,
+  "max": 500,
+  "unit": "ms"
+ },
+ {
+  "group": "Motion",
+  "key": "CaptureHz",
+  "label": "Full-picture capture target",
+  "default": 60,
+  "min": 5,
+  "max": 60,
+  "unit": "FPS"
+ },
+ {
+  "group": "Motion",
+  "key": "ImmediatePicture",
+  "type": "toggle",
+  "default": false,
+  "label": "Send picture immediately",
+  "hint": "Send fresh picture samples as soon as they are ready. Between samples, the stream target controls audio and smoothing updates."
+ },
+ {
+  "group": "Motion",
+  "key": "SendHz",
+  "label": "WLED stream target",
+  "default": 62,
+  "min": 5,
+  "max": 62,
+  "unit": "FPS",
+  "hint": "Controls the TV sender. Actual strip refresh depends on WLED."
+ },
+ {
+  "group": "Sampling",
+  "key": "Source",
+  "label": "Capture mode",
+  "default": "auto",
+  "options": {
+   "auto": "Full picture with fallback",
+   "sampler": "TV color sampler only"
+  }
+ },
+ {
+  "group": "Sampling",
+  "key": "Fallback",
+  "label": "Fallback zones",
+  "default": 16,
+  "choices": [
+   4,
+   8,
+   16
+  ],
+  "hint": "Fewer zones refresh each sampled position more often."
+ },
+ {
+  "group": "Sampling",
+  "key": "Bars",
+  "label": "Black-bar detection",
+  "default": "both",
+  "options": {
+   "both": "All borders",
+   "rows": "Top and bottom",
+   "columns": "Left and right",
+   "off": "Off"
+  }
+ },
+ {
+  "group": "Sampling",
+  "key": "SampleMode",
+  "label": "Zone color sampling",
+  "default": "average",
+  "options": {
+   "edge": "Outer edge",
+   "average": "Four-point average",
+   "median": "Median",
+   "inner": "Inner edge",
+   "weighted": "Edge-weighted",
+   "whole": "Whole-strip average",
+   "accent": "Color accent",
+   "highlight": "Highlight",
+   "side": "One color per side"
+  },
+  "hint": "Accent selects the most colorful depth sample. Highlight selects the brightest. In fallback, Accent and Highlight pick one measured spot per side. One color per side averages the edge in either capture mode."
+ },
+ {
+  "group": "Sampling",
+  "key": "Depth",
+  "label": "Edge sampling depth",
+  "default": 16,
+  "min": 4,
+  "max": 48,
+  "unit": "px",
+  "hint": "Four samples per LED, spread inward from the picture edge."
+ },
+ {
+  "group": "WLED target",
+  "key": "Wled",
+  "label": "WLED address",
+  "default": "127.0.0.1",
+  "type": "ipv4",
+  "hint": "Choose a controller or enter its private IPv4 address. LED count is detected automatically."
+ },
+ {
+  "group": "WLED target",
+  "key": "Offset",
+  "label": "LED start offset",
+  "default": 0,
+  "min": 0,
+  "max": 4095,
+  "unit": "LEDs"
+ },
+ {
+  "group": "WLED target",
+  "key": "Direction",
+  "label": "Strip order",
+  "default": "normal",
+  "options": {
+   "normal": "Clockwise",
+   "reverse": "Counterclockwise"
+  }
+ },
+ {
+  "group": "WLED target",
+  "key": "Leds",
+  "label": "LEDs on controller",
+  "default": 538,
+  "min": 1,
+  "max": 4096,
+  "unit": "LEDs",
+  "hint": "Number of addressable RGB pixels on the receiver.",
+  "hidden": true
+ },
+ {
+  "group": "Sampling",
+  "key": "CaptureResolution",
+  "label": "Picture sampling resolution",
+  "default": "960x540",
+  "options": {
+   "960x540": "960 × 540",
+   "640x360": "640 × 360",
+   "480x270": "480 × 270",
+   "384x216": "384 × 216"
+  },
+  "hint": "Requests this size from the TV. If the TV supplies a larger frame, the shard samples it on the selected grid."
+ },
+ {
+  "group": "Sampling",
+  "key": "ZonesMode",
+  "label": "Full-picture zone count",
+  "default": "match",
+  "options": {
+   "match": "Match WLED LEDs",
+   "custom": "Choose custom count"
+  },
+  "hint": "Match uses up to 538 sampled zones, distributed over the strip."
+ },
+ {
+  "group": "Sampling",
+  "key": "Zones",
+  "label": "Custom full-picture zones",
+  "default": 512,
+  "choices": [
+   4,
+   8,
+   16,
+   32,
+   64,
+   128,
+   256,
+   512
+  ],
+  "hint": "Used when full-picture zone count is set to custom."
+ },
+ {
+  "group": "WLED target",
+  "key": "StartCorner",
+  "label": "Strip start corner",
+  "default": "bottom-left",
+  "options": {
+   "top-left": "Top left",
+   "top-right": "Top right",
+   "bottom-right": "Bottom right",
+   "bottom-left": "Bottom left"
+  }
+ },
+ {
+  "group": "Strip sides",
+  "key": "Top",
+  "label": "Top edge",
+  "type": "toggle",
+  "default": true
+ },
+ {
+  "group": "Strip sides",
+  "key": "TopCount",
+  "label": "Top LED count",
+  "default": 172,
+  "min": 0,
+  "max": 4096,
+  "unit": "LEDs",
+  "type": "count"
+ },
+ {
+  "group": "Strip sides",
+  "key": "Right",
+  "label": "Right edge",
+  "type": "toggle",
+  "default": true
+ },
+ {
+  "group": "Strip sides",
+  "key": "RightCount",
+  "label": "Right LED count",
+  "default": 97,
+  "min": 0,
+  "max": 4096,
+  "unit": "LEDs",
+  "type": "count"
+ },
+ {
+  "group": "Strip sides",
+  "key": "Bottom",
+  "label": "Bottom edge",
+  "type": "toggle",
+  "default": true
+ },
+ {
+  "group": "Strip sides",
+  "key": "BottomCount",
+  "label": "Bottom LED count",
+  "default": 172,
+  "min": 0,
+  "max": 4096,
+  "unit": "LEDs",
+  "type": "count"
+ },
+ {
+  "group": "Strip sides",
+  "key": "Left",
+  "label": "Left edge",
+  "type": "toggle",
+  "default": true
+ },
+ {
+  "group": "Strip sides",
+  "key": "LeftCount",
+  "label": "Left LED count",
+  "default": 97,
+  "min": 0,
+  "max": 4096,
+  "unit": "LEDs",
+  "type": "count"
+ }
+]

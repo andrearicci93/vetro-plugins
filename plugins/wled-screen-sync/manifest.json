@@ -1,0 +1,15 @@
+{
+  "id": "wled-screen-sync",
+  "name": "Ambilight Studio",
+  "version": "0.9.10",
+  "apiVersion": 1,
+  "permissions": [
+    "exec"
+  ],
+  "author": "KalelAlx",
+  "description": "Discovers WLED controllers and syncs TV picture or TV audio to the selected controller.",
+  "main": "index.js",
+  "ui": {
+    "label": "Ambilight Studio"
+  }
+}

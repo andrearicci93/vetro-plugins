@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>Colour</AssemblyName>
+    <UseAppHost>false</UseAppHost>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <NuGetAudit>false</NuGetAudit>
+    <Deterministic>true</Deterministic>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../..'))</RepositoryRoot>
+    <PathMap>$(RepositoryRoot)=/_/vetro-plugins</PathMap>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../plugins/wled-screen-sync/PlaybackBinding.cs" />
+    <Compile Include="../../plugins/wled-screen-sync/Audio.cs" />
+    <Compile Include="../../plugins/wled-screen-sync/Colour.cs" />
+    <Compile Include="../../plugins/wled-screen-sync/VideoPlaneCapture.cs" />
+    <Compile Include="../../plugins/wled-screen-sync/Tuning.cs" />
+  </ItemGroup>
+</Project>

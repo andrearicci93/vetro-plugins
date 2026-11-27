@@ -1,6 +1,8 @@
 node_modules/
 helpers/**/bin/
 helpers/**/obj/
+tests/wled-helper/bin/
+tests/wled-helper/obj/
 .DS_Store
 *.pem
 !catalog-public.pem
