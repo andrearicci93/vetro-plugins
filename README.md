@@ -8,6 +8,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 
 | Shard | What it does | Permissions | Author |
 | --- | --- | --- | --- |
+| [`arc-fix`](plugins/arc-fix) | Resets an older HDMI ARC receiver (such as the Yamaha RX-V375) that goes silent when a movie switches from PCM to Dolby | `exec` | thalesv6 |
 | [`art-sql`](plugins/art-sql) | Read-only SQL API (Datasette-style JSON) over the Art app's database, for other apps on your network | `exec` | bertrandom |
 | [`bedtime`](plugins/bedtime) | Turn the TV off at set times or after a sleep timer, or open an app on a schedule | `exec` | piecifra |
 | [`eightbitdo-guide`](plugins/eightbitdo-guide) | Open Vetro with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes | `exec` | augusto1024 |
