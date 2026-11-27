@@ -30,7 +30,6 @@ The panel has five tabs, in the same order as the module switches: **SETUP** (fo
 | **Weather** | [Open-Meteo](https://open-meteo.com) (no key) | Temperature, condition, daily min/max and rain chance for the place chosen in the panel, every 5-240 minutes (60 by default). |
 | **News** | Public RSS and Google News (no key) | New headlines from the sources you pick, every 5-240 minutes (30 by default). |
 
-Weather and news respect a **quiet hours 23h-07h** switch (on by default): the data is still fetched, but no banner is sent.
 "Check now", the test buttons and the periodic sport feed are not affected. Seen headlines, match baselines and
 deduped events are saved in `ctx.config.history`, so a restart does not repeat old news or lose a goal that happened
 while the Shard was down.
@@ -45,8 +44,8 @@ while the Shard was down.
 - **Advance warnings**: with Open-Meteo, enable **Advance warnings** and choose the look-ahead (30/60/120/180 min,
   default 120 min — enough time to act without flooding the TV). One discreet banner per phenomenon per hour when the
   hourly forecast crosses the configured thresholds. All four thresholds (rain %, wind km/h, heat °C and storm code),
-  the look-ahead, the on/off switches, quiet hours, sound, style and volume are editable in the panel. Warnings are silent
-  by default, respect quiet hours and are sent only once per hour — the ids are saved
+  the look-ahead, the on/off switches, sound, style and volume are editable in the panel. Warnings are silent
+  by default and are sent only once per hour — the ids are saved
   in `ctx.config.weatherNotified` so a restart cannot repeat them. IPMA's public feed has no hourly data, so this
   feature only runs with Open-Meteo.
 
@@ -306,3 +305,15 @@ the LAN — by design, since it carries no config or keys. Disable the Shard or 
 - 0.5.45: the **Right now** card (status lines and Check now) moved from SETUP to **Technical**, and the On/Off text labels were removed from all switches — the pill alone shows the state.
 - 0.5.46: panel follows the shared `VETRO-UI-SHARDS.md` convention — dark Vetro tokens, every option as a `.setting` with the name on the left and an on/off switch on the right (`On/Off`, or `Ligado/Desligado` in Portuguese), no visible checkboxes, Vetro-style tabs, cards, buttons and focus rings.
 - **`mode: "overlay"` confirmed working** with Notification Center 0.8.0.
+
+## 0.5.47 (2026-11-26)
+
+Sending to the Notification Center: real 5 s time limit, the answer is read, up to 3 retries (network error, 429, 5xx, failed; not 400/403), and every notification has a `category`.
+
+## 0.5.49 (2026-11-27)
+
+The panel follows the common Shard interface: three tabs (Work with Sport/Weather/News sub-tabs, Settings, System), 44 px icon with a sentence, status chips, segmented EN/PT, Settings cards General/Notification/Sound/Backup, System in two columns with "Recently sent" on the right. The quiet-hours card and the global switch were removed — quiet hours belong to Notification Center and the Shard has no global `enabled`. Tested with 24/24 mocked tests.
+
+## 0.5.48 (2026-11-26)
+
+No night quiet any more: the 23h-07h switch of weather and news was removed. Quiet hours, if wanted, are set in the Notification Center.

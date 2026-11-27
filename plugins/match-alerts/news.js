@@ -4,7 +4,7 @@
 module.exports = function (env) {
     var getUrl = env.getUrl, clean = env.clean, stripTags = env.stripTags, byId = env.byId;
     var FEEDS = env.FEEDS, GN = env.GN, MAX_FEEDS = env.MAX_FEEDS, MAX_CLUBS = env.MAX_CLUBS;
-    var quietNow = env.quietNow, TXT = env.TXT, E = env.E;
+    var TXT = env.TXT, E = env.E;
     var banner = env.banner, addLog = env.addLog, cfg = env.cfg;
     var status = env.status, schedule = env.schedule, persistHistory = env.persistHistory;
     var newsSeen = {};             // feed id -> last seen item keys (persisted by the Shard)
@@ -54,7 +54,7 @@ module.exports = function (env) {
             function fire() {
                 if (env.isRunning && !env.isRunning()) { return cb(sent); }
                 banner(E.news + ' ' + TXT[c.lang].news + ' \u00B7 ' + feed.name, item.title, 'info', E.news, c.news.seconds,
-                    { sound: c.news.sound ? 'soft' : '', mode: c.news.mode, volume: c.news.volume });
+                    { category: 'news', sound: c.news.sound ? 'soft' : '', mode: c.news.mode, volume: c.news.volume });
                 addLog('news', 'news', item.title);
                 budget.left--; sent++;
                 budget.lastAt = Date.now();
@@ -89,11 +89,6 @@ module.exports = function (env) {
                 // headline of the feed. Only one banner per test, so it never floods the screen.
                 if (manual && items[0]) { fresh.push(items[0]); }
                 else { return cb(0); }
-            }
-            if (!manual && c.news.quiet && quietNow()) {
-                newsSeen[feed.id] = keys.concat(seen).slice(0, 40);
-                addLog('news', 'quiet', feed.name + ': ' + fresh[0].title);
-                return cb(0);
             }
             // One global budget per poll, shared by every feed (and club news). Headlines that do
             // not fit are NOT marked as seen, so they are announced in the next poll instead of

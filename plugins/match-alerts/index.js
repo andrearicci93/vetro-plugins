@@ -160,17 +160,17 @@ var DEFAULTS = {
             { id: '142', name: 'Feyenoord', level: 'alert', msg: 'Porto 0-1 Feyenoord' }
         ]
     },
-    weather: { place: 'lisbon', custom: [], provider: 'openmeteo', when: 'always', interval: 60, seconds: 12, quiet: true, sound: false, mode: 'banner', volume: 100,
+    weather: { place: 'lisbon', custom: [], provider: 'openmeteo', when: 'always', interval: 60, seconds: 12, sound: false, mode: 'banner', volume: 100,
         proactive: { enabled: true, minutes: 120, rain: true, wind: true, heat: true, storm: true,
             rainPct: 60, windKmh: 50, heatC: 35, stormCode: 95 } },
-    news: { feeds: ['gnewspt'], interval: 30, seconds: 12, quiet: true, count: 1, sound: false, mode: 'banner', volume: 100 },
+    news: { feeds: ['gnewspt'], interval: 30, seconds: 12, count: 1, sound: false, mode: 'banner', volume: 100 },
     lang: 'en'
 };
 var TXT = {
     en: {
         goal: 'GOAL', against: 'Goal for ', cardY: 'Yellow card', cardR: 'Red card', sub: 'Substitution',
         varNo: 'Goal disallowed', penalty: 'Penalty awarded', penMiss: 'Penalty missed', start: 'Kick-off', half: 'Half-time', end: 'Full time', score: 'Score update',
-        test: 'Test', weather: 'Weather', news: 'News', quiet: 'Quiet hours', rain: 'Rain',
+        test: 'Test', weather: 'Weather', news: 'News', rain: 'Rain',
         win: 'WIN', lose: 'LOSS', team: 'Team', clubNews: 'Club news', soon: TITLE_PRE,
         today: 'today', tomorrow: 'tomorrow', weatherSoon: 'Weather ahead',
         wRain: 'Rain', wWind: 'Wind', wHeat: 'Heat', wStorm: 'Thunderstorm'
@@ -179,7 +179,7 @@ var TXT = {
         goal: 'GOLO', against: 'Golo do ', cardY: 'Cart\u00E3o amarelo', cardR: 'Cart\u00E3o vermelho',
         sub: 'Substitui\u00E7\u00E3o', varNo: 'Golo anulado', penalty: 'Penalty marcado', penMiss: 'Penalty falhado', start: 'Come\u00E7ou o jogo', half: 'Intervalo',
         end: 'Fim do jogo', score: 'Resultado atualizado', test: 'Teste', weather: 'Tempo', news: 'Not\u00EDcias',
-        quiet: 'Hor\u00E1rio de sil\u00EAncio', rain: 'Chuva', win: 'VIT\u00D3RIA', lose: 'DERROTA', team: 'Equipa',
+        rain: 'Chuva', win: 'VIT\u00D3RIA', lose: 'DERROTA', team: 'Equipa',
         clubNews: 'Not\u00EDcias do clube', soon: TITLE_PRE,
         today: 'hoje', tomorrow: 'amanh\u00E3', weatherSoon: 'Tempo a caminho',
         wRain: 'Chuva', wWind: 'Vento', wHeat: 'Calor', wStorm: 'Trovoada'
@@ -230,7 +230,7 @@ module.exports = function (ctx) {
     var newsApi = require('./news')({
         getUrl: getUrl, clean: clean, stripTags: stripTags, byId: byId,
         FEEDS: FEEDS, GN: GN, MAX_FEEDS: MAX_FEEDS, MAX_CLUBS: MAX_CLUBS,
-        quietNow: quietNow, TXT: TXT, E: E, banner: banner, addLog: addLog,
+        TXT: TXT, E: E, banner: banner, addLog: addLog,
         cfg: cfg, status: status, schedule: schedule, persistHistory: persistHistory,
         isRunning: function () { return running && !stopped; }
     });
@@ -315,7 +315,6 @@ module.exports = function (ctx) {
         return decodeEnt(String(s == null ? '' : s).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
             .replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
     }
-    function quietNow() { var h = new Date().getHours(); return h >= 23 || h < 7; }
     // One banner per event, even when both clubs of the match are followed.
     function once(key) {
         var now = Date.now();
@@ -404,28 +403,60 @@ module.exports = function (ctx) {
     // protection `high` priority bypasses the limit and is never queued.
     var BANNER_MAX_MIN = 4, BANNER_GAP = 1000, BANNER_QUEUE_MAX = 12;
     var sendTimes = [], bannerQueue = [], bannerTimer = null;
-    function bannerSend(text) {
+    // The Notification Center says whether it took the notification. A network error, a timeout, a 5xx, a 429 or an answer "failed" is tried again
+    // (3 times at most, waiting what the hub asks); a 400 or 403 is not. stop() cancels what still waits.
+    var NC_TRIES = 3, NC_WAIT = 30000, retryTimers = [];
+    function clearRetries() { retryTimers.forEach(function (t) { clearTimeout(t); }); retryTimers = []; }
+    function bannerSend(text, tries) {
         if (stopped) { return; }
-        var failed = false;
-        function fail(e) {
-            if (failed) { return; }
-            failed = true;
-            addLog('notify', 'error', String(e && e.message || e || 'notify failed'));
+        var done = false;
+        tries = tries || 0;
+        function fail(e, again) {
+            if (done) { return; }
+            done = true;
+            var retry = again > 0 && tries < NC_TRIES && !stopped;
+            addLog('notify', 'error', String(e && e.message || e || 'notify failed') + (retry ? ' (will try again)' : ''));
+            if (!retry) { return; }
+            var timer = setTimeout(function () {
+                retryTimers.splice(retryTimers.indexOf(timer), 1);
+                bannerSend(text, tries + 1);
+            }, again);
+            retryTimers.push(timer);
+        }
+        function answer(code, raw) {
+            var j = null, wait;
+            try { j = JSON.parse(raw); } catch (e) { j = null; }
+            if (code && code !== 200) {
+                wait = code === 429 ? (j && j.retryAfter > 0 ? Math.min(j.retryAfter, 300) * 1000 : NC_WAIT) : (code >= 500 ? NC_WAIT : 0);
+                return fail('http ' + code + (j && j.error ? ': ' + j.error : ''), wait);
+            }
+            if (j && j.status === 'failed') { return fail('Notification Center: ' + (j.reason || 'failed'), NC_WAIT); }
+            done = true;
         }
         try {
             var rq = http.request({
                 host: '127.0.0.1', port: 8099, path: NOTIFY, method: 'POST', timeout: 5000,
                 headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) }
             }, function (r) {
-                // Mocks in the tests may omit statusCode; real Node responses always have one.
-                if (r && r.statusCode && r.statusCode !== 200) { fail('http ' + r.statusCode); }
-                if (r && r.resume) { r.resume(); }
+                var raw = '';
+                // Mocks in the tests may omit statusCode and events; real Node responses always have them.
+                if (!r) { return; }
+                // Only a 429 needs its body (retryAfter): any other error is decided by the status alone.
+                if (r.statusCode && r.statusCode !== 200 && (r.statusCode !== 429 || !r.on)) { answer(r.statusCode, ''); }
+                if (r.on) {
+                    r.on('data', function (d) { if (raw.length < 4000) { raw += d; } });
+                    r.on('end', function () { if (!done) { answer(r.statusCode, raw); } });
+                }
+                if (r.resume) { r.resume(); }
             });
-            rq.on('error', fail);
-            rq.on('timeout', function () { fail('Notification Center timeout'); rq.destroy(); });
+            var late = function () { fail('Notification Center timeout', NC_WAIT); rq.destroy(); };
+            rq.on('error', function (e) { fail(e, NC_WAIT); });
+            rq.on('timeout', late);
+            // The `timeout` option does nothing on the old Node of some TVs.
+            if (rq.setTimeout) { rq.setTimeout(5000); }
             rq.write(text);
             rq.end();
-        } catch (e) { fail(e); }
+        } catch (e) { fail(e, 0); }
     }
     function drainBannerQueue() {
         // Cancel the handle that fired (or the one scheduled by the previous call). Clearing the
@@ -456,7 +487,7 @@ module.exports = function (ctx) {
         opts = opts || {};
         var body = {
             title: clean(title, 40), message: clean(message, 200), level: level, icon: icon || '',
-            mode: opts.mode || 'banner', duration: seconds, source: 'tv-alerts'
+            mode: opts.mode || 'banner', duration: seconds, source: 'tv-alerts', category: opts.category || 'sport'
         };
         if (opts.sound) {
             var snd = opts.sound;
@@ -524,6 +555,7 @@ module.exports = function (ctx) {
         else if (kind === 'score') { title = t.score; icon = E.star; }
         else { title = t.end; icon = E.flag; }
         banner(title, msg, level, icon, s, {
+            category: (kind === 'goal' || kind === 'against' || kind === 'score') ? 'goal' : 'sport',
             sound: w.sound ? (SOUND[kind] || 'chime') : '',
             group: false,
             mode: w.mode,
@@ -708,7 +740,6 @@ module.exports = function (ctx) {
         o.weather.place = byId(allPlaces(o), w.place) ? w.place : d.weather.place;
         o.weather.interval = clamp(w.interval, 5, 240, d.weather.interval);
         o.weather.seconds = clamp(w.seconds, 3, 30, d.weather.seconds);
-        o.weather.quiet = !(w.quiet === false);
         o.weather.sound = w.sound === true;
         o.weather.mode = byId(MODES, w.mode) ? w.mode : d.weather.mode;
         o.weather.volume = clamp(w.volume, 10, 100, d.weather.volume);
@@ -734,7 +765,6 @@ module.exports = function (ctx) {
         if (!o.news.feeds.length) { o.news.feeds = d.news.feeds.slice(0); }
         o.news.interval = clamp(n.interval, 5, 240, d.news.interval);
         o.news.seconds = clamp(n.seconds, 3, 30, d.news.seconds);
-        o.news.quiet = !(n.quiet === false);
         o.news.count = clamp(n.count, 1, 3, d.news.count);
         o.news.sound = n.sound === true;
         o.news.mode = byId(MODES, n.mode) ? n.mode : d.news.mode;
@@ -881,7 +911,7 @@ module.exports = function (ctx) {
         persistNextWarned();
         var msg = g.home + ' \u00D7 ' + g.away + ' \u00B7 ' + g.line;
         banner(TITLE_PRE, msg, 'info', E.whistle, w.otherSeconds,
-            { sound: w.sound ? 'reward' : '', group: false, mode: w.mode, image: w.logo || '', volume: w.volume });
+            { category: 'reminder', sound: w.sound ? 'reward' : '', group: false, mode: w.mode, image: w.logo || '', volume: w.volume });
         addLog('sport', 'next', msg);
     }
     function checkNext(ws) {
@@ -1253,7 +1283,7 @@ module.exports = function (ctx) {
         var msg = (a.message || a.type) + (a.endsAt ? ' \u00B7 at\u00E9 ' + clean(String(a.endsAt).slice(0, 16), 16) : '');
         // Civil-protection warnings are not routine: NC 0.13+ shows high priority even in quiet hours.
         banner(title, msg, level, icon, c.civ.seconds,
-            { sound: snd, group: false, mode: mode, priority: (lv === 'yellow') ? '' : 'high', volume: c.civ.volume });
+            { category: 'civil', sound: snd, group: false, mode: mode, priority: (lv === 'yellow') ? '' : 'high', volume: c.civ.volume });
         addLog('civ', lv, title + ' - ' + msg);
     }
     function pollCiv(manual) {
@@ -1408,7 +1438,7 @@ module.exports = function (ctx) {
         var p = w.proactive;
         if (!p || !p.enabled || !raw || !raw.hourly) { return; }
         // Advance warnings obey the same "when to notify" window as the regular weather banner.
-        if (skip || (!manual && w.quiet && quietNow())) { return; }
+        if (skip) { return; }
         var h = raw.hourly, times = h.time || [], i, t, now = Date.now(), end = now + p.minutes * 60000;
         var found = {}, order = [];
         function add(kind, label, msg, icon, at, slot, severity) {
@@ -1446,7 +1476,7 @@ module.exports = function (ctx) {
             weatherWarned[key] = true;
             persistWeatherWarned();
             banner(E.warn + ' ' + TXT[c.lang].weatherSoon + ' \u00B7 ' + a.label, a.msg, 'warn', a.icon, w.seconds,
-                { sound: '', mode: w.mode, volume: w.volume, group: false });
+                { category: 'weather', sound: '', mode: w.mode, volume: w.volume, group: false });
             addLog('weather', 'ahead', a.msg);
         }
     }
@@ -1464,14 +1494,13 @@ module.exports = function (ctx) {
             status.weather.error = ''; status.weather.line = wx.line; status.weather.state = wx.state;
             checkProactive(raw, place, c, w, manual, skip);
             if (skip) { addLog('weather', 'skip', w.when + ': ' + wx.line); }
-            else if (!manual && w.quiet && quietNow()) { addLog('weather', 'quiet', wx.line); }
             else {
                 // NC limits the title to 40 characters: drop the region a custom place carries in
                 // its name, keep the full name in the message line.
                 var short = place.name.replace(/\s*\([^)]*\)$/, '');
                 banner(wx.icon + ' ' + TXT[c.lang].weather + ' \u00B7 ' + short, wx.line,
                     (wx.rain >= 60 ? 'warn' : 'info'), wx.icon, w.seconds,
-                    { sound: w.sound ? 'soft' : '', mode: w.mode, volume: w.volume });
+                    { category: 'weather', sound: w.sound ? 'soft' : '', mode: w.mode, volume: w.volume });
                 addLog('weather', 'weather', wx.line);
             }
             schedule('weather', w.interval * 60000);
@@ -1572,7 +1601,7 @@ module.exports = function (ctx) {
     return {
         start: function () {
             running = true; stopped = false;
-            bannerQueue.length = 0; sendTimes.length = 0;
+            bannerQueue.length = 0; sendTimes.length = 0; clearRetries();
             busy = { sport: false, weather: false, news: false, civ: false };
             loadHistory();
             loadWeatherWarned();
@@ -1588,7 +1617,7 @@ module.exports = function (ctx) {
         stop: function () {
             running = false; stopped = true;
             // Nothing queued before shutdown may be delivered later.
-            bannerQueue.length = 0; sendTimes.length = 0;
+            bannerQueue.length = 0; sendTimes.length = 0; clearRetries();
             clearInterval(soundTimer); soundTimer = null;
             clearTimeout(bannerTimer); bannerTimer = null;
             Object.keys(timers).forEach(function (k) { clearTimeout(timers[k]); });
@@ -1888,7 +1917,6 @@ module.exports = function (ctx) {
                     }
                     if (we.interval !== undefined) { c.weather.interval = clamp(we.interval, 5, 240, c.weather.interval); }
                     if (we.seconds !== undefined) { c.weather.seconds = clamp(we.seconds, 3, 30, c.weather.seconds); }
-                    if (typeof we.quiet === 'boolean') { c.weather.quiet = we.quiet; }
                     if (typeof we.sound === 'boolean') { c.weather.sound = we.sound; }
                     if (we.mode !== undefined) { if (byId(MODES, we.mode)) { c.weather.mode = we.mode; } }
                     if (we.volume !== undefined) { c.weather.volume = clamp(we.volume, 10, 100, c.weather.volume); }
@@ -1926,7 +1954,6 @@ module.exports = function (ctx) {
                     }
                     if (ne.interval !== undefined) { c.news.interval = clamp(ne.interval, 5, 240, c.news.interval); }
                     if (ne.seconds !== undefined) { c.news.seconds = clamp(ne.seconds, 3, 30, c.news.seconds); }
-                    if (typeof ne.quiet === 'boolean') { c.news.quiet = ne.quiet; }
                     if (ne.count !== undefined) { c.news.count = clamp(ne.count, 1, 3, c.news.count); }
                     if (typeof ne.sound === 'boolean') { c.news.sound = ne.sound; }
                     if (ne.mode !== undefined) { if (byId(MODES, ne.mode)) { c.news.mode = ne.mode; } }
@@ -1969,7 +1996,7 @@ module.exports = function (ctx) {
                     if (!cl) { return sendJson(res, 400, { error: 'unknown test club' }); }
                     var title = 'Golo! ' + cl.name, msg = cl.msg || ('Golo do ' + cl.name);
                     banner(title, msg, cl.level, '', 8, {
-                        mode: 'overlay', theme: 'sport', image: cl.logo, group: false
+                        category: 'goal', mode: 'overlay', theme: 'sport', image: cl.logo, group: false
                     });
                     addLog('test', 'goalSim', title + ' - ' + msg);
                     sendJson(res, 200, { ok: true, title: title, message: msg });
@@ -1989,7 +2016,7 @@ module.exports = function (ctx) {
                         var msg = ng ? (ng.home + ' \u00D7 ' + ng.away + ' \u00B7 ' + ng.line) :
                             (t.team + ' \u00D7 ' + t.test + ' \u00B7 ' + t.today + ' 20:30');
                         banner(title, msg, 'info', E.whistle, c.football.otherSeconds,
-                            { sound: c.football.sound ? 'reward' : '', group: false, mode: c.football.mode,
+                            { category: 'reminder', sound: c.football.sound ? 'reward' : '', group: false, mode: c.football.mode,
                               image: logoFor('club', c.football.provider, 'soccer', club ? club.id : ''),
                               volume: c.football.volume });
                         addLog('test', 'next', msg);
