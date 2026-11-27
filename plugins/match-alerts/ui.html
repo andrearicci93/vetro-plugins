@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>NEWS</title>
+<style>
+/* Tokens from VETRO-UI-SHARDS.md (vetro app/design-system/tokens.css). Dark only. */
+:root { color-scheme:dark;
+  --bg:#080f23; --surface:#101c35; --raised:#192943; --text:#f5f8ff; --muted:#aab8d1;
+  --border:#344360; --control:#7183a2; --action:#123bb5; --action-hover:#0e3095;
+  --accent:#8fbaff; --accent-soft:rgba(143,186,255,.14); --accent-line:rgba(143,186,255,.4);
+  --ok:#7fcba0; --warn:#e2b867; --danger:#ef8a80;
+  --r:8px; --r-surface:16px; --pill:999px; --fast:120ms; --ease:cubic-bezier(.2,0,0,1);
+  --font:-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;
+  /* aliases for the rest of this stylesheet */
+  --card:var(--surface); --line:var(--border); --fg:var(--text); --dim:var(--muted);
+  --radius:var(--r-surface); --radius-control:var(--r); --focus:var(--accent); --bad:var(--danger);
+}
+* { box-sizing:border-box; }
+body { margin:0 auto; max-width:1040px; padding:20px 16px 40px; background:var(--bg); color:var(--text); font:14px/1.45 var(--font); }
+:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+[hidden] { display:none !important; }
+.head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; min-height:50px; }
+.head-id { display:flex; align-items:center; gap:12px; min-width:0; }
+.logo { width:44px; height:44px; border-radius:10px; background:var(--card); display:flex; align-items:center; justify-content:center; font-size:22px; flex:none; }
+.head-text { min-width:0; }
+h1 { font-size:20px; margin:0; font-weight:500; line-height:1.2; }
+.head-lead { font-size:14px; color:var(--muted); line-height:1.3; }
+.chips { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:nowrap; min-width:0; }
+.ver { font-size:12px; }
+.chip.plain { font-weight:600; color:var(--dim); }
+.chip.plain::before { display:none; }
+.lang { display:flex; flex:none; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--surface); }
+.lang button { background:none; color:var(--muted); border:0; border-radius:0; min-height:36px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:500; }
+.lang button + button { border-left:1px solid var(--border); }
+.lang button.on { color:var(--accent); background:var(--accent-soft); }
+.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:sticky; top:0; z-index:10; background:var(--bg); padding:6px 0; border-bottom:1px solid var(--border); }
+.tabs button { background:none; color:var(--muted); border:0; border-bottom:2px solid transparent; border-radius:0; min-height:44px; padding:8px 14px; cursor:pointer; font-size:14px; font-weight:500; }
+.tabs button.on { color:var(--text); border-bottom-color:var(--accent); }
+.tab { display:none; }
+.tab.on { display:block; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; }
+.stack { display:flex; flex-direction:column; gap:12px; }
+.appcols { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; align-items:start; }
+.subtabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.subtabs button { background:var(--raised); color:var(--muted); border:1px solid var(--border); border-radius:var(--radius-control); padding:7px 12px; cursor:pointer; font-size:12px; font-weight:600; }
+.subtabs button.on { color:var(--text); border-color:var(--action); background:var(--surface); }
+.subtab { display:none; }
+.subtab.on { display:block; }
+.worktabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; border-bottom:1px solid var(--border); }
+.worktabs button { background:none; color:var(--muted); border:0; border-bottom:2px solid transparent; border-radius:0; min-height:44px; padding:8px 14px; cursor:pointer; font-size:14px; font-weight:500; }
+.worktabs button.on { color:var(--text); border-bottom-color:var(--accent); }
+.subsubtabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.subsubtabs button { background:var(--raised); color:var(--muted); border:1px solid var(--border); border-radius:var(--r); padding:7px 12px; cursor:pointer; font-size:12px; font-weight:600; }
+.subsubtabs button.on { color:var(--text); border-color:var(--action); background:var(--surface); }
+.subsubtab { display:none; }
+.subsubtab.on { display:block; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-surface); padding:12px 14px; }
+.card.wide { grid-column:1/-1; }
+h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:0 0 10px; font-weight:700; }
+label.f { display:block; font-size:12px; color:var(--dim); margin:10px 0 4px; }
+/* VETRO-UI-SHARDS.md: option name left, switch with On/Off right. */
+.setting { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:8px 0; }
+.setting > label:first-child { flex:1; min-width:0; cursor:pointer; }
+.switch { display:flex; min-height:44px; align-items:center; gap:12px; cursor:pointer; flex:none; }
+.switch input { appearance:none; -webkit-appearance:none; width:40px; height:24px; margin:0; padding:0; border:1px solid var(--control); border-radius:var(--pill); background:var(--raised); position:relative; flex-shrink:0; cursor:pointer; transition:background var(--fast) var(--ease); }
+.switch input::before { content:""; position:absolute; left:3px; top:3px; width:16px; height:16px; border-radius:50%; background:var(--muted); transition:transform var(--fast) var(--ease), background var(--fast) var(--ease); }
+.switch input:checked { background:var(--action); border-color:var(--accent); }
+.switch input:checked::before { transform:translateX(16px); background:var(--text); }
+.switch input:disabled { opacity:.45; cursor:default; }
+.switch span { font-size:.875rem; color:var(--muted); min-width:24px; }
+.switch span::after { content:"Off"; }
+.switch input:checked + span::after { content:"On"; }
+html[lang=pt] .switch span { min-width:80px; }
+html[lang=pt] .switch span::after { content:"Desligado"; }
+html[lang=pt] .switch input:checked + span::after { content:"Ligado"; }
+@media (forced-colors:active) { .switch input { appearance:auto; -webkit-appearance:auto; } .switch input::before { display:none; } }
+.modgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px 14px; margin-top:10px; }
+.modgrid .setting { margin:0; }
+select, input[type=text], input[type=password], textarea { width:100%; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 9px; font-size:13px; }
+input[type=range] { width:100%; accent-color:var(--accent); }
+.dur input[type=number] { flex:1; min-width:70px; background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 8px; }
+.dur { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px; color:var(--dim); }
+.dur span { flex:0 0 45%; }
+.dur b { flex:0 0 34px; text-align:right; color:var(--fg); }
+.row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+button.p, button.g, button.x { border-radius:var(--r); min-height:44px; padding:9px 14px; font-size:14px; font-weight:500; cursor:pointer; border:1px solid var(--control); background:var(--raised); color:var(--text); }
+button.p { background:var(--action); border-color:var(--action); color:#fff; }
+button.g { background:var(--raised); border-color:var(--ok); }
+button.x { padding:5px 9px; font-size:12px; background:var(--surface); border-color:var(--bad); color:var(--bad); }
+button:disabled { opacity:.55; cursor:default; }
+button.done { border-color:var(--ok); }
+button.fail { border-color:var(--bad); }
+.msg { font-size:12px; color:var(--dim); min-height:16px; margin-top:8px; }
+.msg.ok { color:var(--ok); }
+.msg.err { color:var(--bad); }
+.live { font-size:15px; font-weight:600; margin-bottom:4px; }
+.club { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:var(--surface); }
+.club-head { display:flex; align-items:center; gap:8px; }
+.club-head b { flex:1; font-size:14px; }
+.tag { font-size:11px; color:var(--dim); border:1px solid var(--line); border-radius:10px; padding:1px 7px; }
+.comps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:2px 10px; margin:8px 0 2px; }
+.pick { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:9px; padding:7px 10px; margin-bottom:7px; background:var(--surface); }
+.simgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:10px; }
+.simbtn { display:flex; align-items:center; gap:12px; text-align:left; padding:10px; border:1px solid var(--line); border-radius:11px; background:var(--surface); color:var(--fg); cursor:pointer; }
+.simbtn img { width:40px; height:40px; flex:none; }
+.simbtn b { display:block; font-size:14px; }
+.simbtn small { display:block; color:var(--dim); font-size:11px; }
+.simrow { display:flex; align-items:center; gap:6px; margin-top:8px; }
+.simrow select { width:auto; flex:1; }
+.pick span { flex:1; font-size:13px; }
+.small { font-size:11px; color:var(--dim); }
+details summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--dim); }
+/* Collapsible sections inside a card: the heading doubles as the summary. */
+details.sec { border-top:1px solid var(--line); padding-top:10px; margin-top:10px; }
+details.sec:first-child { border-top:0; padding-top:0; margin-top:0; }
+details.sec > summary { font-size:14px; color:var(--fg); padding:2px 0; }
+details.sec > summary::marker { color:var(--dim); }
+details.sec .grid { margin-top:8px; }
+.secnote { font-size:11px; color:var(--dim); font-weight:400; }
+.tabnav { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:14px; }
+#diag-watches div, #diag-log div { margin:2px 0; }
+pre { white-space:pre-wrap; word-break:break-word; margin:0; font:11px/1.5 var(--mono,monospace); }
+.hidden { display:none !important; }
+#toast[hidden], .drawer[hidden] { display:none !important; }
+
+/* VETRO-UI-SHARDS.md 0.19.0: preview on the left, one card per group, state chips, toast and drawer. */
+.lead { color:var(--dim); font-size:13px; margin:2px 0 12px; }
+.layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.9fr); gap:12px; align-items:start; }
+.systemcols { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:12px; align-items:start; }
+.stage { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.stage .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-surface); padding:14px; min-width:0; }
+.stage .panel h2 { display:flex; align-items:center; gap:12px; font-size:18px; color:var(--text); text-transform:none; letter-spacing:0; font-weight:500; margin:0 0 10px; }
+.section-icon { width:26px; height:26px; flex:none; fill:none; stroke:var(--accent); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+.gtitle { display:inline-flex; align-items:center; gap:12px; font-size:18px; color:var(--text); text-transform:none; letter-spacing:0; font-weight:500; }
+.card.groups { background:none; border:0; padding:0; }
+.card.groups > details.sec, .card.groups > .row { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-surface); padding:12px 14px; margin-bottom:12px; }
+.card.groups > details.sec:first-child { border-top:1px solid var(--border); padding-top:12px; margin-top:0; }
+.card.groups > details.sec:last-child, .card.groups > .row:last-child { margin-bottom:0; }
+.card.groups > details.sec > summary { font-size:18px; }
+.chip { display:inline-flex; align-items:center; gap:5px; min-height:24px; padding:2px 8px; border:1px solid var(--border); border-radius:var(--pill); font-size:12px; line-height:1.35; color:var(--dim); }
+.chip::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.chip.ok { color:var(--ok); border-color:var(--ok); background:rgba(127,203,160,.12); }
+.chip.warn { color:var(--warn); border-color:var(--warn); background:rgba(226,184,103,.12); }
+.chip.bad { color:var(--danger); border-color:var(--danger); background:rgba(239,138,128,.12); }
+.statrow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.statrow:last-child { border-bottom:0; }
+.statrow > div { min-width:0; }
+.statrow small { display:block; color:var(--dim); font-size:11px; }
+.preview-card { border:1px solid var(--accent); border-radius:var(--r); background:var(--raised); padding:12px; }
+.preview-card b { display:block; font-size:14px; font-weight:600; margin:4px 0; }
+.preview-card p { font-size:12px; color:var(--dim); }
+.preview-kicker { font-size:11px; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; }
+.preview-card .chip { margin:6px 6px 0 0; }
+.dur label { flex:0 0 45%; font-size:inherit; color:inherit; margin:0; }
+details.help { margin-top:10px; }
+details.help > summary { min-height:44px; padding:8px 0; width:max-content; max-width:100%; color:var(--dim); font-size:12px; }
+details.help > summary:hover { color:var(--text); }
+.inline-confirm { background:rgba(226,184,103,.12); border:1px solid var(--warn); border-radius:var(--r); padding:12px 14px; margin-top:8px; font-size:13px; }
+.inline-confirm p { margin:0 0 10px; }
+.inline-confirm .warnbtn, .inline-confirm button { border-color:var(--warn); background:var(--warn); color:#080f23; font-weight:600; }
+#toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; align-items:center; gap:10px; width:max-content; max-width:min(440px,calc(100% - 32px)); padding:8px 14px; border:1px solid var(--ok); border-radius:var(--r); background:rgba(16,28,53,.9); font-size:13px; overflow-wrap:anywhere; pointer-events:none; z-index:60; }
+#toast::before { content:""; width:14px; height:8px; flex:none; border-left:2px solid var(--ok); border-bottom:2px solid var(--ok); transform:rotate(-45deg); }
+#add-msg.ok, #pick-msg.ok, #sim-msg.ok, #weather-msg.ok, #civ-status.ok, #keymsg.ok { display:none; }
+.drawer { position:fixed; inset:0; background:rgba(0,8,35,.74); display:grid; grid-template-columns:1fr min(480px,100%); z-index:50; }
+.drawer .dlg { background:var(--surface); border-left:1px solid var(--border); padding:16px; overflow:auto; }
+.drawer .dhead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.drawer .dhead h2 { margin:0; font-size:18px; }
+.table-wrap { overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); margin:10px 0; }
+table.api { width:100%; border-collapse:collapse; font-size:13px; }
+table.api td, table.api th { padding:6px 10px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+table.api tr:last-child td { border-bottom:0; }
+table.api th { color:var(--dim); font-weight:500; }
+@media (max-width:1000px) { .layout, .systemcols { grid-template-columns:minmax(0,1fr); } .stage { position:static; } }
+@media (min-width:1001px) { .stage { position:sticky; top:64px; } }
+@media (max-width:620px) { .head { flex-wrap:wrap; } .head-id { flex:1; } .head-lead { display:none; } .lang { order:2; } .chips { order:3; flex-basis:100%; justify-content:flex-start; flex-wrap:wrap; } }
+</style>
+</head>
+<body>
+<div class="head">
+  <div class="head-id">
+    <div class="logo">&#9917;</div>
+    <div class="head-text"><h1 data-t="title">NEWS</h1><div class="head-lead" data-t="lead">Alerts on the TV, sent through the Notification Center.</div></div>
+  </div>
+  <div class="chips" aria-label="Status">
+    <span class="chip" id="chip-now"></span>
+    <span class="chip" id="chip-deps"></span>
+    <span class="chip" id="chip-link"></span>
+    <span class="ver chip plain" id="ver"></span>
+  </div>
+  <div class="lang" role="group" aria-label="Language"><button type="button" id="l-en" aria-pressed="true" aria-label="English">EN</button><button type="button" id="l-pt" aria-pressed="false" aria-label="Portugu&#234;s">PT</button></div>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Sections">
+  <button type="button" id="tabbtn-work" role="tab" aria-selected="true" aria-controls="tab-work" data-tab="work" class="on" data-t="tabWork">Work</button>
+  <button type="button" id="tabbtn-setup" role="tab" aria-selected="false" aria-controls="tab-setup" data-tab="settings" data-t="tabSettings">Settings</button>
+  <button type="button" id="tabbtn-tech" role="tab" aria-selected="false" aria-controls="tab-tech" data-tab="system" data-t="tabSystem">System</button>
+</div>
+
+<!-- ============ WORK: Sport / Weather / News ============ -->
+<div class="tab on" id="tab-work" role="tabpanel" aria-labelledby="tabbtn-work">
+  <div class="worktabs" role="tablist" aria-label="Work">
+    <button type="button" id="tabbtn-sport" role="tab" aria-selected="true" aria-controls="tab-sport" data-subtab="sport" data-t="tabSport" class="on">Sport</button>
+    <button type="button" id="tabbtn-weather" role="tab" aria-selected="false" aria-controls="tab-weather" data-subtab="weather" data-t="tabWeather">Weather</button>
+    <button type="button" id="tabbtn-news" role="tab" aria-selected="false" aria-controls="tab-news" data-subtab="news" data-t="tabNews">News</button>
+  </div>
+
+<!-- ============ WEATHER ============ -->
+<div class="subtab" id="tab-weather" role="tabpanel" aria-labelledby="tabbtn-weather" hidden>
+  <div class="layout">
+  <div class="stage">
+    <section class="panel">
+      <h2><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15h14a4 4 0 0 0-1-7.9A5.5 5.5 0 0 0 5.5 8 3.5 3.5 0 0 0 3 15z"/><path d="M6 19h9"/></svg><span data-t="weatherCard">Weather</span></h2>
+      <div class="preview-card"><span class="preview-kicker" data-t="onTv">On the TV</span>
+        <div class="live" id="weather-line"></div>
+        <p data-t="previewWeather">The next weather alert will look like this.</p>
+        <div><span class="chip" id="pv-w-mode">banner</span><span class="chip" id="pv-w-proactive">-</span></div>
+      </div>
+      <details class="help"><summary data-t="previewHelp">What changes on the TV</summary><p data-t="previewHelpWeather">The place and interval chosen here are used by every weather banner; style is in Settings.</p></details>
+    </section>
+  </div>
+  <div class="appcols">
+    <div class="stack" id="weather-column">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="weatherCard">Weather</summary>
+        <div class="grid">
+          <div>
+            <label class="f" for="w-place" data-t="place">Place</label>
+            <select id="w-place"></select>
+            <label class="f" for="w-provider" data-t="weatherProvider">Provider</label>
+            <select id="w-provider"></select>
+            <label class="f" for="w-when" data-t="weatherWhen">When to notify</label>
+            <select id="w-when"></select>
+            <div class="dur"><label for="w-interval" data-t="interval">Interval (min)</label><input type="range" id="w-interval" min="5" max="240" step="5"><b id="w-intervalv"></b></div>
+          </div>
+          <div>
+            <div class="small" data-t="styleInSettings">Banner style, sound and volume are in Settings.</div>
+          </div>
+        </div>
+      </details>
+      <details class="sec">
+        <summary><span data-t="addPlaceTitle">Add a place</span><span class="secnote"> &middot; <span data-t="addPlaceNote">search by name</span></span></summary>
+        <label class="f" for="place-search" data-t="findPlace">Search by name</label>
+        <div class="row" style="margin-top:8px">
+          <input type="text" id="place-search" placeholder="Caldas da Rainha" style="flex:1;min-width:160px">
+          <button type="button" class="g" id="place-find" data-t="find">Find</button>
+        </div>
+        <label class="f" for="place-results" data-t="foundPlaces">Results</label>
+        <select id="place-results" class="hidden" style="margin-top:6px"></select>
+        <div class="row" style="margin-top:6px"><button type="button" class="g" id="place-add" data-t="addPlace">Add selected</button></div>
+        <div class="msg" id="weather-msg" aria-live="polite"></div>
+        <div id="custom-places" class="small"></div>
+      </details>
+      <details class="sec">
+        <summary data-t="wpTitle">Advance warnings</summary>
+        <div class="grid">
+          <div>
+            <div class="setting"><label for="wp-enabled" id="wp-enabled-name" data-t="wpEnable">Enable</label><label class="switch"><input type="checkbox" role="switch" id="wp-enabled" aria-labelledby="wp-enabled-name"><span aria-hidden="true"></span></label></div>
+            <label class="f" for="wp-minutes" data-t="wpMinutes">Look ahead</label>
+            <select id="wp-minutes"><option value="30">30 min</option><option value="60">60 min</option><option value="120">120 min</option><option value="180">180 min</option></select>
+            <div class="setting"><label for="wp-rain" id="wp-rain-name" data-t="wRain">Rain</label><label class="switch"><input type="checkbox" role="switch" id="wp-rain" aria-labelledby="wp-rain-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="wp-wind" id="wp-wind-name" data-t="wWind">Wind</label><label class="switch"><input type="checkbox" role="switch" id="wp-wind" aria-labelledby="wp-wind-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="wp-heat" id="wp-heat-name" data-t="wHeat">Heat</label><label class="switch"><input type="checkbox" role="switch" id="wp-heat" aria-labelledby="wp-heat-name"><span aria-hidden="true"></span></label></div>
+            <div class="setting"><label for="wp-storm" id="wp-storm-name" data-t="wStorm">Thunderstorm</label><label class="switch"><input type="checkbox" role="switch" id="wp-storm" aria-labelledby="wp-storm-name"><span aria-hidden="true"></span></label></div>
+          </div>
+          <div>
+            <div class="dur"><label for="wp-rainpct" data-t="wpRainPct">Rain %</label><input type="number" id="wp-rainpct" min="10" max="100" step="5"><b></b></div>
+            <div class="dur"><label for="wp-windkmh" data-t="wpWindKmh">Wind km/h</label><input type="number" id="wp-windkmh" min="10" max="120" step="5"><b></b></div>
+            <div class="dur"><label for="wp-heatc" data-t="wpHeatC">Heat &deg;C</label><input type="number" id="wp-heatc" min="20" max="50"><b></b></div>
+            <div class="dur"><label for="wp-stormcode" data-t="wpStormCode">Storm code &ge;</label><input type="number" id="wp-stormcode" min="80" max="99"><b></b></div>
+          </div>
+        </div>
+      </details>
+      <div class="row"><button type="button" class="p" id="save-weather" data-t="save">Save</button><button type="button" class="g" id="t-weather" data-t="test">Test</button></div>
+    </div>
+  </div>
+<div class="stack" id="civ-column">
+    <div class="card wide"><h2 data-t="tabCiv">Prote&ccedil;&atilde;o Civil</h2></div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="civNow">Active warnings</summary>
+        <div id="civ-list"></div>
+        <div class="msg" id="civ-status" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="civSources">Sources and filters</summary>
+        <div class="setting"><label for="civ-enabled" id="civ-enabled-name" data-t="enabled">Enabled</label><label class="switch"><input type="checkbox" role="switch" id="civ-enabled" aria-labelledby="civ-enabled-name"><span aria-hidden="true"></span></label></div>
+        <label class="f" for="civ-district" data-t="district">District (IPMA)</label>
+        <select id="civ-district"></select>
+        <div class="setting"><label for="civ-yellow" id="civ-yellow-name" data-t="civYellow">Yellow (discreet)</label><label class="switch"><input type="checkbox" role="switch" id="civ-yellow" aria-labelledby="civ-yellow-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-orange" id="civ-orange-name" data-t="civOrange">Orange</label><label class="switch"><input type="checkbox" role="switch" id="civ-orange" aria-labelledby="civ-orange-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-red" id="civ-red-name" data-t="civRed">Red</label><label class="switch"><input type="checkbox" role="switch" id="civ-red" aria-labelledby="civ-red-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-anepc" id="civ-anepc-name">ANEPC - Aviso &agrave; popula&ccedil;&atilde;o</label><label class="switch"><input type="checkbox" role="switch" id="civ-anepc" aria-labelledby="civ-anepc-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="civ-news" id="civ-news-name" data-t="civNews">Breaking news (RSS)</label><label class="switch"><input type="checkbox" role="switch" id="civ-news" aria-labelledby="civ-news-name"><span aria-hidden="true"></span></label></div>
+        <label class="f" for="civ-keywords" data-t="keywords">Keywords</label>
+        <input type="text" id="civ-keywords">
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="interval">Interval</summary>
+        <div class="dur"><label for="civ-interval" data-t="interval">Interval (min)</label><input type="range" id="civ-interval" min="5" max="240" step="5"><b id="civ-intervalv"></b></div>
+        <div class="small" data-t="styleInSettings">Banner style, sound and volume are in Settings.</div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="p" id="save-civ" data-t="save">Save</button><button type="button" class="g" id="t-civ" data-t="test">Test</button></div>
+    </div>
+  </div>
+  </div>
+  </div>
+</div>
+
+<!-- ============ NEWS ============ -->
+<div class="subtab" id="tab-news" role="tabpanel" aria-labelledby="tabbtn-news" hidden>
+  <div class="layout">
+  <div class="stage">
+    <section class="panel">
+      <h2><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M7 9h10M7 13h10M7 17h6"/></svg><span data-t="preview">Preview</span></h2>
+      <div class="preview-card"><span class="preview-kicker" data-t="onTv">On the TV</span><b data-t="title">NEWS</b>
+        <div class="live" id="pv-news-line"></div>
+        <p data-t="previewNews">New headlines appear as they arrive.</p>
+        <div><span class="chip" id="pv-n-mode">banner</span><span class="chip" id="pv-n-count">1</span></div>
+      </div>
+      <details class="help"><summary data-t="previewHelp">What changes on the TV</summary><p data-t="previewHelpNews">Only headlines newer than the last check are announced, one source at a time.</p></details>
+    </section>
+  </div>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="sources">News sources</summary>
+        <div class="comps" id="feeds"></div>
+        <div class="small" data-t="sourcesNote">Pick as many as you like. Each source keeps its own history.</div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec">
+        <summary data-t="newsSettings">News settings</summary>
+        <div class="grid">
+        <div>
+          <div class="dur"><label for="n-interval" data-t="interval">Interval (min)</label><input type="range" id="n-interval" min="5" max="240" step="5"><b id="n-intervalv"></b></div>
+          <label class="f" for="n-count" data-t="headlines">Headlines per source</label>
+          <select id="n-count"><option>1</option><option>2</option><option>3</option></select>
+        </div>
+        <div>
+          <div class="small" data-t="styleInSettings">Banner style, sound and volume are in Settings.</div>
+        </div>
+        </div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="p" id="save-news" data-t="save">Save</button><button type="button" class="g" id="t-news" data-t="test">Test</button></div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ============ FOOTBALL ============ -->
+<div class="subtab on" id="tab-sport" role="tabpanel" aria-labelledby="tabbtn-sport">
+  <div class="subsubtabs" role="tablist" aria-label="Sport sections">
+    <button type="button" id="subbtn-football" role="tab" aria-selected="true" aria-controls="subtab-football" data-subtab="football" data-t="tabFootball">Football</button>
+    <button type="button" id="subbtn-others" role="tab" aria-selected="false" aria-controls="subtab-others" data-subtab="others" data-t="tabOthers">Other sports</button>
+  </div>
+  <div class="subsubtab on" id="subtab-football">
+  <div class="layout">
+  <div class="stage">
+    <section class="panel">
+      <h2><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7l3 2-1 3h-4l-1-3 3-2zM7 15l2 2M17 15l-2 2"/></svg><span data-t="tabFootball">Football</span></h2>
+      <div class="preview-card"><span class="preview-kicker" data-t="onTv">On the TV</span><b data-t="tabFootball">Football</b>
+        <div class="live" id="pv-sport-line"></div>
+        <p data-t="previewSport">Goals and match events use the style chosen below.</p>
+        <div><span class="chip" id="pv-f-mode">overlay</span><span class="chip" id="pv-f-next">-</span></div>
+      </div>
+      <details class="help"><summary data-t="previewHelp">What changes on the TV</summary><p data-t="previewHelpSport">The selected club decides the crest, the name and which alerts are shown.</p></details>
+    </section>
+  </div>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="clubs">Clubs</summary>
+        <div id="clubs"></div>
+        <div class="grid">
+          <div>
+            <label class="f" for="add-league" data-t="league">League</label>
+            <select id="add-league"></select>
+          </div>
+          <div>
+            <label class="f" for="add-team" data-t="team">Team</label>
+            <select id="add-team"></select>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="add-club" data-t="addClub">Add club</button></div>
+        <div class="msg" id="add-msg" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="alerts">Alerts</summary>
+        <div class="setting"><label for="sw-21" id="sw-21-name" data-t="a_goal">Goal for my club</label><label class="switch"><input type="checkbox" role="switch" id="sw-21" data-fb="goal" aria-labelledby="sw-21-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-22" id="sw-22-name" data-t="a_against">Goal for the opponent</label><label class="switch"><input type="checkbox" role="switch" id="sw-22" data-fb="against" aria-labelledby="sw-22-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-23" id="sw-23-name" data-t="a_card">Cards (both teams)</label><label class="switch"><input type="checkbox" role="switch" id="sw-23" data-fb="card" aria-labelledby="sw-23-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-24" id="sw-24-name" data-t="a_sub">Substitutions (my club)</label><label class="switch"><input type="checkbox" role="switch" id="sw-24" data-fb="sub" aria-labelledby="sw-24-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-25" id="sw-25-name" data-t="a_var">Goal disallowed</label><label class="switch"><input type="checkbox" role="switch" id="sw-25" data-fb="varNo" aria-labelledby="sw-25-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-26" id="sw-26-name" data-t="a_pen">Penalty awarded</label><label class="switch"><input type="checkbox" role="switch" id="sw-26" data-fb="penalty" aria-labelledby="sw-26-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-27" id="sw-27-name" data-t="a_penMiss">Penalty missed or saved</label><label class="switch"><input type="checkbox" role="switch" id="sw-27" data-fb="penMiss" aria-labelledby="sw-27-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-28" id="sw-28-name" data-t="a_start">Kick-off</label><label class="switch"><input type="checkbox" role="switch" id="sw-28" data-fb="start" aria-labelledby="sw-28-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-29" id="sw-29-name" data-t="a_half">Half-time</label><label class="switch"><input type="checkbox" role="switch" id="sw-29" data-fb="half" aria-labelledby="sw-29-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-30" id="sw-30-name" data-t="a_end">Full time</label><label class="switch"><input type="checkbox" role="switch" id="sw-30" data-fb="end" aria-labelledby="sw-30-name"><span aria-hidden="true"></span></label></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="nextWarn">Warn before kick-off</summary>
+        <div class="setting"><label for="f-next-enabled" id="f-next-enabled-name" data-t="nextWarn">Warn before kick-off</label><label class="switch"><input type="checkbox" role="switch" id="f-next-enabled" aria-labelledby="f-next-enabled-name"><span aria-hidden="true"></span></label></div>
+        <label class="f" for="f-next-minutes" data-t="minutesBefore">Minutes before</label>
+        <select id="f-next-minutes"><option value="0">0</option><option value="15">15</option><option value="30">30</option><option value="60">60</option></select>
+        <div class="small" data-t="styleInSettings">Banner style, sound and volume are in Settings.</div>
+      </details>
+      <details class="sec">
+        <summary data-t="provider">Provider</summary>
+        <label class="f" for="f-provider" data-t="provider">Provider</label>
+        <select id="f-provider"></select>
+        <label class="f" for="apikey" data-t="apikey">API-Football key (TV only)</label>
+        <input type="text" id="apikey" autocomplete="off" placeholder="...">
+        <div class="row"><button type="button" class="g" id="savekey" data-t="savekey">Save key</button><button type="button" class="g" id="checkkey" data-t="checkkey">Check key</button></div>
+        <div class="msg" id="keymsg" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec">
+        <summary data-t="simTitle">Goal simulation</summary>
+        <div class="small" data-t="simNote">One button per club. Sends a real (silent) notification through Notification Center.</div>
+        <div id="sim-grid" class="simgrid"></div>
+        <div class="msg" id="sim-msg" aria-live="polite"></div>
+      </details>
+      <details class="sec">
+        <summary data-t="simEdit">Edit the test clubs</summary>
+        <div class="grid">
+          <div>
+            <label class="f" for="sim-name" data-t="team">Team</label>
+            <input type="text" id="sim-name" placeholder="Sporting">
+          </div>
+          <div>
+            <label class="f" for="sim-id" data-t="simId">ESPN id</label>
+            <input type="text" id="sim-id" placeholder="2250">
+          </div>
+          <div>
+            <label class="f" for="sim-text" data-t="simMsg">Message</label>
+            <input type="text" id="sim-text" placeholder="Sporting 1-0 Benfica">
+          </div>
+          <div>
+            <label class="f" for="sim-level" data-t="simColor">Stripe colour</label>
+            <select id="sim-level"><option value="ok">ok - verde</option><option value="info">info - azul</option><option value="warn">warn - amarelo</option><option value="alert">alert - vermelho</option></select>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="sim-add" data-t="addClub">Add club</button></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <label class="f" for="test-club" data-t="testWith">Test with</label>
+      <select id="test-club" style="max-width:340px"></select>
+      <div class="row">
+        <button type="button" class="p" id="save-football" data-t="save">Save</button>
+        <button type="button" class="g" id="t-goal" data-t="testgoal">Test: goal</button>
+        <button type="button" class="g" id="t-against" data-t="testag">Test: goal against</button>
+        <button type="button" class="g" id="t-card" data-t="testcard">Test: card</button>
+        <button type="button" class="g" id="t-start" data-t="teststart">Test: kick-off</button>
+        <button type="button" class="g" id="t-end" data-t="testend">Test: full time</button>
+        <button type="button" class="g" id="t-next" data-t="testNext">Test: kick-off warning</button>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ============ OTHER SPORTS ============ -->
+<div class="subsubtab" id="subtab-others" hidden>
+  <div class="layout">
+  <div class="stage">
+    <section class="panel">
+      <h2><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="M8 16l4-5 3 2 4-6"/></svg><span data-t="tabOthers">Other sports</span></h2>
+      <div class="preview-card"><span class="preview-kicker" data-t="onTv">On the TV</span><b data-t="tabOthers">Other sports</b>
+        <p data-t="previewOthers">Scores from NBA, MLB, NHL, NFL and F1 picks.</p>
+        <div><span class="chip" id="pv-o-mode">banner</span></div>
+      </div>
+      <details class="help"><summary data-t="previewHelp">What changes on the TV</summary><p data-t="previewHelpOthers">Each pick has its own watch and alerts; removing one does not change the others.</p></details>
+    </section>
+  </div>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="picks">Other sports</summary>
+        <div id="picks"></div>
+        <div class="grid">
+          <div>
+            <label class="f" for="add-sport" data-t="sport">Sport</label>
+            <select id="add-sport"></select>
+          </div>
+          <div>
+            <label class="f" for="add-team2" data-t="pickTarget">Team / race</label>
+            <select id="add-team2"></select>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="add-pick" data-t="addPick">Add</button></div>
+        <div class="msg" id="pick-msg" aria-live="polite"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="alerts">Alerts</summary>
+        <div class="setting"><label for="sw-33" id="sw-33-name" data-t="a_start2">Start</label><label class="switch"><input type="checkbox" role="switch" id="sw-33" data-ob="start" aria-labelledby="sw-33-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-34" id="sw-34-name" data-t="a_half2">Half / period</label><label class="switch"><input type="checkbox" role="switch" id="sw-34" data-ob="half" aria-labelledby="sw-34-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-35" id="sw-35-name" data-t="a_end2">End</label><label class="switch"><input type="checkbox" role="switch" id="sw-35" data-ob="end" aria-labelledby="sw-35-name"><span aria-hidden="true"></span></label></div>
+        <div class="setting"><label for="sw-36" id="sw-36-name" data-t="a_score">Score changes</label><label class="switch"><input type="checkbox" role="switch" id="sw-36" data-ob="score" aria-labelledby="sw-36-name"><span aria-hidden="true"></span></label></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <div class="small" data-t="styleInSettings">Banner style, sound and volume are in Settings.</div>
+      <div class="row"><button type="button" class="p" id="save-others" data-t="save">Save</button><button type="button" class="g" id="t-score" data-t="testscore">Test: score</button></div>
+    </div>
+  </div>
+  </div>
+</div>
+</div>
+
+</div><!-- /tab-work -->
+
+<!-- ============ SETTINGS ============ -->
+<div class="tab" id="tab-setup" role="tabpanel" aria-labelledby="tabbtn-setup" hidden>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="generalCard">General</summary>
+        <div class="modgrid">
+          <div class="setting"><label for="m-sport" id="m-sport-name" data-t="sport">Sport</label><label class="switch"><input type="checkbox" role="switch" id="m-sport" aria-labelledby="m-sport-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="m-weather" id="m-weather-name" data-t="weather">Weather</label><label class="switch"><input type="checkbox" role="switch" id="m-weather" aria-labelledby="m-weather-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="m-news" id="m-news-name" data-t="news">News</label><label class="switch"><input type="checkbox" role="switch" id="m-news" aria-labelledby="m-news-name"><span aria-hidden="true"></span></label></div>
+          <div class="setting"><label for="m-civ" id="m-civ-name" data-t="tabCiv">Civil protection</label><label class="switch"><input type="checkbox" role="switch" id="m-civ" aria-labelledby="m-civ-name"><span aria-hidden="true"></span></label></div>
+        </div>
+      </details>
+      <div class="msg" id="save-state" aria-live="polite"></div>
+      <div class="row"><button type="button" class="g" id="save-mod" data-t="save">Save</button><button type="button" class="p" id="save-all" data-t="saveAll">Save all</button></div>
+    </div>
+
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="notificationCard">Notification</summary>
+        <div class="layout">
+          <div class="stage">
+            <section class="panel">
+              <h2><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/></svg><span data-t="preview">Preview</span></h2>
+              <div class="preview-card"><span class="preview-kicker" data-t="onTv">On the TV</span><b data-t="title">NEWS</b>
+                <p data-t="previewSetup">Each module sends its own alerts through the Notification Center.</p>
+                <div><span class="chip" id="pv-mod-sport">Sport</span><span class="chip" id="pv-mod-weather">Weather</span><span class="chip" id="pv-mod-news">News</span></div>
+              </div>
+              <details class="help"><summary data-t="previewHelp">What changes on the TV</summary><p data-t="previewHelpSetup">Only the modules switched on here can show banners. Nothing is drawn by this panel.</p></details>
+            </section>
+          </div>
+          <div class="stack">
+            <div class="small" data-t="tabFootball">Football</div>
+            <label class="f" for="f-mode" data-t="mode">Mode</label>
+            <select id="f-mode"></select>
+            <div class="dur"><label for="f-goalsec" data-t="goalsec">Goal banner (s)</label><input type="range" id="f-goalsec" min="5" max="60"><b id="f-goalsecv"></b></div>
+            <div class="dur"><label for="f-othersec" data-t="othersec">Other banners (s)</label><input type="range" id="f-othersec" min="3" max="30"><b id="f-othersecv"></b></div>
+            <div class="small" data-t="tabOthers">Other sports</div>
+            <label class="f" for="o-mode" data-t="mode">Mode</label>
+            <select id="o-mode"></select>
+            <div class="dur"><label for="o-seconds" data-t="seconds">Banner (s)</label><input type="range" id="o-seconds" min="3" max="30"><b id="o-secondsv"></b></div>
+            <div class="small" data-t="weatherCard">Weather</div>
+            <label class="f" for="w-mode" data-t="mode">Mode</label>
+            <select id="w-mode"></select>
+            <div class="dur"><label for="w-seconds" data-t="seconds">Banner (s)</label><input type="range" id="w-seconds" min="3" max="30"><b id="w-secondsv"></b></div>
+            <div class="small" data-t="tabNews">News</div>
+            <label class="f" for="n-mode" data-t="mode">Mode</label>
+            <select id="n-mode"></select>
+            <div class="dur"><label for="n-seconds" data-t="seconds">Banner (s)</label><input type="range" id="n-seconds" min="3" max="30"><b id="n-secondsv"></b></div>
+            <div class="small" data-t="tabCiv">Civil protection</div>
+            <label class="f" for="civ-mode" data-t="mode">Mode</label>
+            <select id="civ-mode"></select>
+            <div class="dur"><label for="civ-seconds" data-t="seconds">Banner (s)</label><input type="range" id="civ-seconds" min="3" max="60"><b id="civ-secondsv"></b></div>
+          </div>
+        </div>
+        <div class="row"><button type="button" class="g" id="test-all" data-t="testAll">Test</button></div>
+      </details>
+    </div>
+
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="soundCard">Sound</summary>
+        <div class="grid">
+          <div>
+            <div class="small" data-t="tabFootball">Football</div>
+            <div class="setting"><label for="f-sound" id="f-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="f-sound" aria-labelledby="f-sound-name"><span aria-hidden="true"></span></label></div>
+            <div class="dur"><label for="f-volume" data-t="volume">Volume</label><input type="range" id="f-volume" min="10" max="100" step="5"><b id="f-volumev"></b></div>
+            <div class="small" data-t="tabOthers">Other sports</div>
+            <div class="setting"><label for="o-sound" id="o-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="o-sound" aria-labelledby="o-sound-name"><span aria-hidden="true"></span></label></div>
+            <div class="dur"><label for="o-volume" data-t="volume">Volume</label><input type="range" id="o-volume" min="10" max="100" step="5"><b id="o-volumev"></b></div>
+          </div>
+          <div>
+            <div class="small" data-t="weatherCard">Weather</div>
+            <div class="setting"><label for="w-sound" id="w-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="w-sound" aria-labelledby="w-sound-name"><span aria-hidden="true"></span></label></div>
+            <div class="dur"><label for="w-volume" data-t="volume">Volume</label><input type="range" id="w-volume" min="10" max="100" step="5"><b id="w-volumev"></b></div>
+            <div class="small" data-t="tabNews">News</div>
+            <div class="setting"><label for="n-sound" id="n-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="n-sound" aria-labelledby="n-sound-name"><span aria-hidden="true"></span></label></div>
+            <div class="dur"><label for="n-volume" data-t="volume">Volume</label><input type="range" id="n-volume" min="10" max="100" step="5"><b id="n-volumev"></b></div>
+            <div class="small" data-t="tabCiv">Civil protection</div>
+            <div class="setting"><label for="civ-sound" id="civ-sound-name" data-t="sound">Sound</label><label class="switch"><input type="checkbox" role="switch" id="civ-sound" aria-labelledby="civ-sound-name"><span aria-hidden="true"></span></label></div>
+            <div class="dur"><label for="civ-volume" data-t="volume">Volume</label><input type="range" id="civ-volume" min="10" max="100" step="5"><b id="civ-volumev"></b></div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="backupCard">Backup</summary>
+        <div class="row">
+          <button type="button" class="g" id="cfg-show" data-t="cfgShow">Show config</button>
+          <button type="button" class="g" id="cfg-copy" data-t="cfgCopy">Copy</button>
+          <button type="button" class="g" id="cfg-load" data-t="cfgLoad">Load config</button>
+          <button type="button" class="x" id="reset-cfg" data-t="resetCfg">Reset</button>
+        </div>
+        <pre id="cfg-json" class="small"></pre>
+        <label class="f" for="cfg-input" data-t="cfgPaste">Paste configuration (JSON)</label>
+        <textarea id="cfg-input" rows="4"></textarea>
+        <div class="small" data-t="resetNote">Reset discards edits in this panel and reloads what the Shard has saved.</div>
+        <div class="msg" id="cfg-msg" aria-live="polite"></div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SYSTEM ============ -->
+<div class="tab" id="tab-tech" role="tabpanel" aria-labelledby="tabbtn-tech" hidden>
+  <div class="systemcols">
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="statusTitle">Status</summary>
+        <div class="statrow"><div><b data-t="shard">Shard</b><small data-t="stateShardNote">This panel</small></div><span class="chip" id="pv-shard">-</span></div>
+        <div class="statrow"><div><b>Notification Center</b><small data-t="stateNcNote">Banners on the TV</small></div><span class="chip" id="pv-nc">-</span></div>
+        <div class="statrow"><div><b data-t="depTitle">Dependencies</b><small data-t="depNote">Hub, app and service</small></div><span class="chip" id="pv-deps">-</span></div>
+        <div class="statrow"><div><b data-t="linkTitle">Connection</b><small data-t="linkNote">Panel to Shard</small></div><span class="chip" id="pv-link">-</span></div>
+        <div class="statrow"><div><b data-t="diagLog">Log</b><small data-t="stateLogNote">Recent events</small></div><span class="chip" id="pv-log">-</span></div>
+      </details>
+      <section class="panel" style="margin-top:12px">
+        <h2><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span data-t="now">Right now</span></h2>
+        <div class="preview-card"><span class="preview-kicker" data-t="onTv">On the TV</span>
+          <div class="live" id="sport-line">-</div>
+          <div class="msg" id="sport-stat" aria-live="polite"></div>
+          <div class="msg" id="next-line" aria-live="polite"></div>
+          <div class="msg" id="news-line" aria-live="polite"></div>
+        </div>
+        <details class="help"><summary data-t="previewHelp">What changes on the TV</summary><p data-t="previewHelpTech">Status comes from the Shard; the banners themselves are decided by the Notification Center.</p></details>
+        <div class="row"><button type="button" class="g" id="drawer-open" data-t="drawerTitle">Details</button></div>
+      </section>
+    </div>
+    <div class="card wide">
+      <div class="row"><button type="button" class="g" id="check" data-t="check">Check now</button></div>
+    </div>
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="diagTitle">Diagnostics</summary>
+        <div class="grid" style="margin-top:10px">
+          <div>
+            <div class="f" data-t="diagWatches">Watched</div>
+            <div id="diag-watches" class="small"></div>
+          </div>
+          <div>
+            <div class="f" data-t="diagHealth">Providers</div>
+            <div id="diag-health" class="small"></div>
+          </div>
+        </div>
+        <div class="f" data-t="lastError">Last error</div>
+        <div id="last-error" class="small"></div>
+      </details>
+    </div>
+    <div class="card wide">
+      <details class="sec">
+        <summary data-t="techApi">API and examples</summary>
+        <div class="table-wrap"><table class="api"><thead><tr><th data-t="thRoute">Route</th><th data-t="thUse">Use</th></tr></thead><tbody>
+          <tr><td>GET /api/last</td><td data-t="routeLast">Public state, no key</td></tr>
+          <tr><td>POST /api/test</td><td data-t="routeTest">Send one test banner</td></tr>
+          <tr><td>POST /api/poll</td><td data-t="routePoll">Check one module now</td></tr>
+          <tr><td>POST /api/clearlog</td><td data-t="routeClear">Empty the log</td></tr>
+        </tbody></table></div>
+        <pre id="api-help" class="small"></pre>
+      </details>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card wide">
+      <details class="sec" open>
+        <summary data-t="logRecent">Recently sent</summary>
+        <div id="diag-log" class="small"></div>
+        <div class="row"><button type="button" class="g" id="log-refresh" data-t="refresh">Refresh</button><button type="button" class="g" id="clear-log" data-t="clearLog">Clear log</button></div>
+      </details>
+    </div>
+  </div>
+  </div>
+</div>
+
+<div class="tabnav" id="tabnav">
+  <button type="button" class="g" id="tab-prev" data-t="tabPrev">Previous</button>
+  <span class="small" id="tabnav-label"></span>
+  <button type="button" class="g" id="tab-next" data-t="tabNext">Next</button>
+</div>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<div id="drawer" class="drawer" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="dhead"><h2 id="drawer-title" data-t="drawerTitle">Details</h2><button type="button" class="g" id="drawer-close" data-t="close">Close</button></div>
+    <div id="drawer-body"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var T = {
+    en: {
+      title:"NEWS", saveAll:"Save all", testAll:"Test", tabPrev:"Previous", tabNext:"Next", unsaved:"Unsaved changes", savedAt:"Saved at ",
+      tabWork:"Work", tabSettings:"Settings", tabSystem:"System", tabSport:"Sport", tabWeather:"Weather", tabNews:"News", tabFootball:"Football", tabOthers:"Other sports",
+      techApi:"API and examples", diagTitle:"Diagnostics", diagWatches:"Watched", diagLog:"Log", diagHealth:"Providers", clearLog:"Clear log", confirmClear:"Click again: clear log", noAnswer:"No answer from the Shard: open the panel again",
+      modules:"Modules", sport:"Sport", weather:"Weather", news:"News", now:"Right now",
+      weatherCard:"Weather", place:"Place", interval:"Interval (min)", seconds:"Banner (s)", mode:"Mode",
+      style:"Style", sound:"Sound", test:"Test", save:"Save", savekey:"Save key",
+      checkkey:"Check key", check:"Check now", sources:"News sources",
+      sourcesNote:"Pick as many as you like. Each source keeps its own history.",
+
+      newsSettings:"News settings", headlines:"Headlines per source",
+      clubs:"Clubs", league:"League", team:"Team", addClub:"Add club",
+      alerts:"Alerts", a_goal:"Goal for my club", a_against:"Goal for the opponent",
+      a_card:"Cards (both teams)", a_sub:"Substitutions (my club)", a_var:"Goal disallowed",
+      a_pen:"Penalty awarded", a_penMiss:"Penalty missed or saved",
+      a_start:"Kick-off", a_half:"Half-time", a_end:"Full time",
+      a_start2:"Start", a_half2:"Half / period", a_end2:"End", a_score:"Score changes",
+      goalsec:"Goal banner (s)", othersec:"Other banners (s)", provider:"Provider",
+      apikey:"API-Football key (TV only)", testWith:"Test with", testgoal:"Test: goal", testag:"Test: goal against",
+      testcard:"Test: card", teststart:"Test: kick-off", testend:"Test: full time", testscore:"Test: score",
+      testNext:"Test: kick-off warning",
+      picks:"Other sports", addPick:"Add", remove:"Remove", noClubs:"No clubs yet: add one below.",
+      pickTarget:"Team / race", noRaces:"No races available.",
+      noPicks:"Nothing selected yet.", pickLimit:"Maximum picks: ", saved:"Saved.", noneyet:"Nothing yet.", checked:"Last check: ",
+      err:"Error: ", sent:"Test sent.", loading:"Loading...", noTeams:"No team list for this league.",
+      keyok:"Key OK - remaining today: ", keynone:"No key saved yet.", keyset:"A key is saved.",
+      onlysoccer:"API-Football works for football only.", chooseOne:"Pick at least one source.",
+      clubNewsShort:"Club news", add:"Add", mode_banner:"Banner", mode_full:"Full screen", mode_overlay:"Bottom toast",
+      addPlaceTitle:"Add a place", addPlaceNote:"search by name", find:"Find", addPlace:"Add selected", findFirst:"Search for a place first.",
+      noPlaces:"No place found.", found:"Found: ", placeAdded:"Added", placeRemoved:"Removed",
+      none:"None", noSport:"Choose a sport first.",
+      savedPlaces:"Custom places", typePlace:"Type at least 2 letters.", tooManyPlaces:"Maximum 10 places.",
+      nextWarn:"Warn before kick-off", minutesBefore:"Minutes before", nextMatch:"Next match", noNext:"No upcoming match found.",
+      maxClubs:"Maximum ", tabCiv:"Civil protection", civNow:"Active warnings", civSources:"Sources and filters",
+      enabled:"Enabled", district:"District (IPMA)", civYellow:"Yellow (discreet)", civOrange:"Orange", civRed:"Red",
+      civNews:"Breaking news (RSS)", keywords:"Keywords", noCiv:"No active warnings for this district.",
+      civSource:"Source", civUntil:"until", civNotice:"Civil notice",
+      weatherProvider:"Provider", weatherWhen:"When to notify",
+      when_always:"Always", when_morning:"Morning until 10h (today)", when_night:"Night after 18h (tomorrow)",
+      wpTitle:"Advance warnings", wpEnable:"Enable", wpMinutes:"Look ahead", wRain:"Rain", wWind:"Wind", wHeat:"Heat", wStorm:"Thunderstorm",
+      wpRainPct:"Rain %", wpWindKmh:"Wind km/h", wpHeatC:"Heat \u00B0C", wpStormCode:"Storm code \u2265",
+      clubAlertsTitle:"Alerts for this club", custom:"custom", inherited:"inherited (global)", useGlobal:"Use global",
+      tabSim:"Test goals", simTitle:"Goal simulation", simNote:"One button per club. Sends a real (silent) notification through Notification Center.",
+      simEdit:"Edit the test clubs", simId:"ESPN id", simMsg:"Message", simColor:"Stripe colour", volume:"Volume",
+      lead:"Alerts on the TV, sent through the Notification Center.", preview:"Preview", onTv:"On the TV", previewHelp:"What changes on the TV",
+      previewSetup:"Each module sends its own alerts through the Notification Center.", previewHelpSetup:"Only the modules switched on here can show banners. Nothing is drawn by this panel.",
+      previewWeather:"The next weather alert will look like this.", previewHelpWeather:"The place and interval chosen here are used by every weather banner; style is in Settings.",
+      previewNews:"New headlines appear as they arrive.", previewHelpNews:"Only headlines newer than the last check are announced, one source at a time.",
+      previewSport:"Goals and match events use the style chosen in Settings.", previewHelpSport:"The selected club decides the crest, the name and which alerts are shown; style is in Settings.",
+      previewOthers:"Scores from NBA, MLB, NHL, NFL and F1 picks.", previewHelpOthers:"Each pick has its own watch and alerts; removing one does not change the others.",
+      previewHelpTech:"Status comes from the Shard; the banners themselves are decided by the Notification Center.",
+      stateTitle:"State", shard:"Shard", stateShardNote:"This panel", stateNcNote:"Banners on the TV", stateLogNote:"Recent events",
+      findPlace:"Search by name", foundPlaces:"Results", thRoute:"Route", thUse:"Use", routeLast:"Public state, no key",
+      routeTest:"Send one test banner", routePoll:"Check one module now", routeClear:"Empty the log",
+      drawerTitle:"Details", close:"Close", del:"Delete", cancel:"Cancel", queued:"queued",
+      generalCard:"General", notificationCard:"Notification", soundCard:"Sound", backupCard:"Backup",
+      cfgShow:"Show config", cfgCopy:"Copy", cfgLoad:"Load config", cfgPaste:"Paste configuration (JSON)", cfgShown:"Config shown below.", cfgCopied:"Config copied.", cfgLoaded:"Config loaded.", cfgInvalid:"Invalid JSON.",
+      resetCfg:"Reset", resetNote:"Reset discards edits in this panel and reloads what the Shard has saved.", settingsWord:"all settings", statusTitle:"Status", depTitle:"Dependencies", depNote:"Hub, app and service", linkTitle:"Connection", linkNote:"Panel to Shard",
+      lastError:"Last error", noError:"None", logRecent:"Recently sent", refresh:"Refresh", styleInSettings:"Banner style, sound and volume are in Settings.",
+      chipActive:"Alerts active", chipIdle:"No modules on", chipOnline:"Connected", chipRetry:"Try again", chipLoading:"Loading...", depFallback:"NC ?"
+    },
+    pt: {
+      title:"NEWS", saveAll:"Guardar tudo", testAll:"Testar", tabPrev:"Anterior", tabNext:"Seguinte", unsaved:"Altera\u00E7\u00F5es por guardar", savedAt:"Guardado \u00E0s ",
+      tabWork:"Trabalho", tabSettings:"Defini\u00E7\u00F5es", tabSystem:"Sistema", tabSport:"Desporto", tabWeather:"Tempo", tabNews:"Not\u00EDcias", tabFootball:"Futebol", tabOthers:"Outros desportos",
+      techApi:"API e exemplos", diagTitle:"Diagn\u00F3stico", diagWatches:"Acompanhados", diagLog:"Registo", diagHealth:"Fornecedores", clearLog:"Limpar registo", confirmClear:"Clique outra vez: limpar registo", noAnswer:"Sem resposta do Shard: abra o painel novamente",
+      modules:"M\u00F3dulos", sport:"Desporto", weather:"Tempo", news:"Not\u00EDcias", now:"Agora",
+      weatherCard:"Tempo", place:"Local", interval:"Intervalo (min)", seconds:"Banner (s)", mode:"Modo",
+      style:"Estilo", sound:"Som", test:"Teste", save:"Guardar", savekey:"Guardar chave",
+      checkkey:"Testar chave", check:"Verificar agora", sources:"Fontes de not\u00EDcias",
+      sourcesNote:"Escolha as que quiser. Cada fonte guarda o seu hist\u00F3rico.",
+
+      newsSettings:"Defini\u00E7\u00F5es de not\u00EDcias", headlines:"Manchetes por fonte",
+      clubs:"Clubes", league:"Liga", team:"Equipa", addClub:"Adicionar clube",
+      alerts:"Alertas", a_goal:"Golo do meu clube", a_against:"Golo do advers\u00E1rio",
+      a_card:"Cart\u00F5es (ambas as equipas)", a_sub:"Substitui\u00E7\u00F5es (meu clube)", a_var:"Golo anulado",
+      a_pen:"Penalty marcado", a_penMiss:"Penalty falhado ou defendido",
+      a_start:"In\u00EDcio do jogo", a_half:"Intervalo", a_end:"Fim do jogo",
+      a_start2:"In\u00EDcio", a_half2:"Intervalo / per\u00EDodo", a_end2:"Fim", a_score:"Altera\u00E7\u00F5es do resultado",
+      goalsec:"Banner de golo (s)", othersec:"Outros banners (s)", provider:"Fornecedor",
+      apikey:"Chave API-Football (s\u00F3 na TV)", testWith:"Testar com", testgoal:"Teste: golo", testag:"Teste: golo sofrido",
+      testcard:"Teste: cart\u00E3o", teststart:"Teste: in\u00EDcio", testend:"Teste: fim", testscore:"Teste: resultado",
+      testNext:"Teste: aviso de jogo",
+      picks:"Outros desportos", addPick:"Adicionar", remove:"Remover", noClubs:"Ainda sem clubes: adicione abaixo.",
+      pickTarget:"Equipa / corrida", noRaces:"Sem corridas dispon\u00EDveis.",
+      noPicks:"Ainda nada escolhido.", pickLimit:"M\u00E1ximo de picks: ", saved:"Guardado.", noneyet:"Ainda nada.", checked:"\u00DAltima verifica\u00E7\u00E3o: ",
+      err:"Erro: ", sent:"Teste enviado.", loading:"A carregar...", noTeams:"Sem lista de equipas para esta liga.",
+      keyok:"Chave v\u00E1lida - restantes hoje: ", keynone:"Ainda sem chave.", keyset:"H\u00E1 uma chave guardada.",
+      onlysoccer:"A API-Football s\u00F3 funciona para futebol.", chooseOne:"Escolha pelo menos uma fonte.",
+      clubNewsShort:"Not\u00EDcias do clube", add:"Adicionar", mode_banner:"Banner", mode_full:"Ecr\u00E3 inteiro", mode_overlay:"Bottom toast",
+      addPlaceTitle:"Adicionar local", addPlaceNote:"procurar por nome", find:"Procurar", addPlace:"Adicionar selecionado", findFirst:"Primeiro procura um local.",
+      noPlaces:"Nenhum local encontrado.", found:"Encontrados: ", placeAdded:"Adicionado", placeRemoved:"Removido",
+      none:"Nenhum", noSport:"Escolhe primeiro um desporto.",
+      savedPlaces:"Locais personalizados", typePlace:"Escreve pelo menos 2 letras.", tooManyPlaces:"M\u00E1ximo 10 locais.",
+      nextWarn:"Avisar antes do jogo", minutesBefore:"Minutos antes", nextMatch:"Pr\u00F3ximo jogo", noNext:"Sem jogo marcado.",
+      maxClubs:"M\u00E1ximo ", tabCiv:"Prote\u00E7\u00E3o Civil", civNow:"Avisos ativos", civSources:"Fontes e filtros",
+      enabled:"Ativo", district:"Distrito (IPMA)", civYellow:"Amarelo (discreto)", civOrange:"Laranja", civRed:"Vermelho",
+      civNews:"Not\u00EDcias urgentes (RSS)", keywords:"Palavras-chave", noCiv:"Sem avisos ativos neste distrito.",
+      civSource:"Fonte", civUntil:"at\u00E9", civNotice:"Aviso \u00E0 popula\u00E7\u00E3o",
+      weatherProvider:"Fornecedor", weatherWhen:"Quando notificar",
+      when_always:"Sempre", when_morning:"Manh\u00E3 at\u00E9 \u00E0s 10h (de hoje)", when_night:"Noite depois das 18h (de amanh\u00E3)",
+      wpTitle:"Avisos antecipados", wpEnable:"Ativar", wpMinutes:"Anteced\u00EAncia", wRain:"Chuva", wWind:"Vento", wHeat:"Calor", wStorm:"Trovoada",
+      wpRainPct:"Chuva %", wpWindKmh:"Vento km/h", wpHeatC:"Calor \u00B0C", wpStormCode:"C\u00F3digo trovoada \u2265",
+      clubAlertsTitle:"Alertas deste clube", custom:"personalizados", inherited:"herdados (globais)", useGlobal:"Herdar globais",
+      tabSim:"Simular golos", simTitle:"Simula\u00E7\u00E3o de golos", simNote:"Um bot\u00E3o por clube. Envia uma notifica\u00E7\u00E3o real (sem som) pelo Notification Center.",
+      simEdit:"Editar clubes de teste", simId:"Id ESPN", simMsg:"Mensagem", simColor:"Cor da faixa", volume:"Volume",
+      lead:"Avisos na TV, enviados pelo Notification Center.", preview:"Pr\u00E9-visualiza\u00E7\u00E3o", onTv:"Na TV", previewHelp:"O que muda na TV",
+      previewSetup:"Cada m\u00F3dulo envia os seus avisos pelo Notification Center.", previewHelpSetup:"S\u00F3 os m\u00F3dulos ligados aqui podem mostrar avisos. Este painel n\u00E3o desenha nada na TV.",
+      previewWeather:"O pr\u00F3ximo aviso de tempo ter\u00E1 este aspeto.", previewHelpWeather:"O local e o intervalo escolhidos aqui s\u00E3o usados em todos os avisos de tempo; o estilo est\u00E1 em Defini\u00E7\u00F5es.",
+      previewNews:"As manchetes novas aparecem \u00E0 medida que chegam.", previewHelpNews:"S\u00F3 s\u00E3o anunciadas manchetes mais recentes do que a \u00FAltima verifica\u00E7\u00E3o, uma fonte de cada vez.",
+      previewSport:"Os golos e os eventos do jogo usam o estilo escolhido em Defini\u00E7\u00F5es.", previewHelpSport:"O clube escolhido decide o emblema, o nome e os alertas mostrados; o estilo est\u00E1 em Defini\u00E7\u00F5es.",
+      previewOthers:"Resultados de NBA, MLB, NHL, NFL e F1.", previewHelpOthers:"Cada escolha tem o seu acompanhamento e alertas; remover uma n\u00E3o altera as outras.",
+      previewHelpTech:"O estado vem do Shard; os avisos na TV s\u00E3o decididos pelo Notification Center.",
+      stateTitle:"Estado", shard:"Shard", stateShardNote:"Este painel", stateNcNote:"Avisos na TV", stateLogNote:"Eventos recentes",
+      findPlace:"Procurar por nome", foundPlaces:"Resultados", thRoute:"Rota", thUse:"Uso", routeLast:"Estado p\u00FAblico, sem chave",
+      routeTest:"Enviar um aviso de teste", routePoll:"Verificar um m\u00F3dulo agora", routeClear:"Esvaziar o registo",
+      drawerTitle:"Detalhes", close:"Fechar", del:"Apagar", cancel:"Cancelar", queued:"na fila",
+      generalCard:"Geral", notificationCard:"Aviso", soundCard:"Som", backupCard:"C\u00F3pia",
+      cfgShow:"Mostrar config", cfgCopy:"Copiar", cfgLoad:"Carregar config", cfgPaste:"Colar configura\u00E7\u00E3o (JSON)", cfgShown:"Config apresentada abaixo.", cfgCopied:"Config copiada.", cfgLoaded:"Config carregada.", cfgInvalid:"JSON inv\u00E1lido.",
+      resetCfg:"Repor", resetNote:"Repor descarta as altera\u00E7\u00F5es neste painel e recarrega o que o Shard guardou.", settingsWord:"todas as defini\u00E7\u00F5es", statusTitle:"Estado", depTitle:"Depend\u00EAncias", depNote:"Hub, app e servi\u00E7o", linkTitle:"Liga\u00E7\u00E3o", linkNote:"Painel ao Shard",
+      lastError:"\u00DAltimo erro", noError:"Nenhum", logRecent:"Enviadas recentemente", refresh:"Atualizar", styleInSettings:"O estilo do aviso, o som e o volume est\u00E3o em Defini\u00E7\u00F5es.",
+      chipActive:"Avisos ativos", chipIdle:"Sem m\u00F3dulos", chipOnline:"Ligado", chipRetry:"Tentar outra vez", chipLoading:"A carregar...", depFallback:"NC ?"
+    }
+  };
+  var lang = "en", cfg = null, dirty = false, lastSaveAt = 0;
+  var ncVersion = "", ncApp = "", ncService = "", linkOK = false, linkFailed = false;
+  function updateSaveState() {
+    var e = $("save-state");
+    if (!e) { return; }
+    if (dirty) { e.textContent = tr("unsaved"); e.className = "msg err"; }
+    else {
+      e.textContent = lastSaveAt ? (tr("savedAt") + new Date(lastSaveAt).toLocaleTimeString()) : "";
+      e.className = "msg ok";
+    }
+  }
+  var clubs = [], picks = [], feeds = [], geoResults = [], simClubs = [], pickListError = false;
+  var CLUB_ALERTS = [
+    ["goal","a_goal"], ["against","a_against"], ["card","a_card"], ["sub","a_sub"],
+    ["varNo","a_var"], ["penalty","a_pen"], ["penMiss","a_penMiss"], ["start","a_start"], ["half","a_half"], ["end","a_end"]
+  ];
+  function effAlerts(cl) { return cl.alerts || (cfg && cfg.football && cfg.football.alerts) || {}; }
+  // The panel is served at /plugins/<id>/api/ui (or .../s/<session>/api/ui), so the API lives in the
+  // same folder. A relative "api/state" resolved to .../api/api/state and every request 404ed.
+  var BASE = (function () {
+    var p = String((window.location && window.location.pathname) || "").replace(/\/ui\/?$/, "/");
+    return p.slice(-1) === "/" ? p : p + "/";
+  })();
+
+  function tr(k) { return (T[lang] && T[lang][k]) || T.en[k] || k; }
+  function fmtWhen(iso) {
+    try {
+      return new Date(iso).toLocaleString(lang === "pt" ? "pt-PT" : "en-GB",
+        { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return String(iso).slice(0, 16); }
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function applyText() {
+    var i, els = document.querySelectorAll("[data-t]");
+    for (i = 0; i < els.length; i++) { els[i].textContent = tr(els[i].getAttribute("data-t")); }
+    $("l-en").className = lang === "en" ? "on" : "";
+    $("l-pt").className = lang === "pt" ? "on" : "";
+    $("l-en").setAttribute("aria-pressed", lang === "en" ? "true" : "false");
+    $("l-pt").setAttribute("aria-pressed", lang === "pt" ? "true" : "false");
+  }
+  var toastTimer = null, lastState = null;
+  // Success floats at the bottom for 4 s; an error stays next to the control (Vetro 0.19.0).
+  function toast(msg) {
+    var e = $("toast");
+    if (!e || !msg) { return; }
+    e.textContent = msg; e.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { e.hidden = true; }, 4000);
+  }
+  function note(id, msg, cls) {
+    var e = $(id);
+    if (!e) { return; }
+    if (cls === "ok") { e.textContent = ""; e.className = "msg"; toast(msg); }
+    else { e.textContent = msg || ""; e.className = "msg " + (cls || ""); }
+  }
+  function say(msg, cls) { note("add-msg", msg, cls); }
+  function sayPick(msg, cls) { note("pick-msg", msg, cls); }
+  // Inline amber confirmation: Cancel has focus and Escape cancels (no centered dialog in the sandbox).
+  function confirmHere(btn, name, run) {
+    var old = document.querySelector(".inline-confirm"), box = document.createElement("div"),
+      p = document.createElement("p"), row = document.createElement("div"),
+      yes = document.createElement("button"), no = document.createElement("button"), host = btn.parentNode;
+    if (old && old.parentNode) { old.parentNode.removeChild(old); }
+    box.className = "inline-confirm"; box.setAttribute("role", "group");
+    p.textContent = tr("del") + " " + name + "?"; p.id = "confirm-q";
+    box.setAttribute("aria-labelledby", p.id);
+    row.className = "row";
+    yes.type = "button"; yes.className = "warnbtn"; yes.textContent = tr("del");
+    no.type = "button"; no.textContent = tr("cancel");
+    function close() { if (box.parentNode) { box.parentNode.removeChild(box); } }
+    function back() { close(); if (btn && btn.focus) { btn.focus(); } }
+    yes.addEventListener("click", function () { close(); run(); });
+    no.addEventListener("click", back);
+    box.addEventListener("keydown", function (e) { if (e.key === "Escape" || e.keyCode === 27) { back(); } });
+    row.appendChild(yes); row.appendChild(no); box.appendChild(p); box.appendChild(row);
+    if (host && host.parentNode) { host.parentNode.insertBefore(box, host.nextSibling); }
+    no.focus();
+  }
+  // The icons follow the dashboard's sectionIcons: 26 px, stroke --accent, translated title in a span.
+  var ICON = {
+    modules:"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>",
+    weatherCard:"<path d=\"M3 15h14a4 4 0 0 0-1-7.9A5.5 5.5 0 0 0 5.5 8 3.5 3.5 0 0 0 3 15z\"/><path d=\"M6 19h9\"/>",
+    addPlaceTitle:"<path d=\"M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>",
+    wpTitle:"<path d=\"M12 3v10\"/><path d=\"M7 15l5-3 5 3\"/><path d=\"M5 19h14\"/>",
+    civNow:"<path d=\"M12 3l8 4v6c0 4.5-3.2 7.3-8 8-4.8-.7-8-3.5-8-8V7l8-4z\"/><path d=\"M9 12l2 2 4-4\"/>",
+    civSources:"<path d=\"M4 6h16M4 12h16M4 18h16\"/><circle cx=\"9\" cy=\"6\" r=\"2\"/><circle cx=\"15\" cy=\"12\" r=\"2\"/>",
+    sources:"<path d=\"M4 5h16v14H4z\"/><path d=\"M7 9h10M7 13h10M7 17h6\"/>",
+    newsSettings:"<path d=\"M4 5h16v14H4z\"/><path d=\"M7 9h10M7 17h6\"/><circle cx=\"10\" cy=\"13\" r=\"2\"/>",
+    clubs:"<circle cx=\"9\" cy=\"9\" r=\"3\"/><circle cx=\"17\" cy=\"10\" r=\"2.5\"/><path d=\"M3 20c0-3 2.7-5 6-5s6 2 6 5M15 16c3 0 6 1.5 6 4\"/>",
+    alerts:"<path d=\"M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9z\"/><path d=\"M10 21h4\"/>",
+    style:"<path d=\"M4 7h16M4 17h16\"/><circle cx=\"9\" cy=\"7\" r=\"2\"/><circle cx=\"15\" cy=\"17\" r=\"2\"/>",
+    provider:"<path d=\"M9 3v6M15 3v6M6 9h12v4a6 6 0 0 1-12 0V9z\"/><path d=\"M12 19v3\"/>",
+    simTitle:"<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 3v3M12 18v3M3 12h3M18 12h3\"/>",
+    simEdit:"<path d=\"M4 20h4L19 9l-4-4L4 16v4z\"/><path d=\"M14 6l4 4\"/>",
+    picks:"<path d=\"M4 20V4M4 20h16\"/><path d=\"M8 16l4-5 3 2 4-6\"/>",
+    now:"<path d=\"M3 12h4l3-7 4 14 3-7h4\"/>",
+    diagTitle:"<path d=\"M4 5h16v14H4z\"/><path d=\"M8 10h8M8 14h5\"/>",
+    techApi:"<path d=\"M9 7l-5 5 5 5M15 7l5 5-5 5\"/>",
+    generalCard:"<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/>",
+    notificationCard:"<path d=\"M4 5h16v14H4z\"/><path d=\"M7 9h10M7 13h10M7 17h6\"/>",
+    soundCard:"<path d=\"M4 9v6h4l5 4V5L8 9H4z\"/><path d=\"M17 9c1.5 1.6 1.5 4.4 0 6\"/>",
+    backupCard:"<path d=\"M4 7h16v12H4z\"/><path d=\"M9 7V4h6v3M9 12h6M9 16h4\"/>",
+    statusTitle:"<path d=\"M3 12h4l3-7 4 14 3-7h4\"/>",
+    logRecent:"<path d=\"M5 4h14v16H5z\"/><path d=\"M9 8h6M9 12h6M9 16h4\"/>"
+  };
+  function sectionIcons() {
+    var list = document.querySelectorAll("details.sec > summary"), i, j, key, sum, kids, span;
+    for (i = 0; i < list.length; i++) {
+      sum = list[i];
+      if (sum.getAttribute("data-icon")) { continue; }
+      key = sum.getAttribute("data-t");
+      kids = sum.children;
+      if (!key) {
+        for (j = 0; j < kids.length; j++) { if (kids[j].getAttribute("data-t")) { key = kids[j].getAttribute("data-t"); break; } }
+      }
+      if (!key || !ICON[key]) { continue; }
+      sum.setAttribute("data-icon", key);
+      if (kids.length) { sum.insertAdjacentHTML("afterbegin", '<svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true">' + ICON[key] + "</svg>"); continue; }
+      span = document.createElement("span"); span.setAttribute("data-t", key); span.textContent = sum.textContent;
+      sum.removeAttribute("data-t"); sum.innerHTML = '<svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true">' + ICON[key] + "</svg>";
+      sum.appendChild(span);
+    }
+  }
+  function markGroups() {
+    var cards = document.querySelectorAll(".card"), i, j, kids;
+    for (i = 0; i < cards.length; i++) {
+      kids = cards[i].children;
+      for (j = 0; j < kids.length; j++) {
+        if (kids[j].tagName === "DETAILS" && /\bsec\b/.test(kids[j].className)) { cards[i].className += " groups"; break; }
+      }
+    }
+  }
+  function chip(id, text, cls) {
+    var e = $(id);
+    if (!e) { return; }
+    e.textContent = text; e.className = "chip" + (cls ? " " + cls : "");
+  }
+  // One line of status chips in the header; the same values are repeated as rows in System.
+  function updateHeader() {
+    var mods = ["sport", "weather", "news"], i, on = 0;
+    if (cfg) {
+      for (i = 0; i < mods.length; i++) { if (cfg.modules && cfg.modules[mods[i]]) { on++; } }
+      if (cfg.civ && cfg.civ.enabled) { on++; }
+    }
+    chip("chip-now", tr(on ? "chipActive" : "chipIdle"), on ? "ok" : "warn");
+    var parts = ["NC " + (ncVersion || "?")];
+    if (ncApp) { parts.push("App " + ncApp); }
+    if (ncService) { parts.push("Service " + ncService); }
+    var deps = parts.join(" | "), linkText = tr(linkOK ? "chipOnline" : (linkFailed ? "chipRetry" : "chipLoading"));
+    var linkCls = linkOK ? "ok" : (linkFailed ? "bad" : "warn");
+    chip("chip-deps", deps, ncVersion ? "ok" : "warn");
+    chip("chip-link", linkText, linkCls);
+    chip("pv-deps", deps, ncVersion ? "ok" : "warn");
+    chip("pv-link", linkText, linkCls);
+  }
+  // The Shard does not publish the hub's version: read it from the local Notification Center.
+  function readNc() {
+    var loc = window.location || {};
+    var url = (loc.protocol && loc.host)
+      ? loc.protocol + "//" + loc.host + "/plugins/notification-center/api/api"
+      : "http://127.0.0.1:8099/plugins/notification-center/api/api";
+    fetch(url, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+      var a = d && (d.appVersion || d.app);
+      ncVersion = (d && d.version) ? String(d.version) : "";
+      ncApp = a ? (typeof a === "object" ? String(a.version || "") : String(a)) : "";
+      if (d && d.service) {
+        ncService = typeof d.service === "object" ? String(d.service.version || "on") : String(d.service === true ? "on" : d.service);
+      } else { ncService = ""; }
+      updateHeader();
+    }).catch(function () { ncVersion = ""; ncApp = ""; ncService = ""; updateHeader(); });
+  }
+  function paintPreview() {
+    if (!cfg) { return; }
+    chip("pv-mod-sport", tr("sport"), cfg.modules.sport ? "ok" : "");
+    chip("pv-mod-weather", tr("weather"), cfg.modules.weather ? "ok" : "");
+    chip("pv-mod-news", tr("news"), cfg.modules.news ? "ok" : "");
+    chip("pv-w-mode", tr("mode_" + cfg.weather.mode), "");
+    chip("pv-w-proactive", (cfg.weather.proactive && cfg.weather.proactive.enabled) ? tr("wpTitle") : tr("none"), (cfg.weather.proactive && cfg.weather.proactive.enabled) ? "ok" : "");
+    chip("pv-n-mode", tr("mode_" + cfg.news.mode), "");
+    chip("pv-n-count", String(cfg.news.count), "ok");
+    chip("pv-f-mode", tr("mode_" + cfg.football.mode), "");
+    chip("pv-f-next", (cfg.football.nextGame && cfg.football.nextGame.enabled) ? tr("nextWarn") : tr("none"), (cfg.football.nextGame && cfg.football.nextGame.enabled) ? "ok" : "");
+    chip("pv-o-mode", tr("mode_" + cfg.others.mode), "");
+    chip("pv-shard", cfg.version ? "v" + cfg.version : tr("loading"), "ok");
+    chip("pv-nc", tr("queued") + ": " + ((lastState && lastState.notify) ? lastState.notify.queued : 0), "");
+    chip("pv-log", ((lastState && lastState.log) ? lastState.log.length : 0) + " " + tr("diagLog"), "");
+    var pn = $("pv-news-line"), ps = $("pv-sport-line");
+    if (pn) { pn.textContent = $("news-line").textContent || tr("noneyet"); }
+    if (ps) { ps.textContent = $("sport-line").textContent || "-"; }
+    updateHeader();
+  }
+  function api(path, body) {
+    var opt = { method: body ? "POST" : "GET", cache: "no-store" };
+    if (body) { opt.headers = { "Content-Type": "application/json" }; opt.body = JSON.stringify(body); }
+    return fetch(BASE + path, opt).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) { throw new Error((j && j.error) || ("HTTP " + r.status)); }
+        return j;
+      });
+    }, function () { throw new Error(tr("noAnswer")); });
+  }
+  function act(btn, promise) {
+    if (!btn || btn.disabled) { return; }
+    var old = btn.textContent;
+    btn.disabled = true; btn.textContent = tr("loading");
+    promise.then(function () { btn.className = btn.className.replace(/ fail| done/g, "") + " done"; })
+      .catch(function (e) { btn.className = btn.className.replace(/ fail| done/g, "") + " fail"; say(tr("err") + e.message, "err"); })
+      .then(function () { btn.disabled = false; btn.textContent = old; });
+  }
+  function fillSel(el, list, value) {
+    el.innerHTML = (list || []).map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name || x.label) + "</option>"; }).join("");
+    if (value) { el.value = value; }
+  }
+  function fillMode(el, value) {
+    el.innerHTML = ["banner", "full", "overlay"].map(function (id) {
+      return '<option value="' + id + '">' + esc(tr("mode_" + id)) + "</option>";
+    }).join("");
+    el.value = value || "banner";
+  }
+  function range(id, value) { $(id).value = value; $(id + "v").textContent = value; }
+
+  // ---- lists ---------------------------------------------------------------------------------------------------------------
+  function compsFor(league) {
+    var c = null, i, out = [], country = "";
+    for (i = 0; i < cfg.comps.length; i++) { if (cfg.comps[i].id === league) { c = cfg.comps[i]; } }
+    country = c ? c.country : "";
+    for (i = 0; i < cfg.comps.length; i++) {
+      if (cfg.comps[i].country === country || cfg.comps[i].country === "eu") { out.push(cfg.comps[i]); }
+    }
+    return out;
+  }
+  function renderClubs() {
+    var box = $("clubs"), i, j, html = "";
+    if (!clubs.length) { box.innerHTML = '<div class="msg">' + esc(tr("noClubs")) + "</div>"; return; }
+    for (i = 0; i < clubs.length; i++) {
+      var cl = clubs[i], comps = compsFor(cl.league);
+      html += '<div class="club" data-id="' + esc(cl.id) + '">';
+      html += '<div class="club-head"><b>' + esc(cl.name) + '</b><span class="tag">' + esc(cl.league) + "</span>";
+      html += '<button type="button" class="x" data-act="rm">' + esc(tr("remove")) + "</button></div>";
+      html += '<div class="comps">';
+      for (j = 0; j < comps.length; j++) {
+        html += '<div class="setting"><label for="cmp-' + esc(cl.id) + '-' + j + '" id="cmp-' + esc(cl.id) + '-' + j + '-name">' + esc(comps[j].name) + '</label>' +
+          '<label class="switch"><input type="checkbox" role="switch" id="cmp-' + esc(cl.id) + '-' + j + '" data-comp="' + esc(comps[j].id) + '" aria-labelledby="cmp-' + esc(cl.id) + '-' + j + '-name"' +
+          (cl.comps.indexOf(comps[j].id) >= 0 ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
+      }
+      html += "</div>";
+      html += '<div class="setting"><label for="cnews-' + esc(cl.id) + '" id="cnews-' + esc(cl.id) + '-name">' + esc(tr("clubNewsShort")) + '</label>' +
+        '<label class="switch"><input type="checkbox" role="switch" id="cnews-' + esc(cl.id) + '" data-act="news" aria-labelledby="cnews-' + esc(cl.id) + '-name"' + (cl.news ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
+      html += '<div class="small" style="margin-top:6px">' + esc(tr("clubAlertsTitle")) + ": " +
+        (cl.alerts ? esc(tr("custom")) : esc(tr("inherited"))) +
+        (cl.alerts ? ' <button type="button" class="x" data-clubreset="' + esc(cl.id) + '">' + esc(tr("useGlobal")) + "</button>" : "") + "</div>";
+      html += '<div class="comps">';
+      for (j = 0; j < CLUB_ALERTS.length; j++) {
+        html += '<div class="setting"><label for="cal-' + esc(cl.id) + '-' + j + '" id="cal-' + esc(cl.id) + '-' + j + '-name">' + esc(tr(CLUB_ALERTS[j][1])) + '</label>' +
+          '<label class="switch"><input type="checkbox" role="switch" id="cal-' + esc(cl.id) + '-' + j + '" data-cal="' + esc(cl.id) + '" data-key="' + CLUB_ALERTS[j][0] + '" aria-labelledby="cal-' + esc(cl.id) + '-' + j + '-name"' +
+          (effAlerts(cl)[CLUB_ALERTS[j][0]] ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
+      }
+      html += "</div>";
+      html += "</div>";
+    }
+    box.innerHTML = html;
+  }
+  // The test buttons act for one club: the one picked here, so a club with custom alerts
+  // can be checked without touching the others. The pick survives the 20 s refresh.
+  function renderTestClubs() {
+    var sel = $("test-club"), keep = sel.value, i, html = "";
+    if (!clubs.length) { sel.innerHTML = '<option value="">' + esc(tr("noClubs")) + "</option>"; return; }
+    for (i = 0; i < clubs.length; i++) {
+      html += '<option value="' + esc(clubs[i].id) + '">' + esc(clubs[i].name) + "</option>";
+    }
+    sel.innerHTML = html;
+    if (keep) { sel.value = keep; }
+    if (!sel.value) { sel.value = clubs[0].id; }
+  }
+  function updatePickButton() {
+    var sp = $("add-sport").value, i, meta = null;
+    for (i = 0; i < (cfg ? cfg.otherSports.length : 0); i++) { if (cfg.otherSports[i].id === sp) { meta = cfg.otherSports[i]; } }
+    // A race pick needs an ESPN event id: never fall back to the bare sport label, because every
+    // such pick would then follow the same race.
+    $("add-pick").disabled = !sp || !meta || !!(cfg.maxPicks && picks.length >= cfg.maxPicks) ||
+      pickListError;
+  }
+  function renderPicks() {
+    var box = $("picks"), i, k, html = "", label;
+    if (!picks.length) { box.innerHTML = '<div class="msg">' + esc(tr("noPicks")) + "</div>"; updatePickButton(); return; }
+    for (i = 0; i < picks.length; i++) {
+      label = picks[i].sport;
+      for (k = 0; k < cfg.otherSports.length; k++) {
+        if (cfg.otherSports[k].id === picks[i].sport) { label = cfg.otherSports[k].label; }
+      }
+      html += '<div class="pick" data-i="' + i + '"><span>' + esc(picks[i].name) + " <span class=\"small\">" +
+        esc(label) + "</span></span><button type=\"button\" class=\"x\" data-act=\"rm\">" + esc(tr("remove")) + "</button></div>";
+    }
+    box.innerHTML = html;
+    updatePickButton();
+  }
+  function renderFeeds() {
+    $("feeds").innerHTML = cfg.feeds.map(function (f) {
+      return '<div class="setting"><label for="feed-' + esc(f.id) + '" id="feed-' + esc(f.id) + '-name">' + esc(f.name) + '</label>' +
+        '<label class="switch"><input type="checkbox" role="switch" id="feed-' + esc(f.id) + '" data-feed="' + esc(f.id) + '" aria-labelledby="feed-' + esc(f.id) + '-name"' +
+        (feeds.indexOf(f.id) >= 0 ? " checked" : "") + '><span aria-hidden="true"></span></label></div>';
+    }).join("");
+  }
+  function simsay(s, cls) { note("sim-msg", s, cls); }
+  function renderSim() {
+    var box = $("sim-grid"), i, html = "";
+    if (!simClubs.length) { box.innerHTML = '<div class="msg">' + esc(tr("noClubs")) + "</div>"; return; }
+    for (i = 0; i < simClubs.length; i++) {
+      var c = simClubs[i];
+      html += '<div><button type="button" class="simbtn" data-sim="' + esc(c.id) + '">' +
+        '<img src="' + esc(c.logo) + '" alt=""><span><b>' + esc(c.name) + "</b><small>" + esc(c.msg || tr("simTitle")) +
+        "</small></span></button>" +
+        '<div class="simrow"><select data-simlevel="' + esc(c.id) + '">' +
+        ["ok","info","warn","alert"].map(function (lv) {
+          return '<option value="' + lv + '"' + (c.level === lv ? " selected" : "") + ">" + lv + "</option>";
+        }).join("") +
+        '</select><button type="button" class="x" data-simrm="' + esc(c.id) + '">x</button></div></div>';
+    }
+    box.innerHTML = html;
+  }
+  function wmsg(s, cls) { note("weather-msg", s, cls); }
+  function renderCustomPlaces() {
+    var box = $("custom-places"), list = (cfg && cfg.weather && cfg.weather.custom) || [], i;
+    if (!list.length) { box.innerHTML = ""; return; }
+    var html = '<div style="margin-top:8px">' + esc(tr("savedPlaces")) + ': ';
+    for (i = 0; i < list.length; i++) {
+      html += '<span class="tag" style="margin-right:6px">' + esc(list[i].name) +
+        ' <button type="button" class="x" data-act="rmplace" data-id="' + esc(list[i].id) + '">x</button></span>';
+    }
+    box.innerHTML = html + "</div>";
+  }
+
+  // ---- fill -----------------------------------------------------------------------------------------------------------------
+  function fill() {
+    var c = cfg;
+    $("ver").textContent = c.version ? "v" + c.version : "";
+    $("m-sport").checked = !!c.modules.sport;
+    $("m-weather").checked = !!c.modules.weather;
+    $("m-news").checked = !!c.modules.news;
+    fillSel($("w-place"), c.places, c.weather.place);
+    fillSel($("w-provider"), (c.weatherProviders || []).map(function (p) {
+      return { id: p.id, name: p.id === 'ipma' ? 'IPMA' : 'Open-Meteo' };
+    }), c.weather.provider);
+    fillSel($("w-when"), (c.weatherWhen || []).map(function (x) {
+      return { id: x.id, name: tr("when_" + x.id) };
+    }), c.weather.when);
+    renderCustomPlaces();
+    geoResults = [];
+    $("place-results").innerHTML = "";
+    $("place-results").className = "hidden";
+    range("w-interval", c.weather.interval); range("w-seconds", c.weather.seconds); range("w-volume", c.weather.volume);
+    $("w-sound").checked = !!c.weather.sound;
+    fillMode($("w-mode"), c.weather.mode);
+
+    range("n-interval", c.news.interval); range("n-seconds", c.news.seconds); range("n-volume", c.news.volume);
+    $("n-count").value = String(c.news.count);
+    $("n-sound").checked = !!c.news.sound;
+    fillMode($("n-mode"), c.news.mode);
+
+    fillSel($("f-provider"), c.providers, c.football.provider);
+    fillMode($("f-mode"), c.football.mode);
+    $("f-sound").checked = !!c.football.sound;
+    range("f-goalsec", c.football.goalSeconds); range("f-othersec", c.football.otherSeconds); range("f-volume", c.football.volume);
+    $("f-next-enabled").checked = !!(c.football.nextGame && c.football.nextGame.enabled);
+    $("f-next-minutes").value = String((c.football.nextGame && c.football.nextGame.minutes) || 0);
+    var fb = document.querySelectorAll("[data-fb]"), i, k;
+    for (i = 0; i < fb.length; i++) {
+      k = fb[i].getAttribute("data-fb");
+      fb[i].checked = !!c.football.alerts[k === "card" ? "card" : k];
+    }
+
+    fillMode($("o-mode"), c.others.mode);
+    $("o-sound").checked = !!c.others.sound;
+    range("o-seconds", c.others.seconds); range("o-volume", c.others.volume);
+    var ob = document.querySelectorAll("[data-ob]");
+    for (i = 0; i < ob.length; i++) { ob[i].checked = !!c.others.alerts[ob[i].getAttribute("data-ob")]; }
+
+    clubs = JSON.parse(JSON.stringify(c.football.clubs || []));
+    picks = JSON.parse(JSON.stringify(c.others.picks || []));
+    feeds = (c.news.feeds || []).slice(0);
+    simClubs = JSON.parse(JSON.stringify((c.sim && c.sim.clubs) || []));
+    renderClubs(); renderTestClubs(); renderPicks(); renderFeeds();  renderSim();
+
+    var cv = c.civ || {}, clv = cv.levels || {};
+    var wp = (c.weather && c.weather.proactive) || {};
+    $("wp-enabled").checked = !!wp.enabled;
+    $("wp-minutes").value = String(wp.minutes || 60);
+    $("wp-rain").checked = wp.rain !== false; $("wp-wind").checked = wp.wind !== false;
+    $("wp-heat").checked = wp.heat !== false; $("wp-storm").checked = wp.storm !== false;
+    $("wp-rainpct").value = wp.rainPct || 60; $("wp-windkmh").value = wp.windKmh || 50;
+    $("wp-heatc").value = wp.heatC || 35; $("wp-stormcode").value = wp.stormCode || 95;
+
+    $("civ-enabled").checked = !!cv.enabled;
+    $("m-civ").checked = !!cv.enabled;
+    fillSel($("civ-district"), c.civAreas || [], cv.district);
+    $("civ-yellow").checked = !!clv.yellow; $("civ-orange").checked = !!clv.orange; $("civ-red").checked = !!clv.red;
+    $("civ-anepc").checked = !!cv.anepc; $("civ-news").checked = !!cv.news;
+    $("civ-keywords").value = cv.keywords || "";
+    fillMode($("civ-mode"), cv.mode);
+    $("civ-sound").checked = !!cv.sound;
+    range("civ-interval", cv.interval); range("civ-seconds", cv.seconds); range("civ-volume", cv.volume);
+
+    fillSel($("add-league"), c.clubLeagues, c.clubLeagues[0] && c.clubLeagues[0].id);
+    fillSel($("add-sport"), [{ id: "", name: tr("none") }].concat(c.otherSports), "");
+    loadTeams($("add-league").value, $("add-team"));
+    loadTeams2();
+    applyTabVisibility();
+    dirty = false;
+  }
+  function loadTeams(league, el) {
+    el.innerHTML = "<option>" + esc(tr("loading")) + "</option>";
+    api("teams", { sport: "soccer", league: league, provider: $("f-provider").value })
+      .then(function (d) { fillSel(el, d.teams); })
+      .catch(function (e) { el.innerHTML = "<option>" + esc(tr("err") + e.message) + "</option>"; });
+  }
+  function loadTeams2() {
+    var sp = $("add-sport").value, el = $("add-team2"), meta = null, i;
+    updatePickButton();
+    pickListError = false;
+    if (!sp) { el.innerHTML = '<option value="">' + esc(tr("none")) + "</option>"; return; }
+    for (i = 0; i < cfg.otherSports.length; i++) { if (cfg.otherSports[i].id === sp) { meta = cfg.otherSports[i]; } }
+    if (!meta) { el.innerHTML = '<option value="">' + esc(tr("none")) + "</option>"; return; }
+    el.innerHTML = "<option>" + esc(tr("loading")) + "</option>";
+    // Races have an ESPN event id, so two F1 picks can follow two different races.
+    var route = meta.teams ? "teams" : "races";
+    var args = meta.teams ? { sport: sp, league: sp, provider: "espn" } : {};
+    api(route, args)
+      .then(function (d) {
+        var list = d.teams || d.races || [];
+        // A past Grand Prix can never alert again: keep the picker useful.
+        if (!meta.teams) { list = list.filter(function (x) { return !x.past; }); }
+        pickListError = !list.length;
+        fillSel(el, list);
+      })
+      .catch(function () {
+        pickListError = true;
+        el.innerHTML = '<option value="">' + esc(tr(meta.teams ? "noTeams" : "noRaces")) + "</option>";
+      });
+  }
+
+  // ---- save -----------------------------------------------------------------------------------------------------------------
+  function body() {
+    var fb = {}, ob = {}, i, k;
+    var fbEls = document.querySelectorAll("[data-fb]");
+    for (i = 0; i < fbEls.length; i++) {
+      k = fbEls[i].getAttribute("data-fb");
+      if (k !== "card") { fb[k] = fbEls[i].checked; }
+    }
+    fb.card = document.querySelector('[data-fb="card"]').checked;
+    var obEls = document.querySelectorAll("[data-ob]");
+    for (i = 0; i < obEls.length; i++) { ob[obEls[i].getAttribute("data-ob")] = obEls[i].checked; }
+    return {
+      modules: { sport: $("m-sport").checked, weather: $("m-weather").checked, news: $("m-news").checked },
+      civ: {
+        enabled: $("civ-enabled").checked, district: $("civ-district").value,
+        levels: { yellow: $("civ-yellow").checked, orange: $("civ-orange").checked, red: $("civ-red").checked },
+        anepc: $("civ-anepc").checked, news: $("civ-news").checked, keywords: $("civ-keywords").value,
+        interval: parseInt($("civ-interval").value, 10), seconds: parseInt($("civ-seconds").value, 10),
+        sound: $("civ-sound").checked, mode: $("civ-mode").value, volume: parseInt($("civ-volume").value, 10)
+      },
+      weather: {
+        place: $("w-place").value, custom: ((cfg && cfg.weather && cfg.weather.custom) || []).slice(0),
+        provider: $("w-provider").value, when: $("w-when").value,
+        interval: parseInt($("w-interval").value, 10), seconds: parseInt($("w-seconds").value, 10),
+        sound: $("w-sound").checked, mode: $("w-mode").value,
+        volume: parseInt($("w-volume").value, 10),
+        proactive: {
+          enabled: $("wp-enabled").checked, minutes: parseInt($("wp-minutes").value, 10),
+          rain: $("wp-rain").checked, wind: $("wp-wind").checked,
+          heat: $("wp-heat").checked, storm: $("wp-storm").checked,
+          rainPct: parseInt($("wp-rainpct").value, 10), windKmh: parseInt($("wp-windkmh").value, 10),
+          heatC: parseInt($("wp-heatc").value, 10), stormCode: parseInt($("wp-stormcode").value, 10)
+        }
+      },
+      news: {
+        feeds: feeds.slice(0), interval: parseInt($("n-interval").value, 10), seconds: parseInt($("n-seconds").value, 10),
+        count: parseInt($("n-count").value, 10), sound: $("n-sound").checked, mode: $("n-mode").value,
+        volume: parseInt($("n-volume").value, 10)
+      },
+      football: {
+        provider: $("f-provider").value, clubs: clubs,
+        alerts: { goal: fb.goal, against: fb.against, card: fb.card, sub: fb.sub, varNo: fb.varNo, penalty: fb.penalty, penMiss: fb.penMiss, start: fb.start, half: fb.half, end: fb.end },
+        goalSeconds: parseInt($("f-goalsec").value, 10), otherSeconds: parseInt($("f-othersec").value, 10),
+        sound: $("f-sound").checked, mode: $("f-mode").value, volume: parseInt($("f-volume").value, 10),
+        nextGame: { enabled: $("f-next-enabled").checked, minutes: parseInt($("f-next-minutes").value, 10) }
+      },
+      others: {
+        picks: picks, alerts: { start: ob.start, half: ob.half, end: ob.end, score: ob.score },
+        seconds: parseInt($("o-seconds").value, 10), sound: $("o-sound").checked, mode: $("o-mode").value,
+        volume: parseInt($("o-volume").value, 10)
+      }
+    };
+  }
+  // `forTest` lets the test buttons work even with every news source unticked: the payload just
+  // omits the list and the backend keeps the sources it already has.
+  function save(forTest) {
+    var b = body();
+    if (!feeds.length) {
+      if (!forTest) { say(tr("chooseOne"), "err"); return Promise.reject(new Error(tr("chooseOne"))); }
+      delete b.news.feeds;
+    }
+    return api("config", b).then(function () {
+      dirty = false; lastSaveAt = Date.now(); updateSaveState(); return state();
+    });
+  }
+  function saveOnly(btn) {
+    act(btn, save().then(function () { btn.className = btn.className.replace(/ fail| done/g, "") + " done"; say(tr("saved"), "ok"); }));
+  }
+  // Test sends what is on screen: save first, otherwise a style just picked is ignored.
+  // Football events carry the club picked in "Test with", so the banner shows that club's name,
+  // crest and style; weather, news and civil protection ignore it.
+  function test(kind) {
+    return save(true).then(function () {
+      var b = { kind: kind }, tc = $("test-club");
+      if (tc && tc.value && kind !== "weather" && kind !== "news" && kind !== "civ" && kind !== "score") {
+        b.club = tc.value;
+      }
+      return api("test", b);
+    }).then(function () {
+      return new Promise(function (r) { setTimeout(r, 900); }).then(state);
+    });
+  }
+  function state() {
+    return api("state").then(function (d) {
+      var first = !cfg;
+      cfg = d.config; lastState = d; linkOK = true; linkFailed = false;
+      if (cfg.version) { $("ver").textContent = "v" + cfg.version; }
+      if (first && cfg.lang && cfg.lang !== lang) { lang = cfg.lang; document.documentElement.lang = lang; applyText(); }
+      if (first || !dirty) { fill(); }
+      $("sport-line").textContent = (d.status.sport && d.status.sport.line) || "-";
+      $("sport-stat").textContent = (d.status.sport && d.status.sport.at) ?
+        (tr("checked") + new Date(d.status.sport.at).toLocaleTimeString() + " \u00B7 " + (d.status.sport.state || "")) : "";
+      var nx = d.next || [], parts = [], ni;
+      for (ni = 0; ni < nx.length && ni < 4; ni++) {
+        var g = nx[ni], who = (g.club === g.home || g.club === g.away) ? "" : g.club + ": ";
+        parts.push(who + g.home + " x " + g.away + " \u00B7 " + fmtWhen(g.date));
+      }
+      $("next-line").textContent = parts.length ? tr("nextMatch") + ": " + parts.join(" | ") : tr("noNext");
+      var cl = d.civ || [], ch = "", ci, a, lv;
+      if (!cl.length) {
+        $("civ-list").innerHTML = '<div class="msg">' + esc(tr("noCiv")) + "</div>";
+      } else {
+        for (ci = 0; ci < cl.length && ci < 8; ci++) {
+          a = cl[ci];
+          lv = a.level === "red" ? tr("civRed") : (a.level === "orange" ? tr("civOrange") :
+            (a.level === "yellow" ? tr("civYellow") : tr("civNotice")));
+          ch += '<div class="club"><div class="club-head"><b>' + esc(a.title) + '</b><span class="tag">' + esc(lv) + "</span></div>";
+          ch += '<div class="small">' + esc(a.source) + (a.area ? " \u00B7 " + esc(a.area) : "") +
+            (a.endsAt ? " \u00B7 " + esc(tr("civUntil")) + " " + esc(String(a.endsAt).slice(0, 16)) : "") + "</div>";
+          if (a.message) { ch += '<div class="msg">' + esc(a.message) + "</div>"; }
+          if (a.url && /^https?:/.test(a.url)) {
+            ch += '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(tr("civSource")) + "</a>";
+          }
+          ch += "</div>";
+        }
+        $("civ-list").innerHTML = ch;
+      }
+      $("civ-status").textContent = (d.status.civ && d.status.civ.at) ?
+        (tr("checked") + new Date(d.status.civ.at).toLocaleTimeString()) : "";
+      $("weather-line").textContent = d.status.weather.line || tr("noneyet");
+      $("news-line").textContent = d.status.news.line || tr("noneyet");
+
+      var wkeys = Object.keys(d.watches || {}), wh = "", wi, wv, wname;
+      for (wi = 0; wi < wkeys.length; wi++) {
+        wv = d.watches[wkeys[wi]];
+        if (!wv) { continue; }
+        wname = wkeys[wi].replace(/^club:|^other:/, "");
+        wh += "<div><b>" + esc(wname) + "</b>: " + esc(wv.line || "\u2014") +
+          (wv.state ? ' <span class="small">' + esc(wv.state) + "</span>" : "") + "</div>";
+      }
+      $("diag-watches").innerHTML = wh || tr("noClubs");
+      var logs = (d.log || []).slice(0, 10), lh = "", li, lg;
+      for (li = 0; li < logs.length; li++) {
+        lg = logs[li];
+        lh += "<div>" + esc(new Date(lg.at).toLocaleTimeString()) + " \u00B7 " + esc(lg.mod) +
+          " \u00B7 " + esc(lg.kind) + " \u00B7 " + esc(lg.text) + "</div>";
+      }
+      $("diag-log").innerHTML = lh || "\u2014";
+      var hv = d.health || {}, hk = Object.keys(hv), hh = "", hi, hn, hp;
+      for (hi = 0; hi < hk.length; hi++) {
+        hn = hk[hi]; hp = hv[hn];
+        hh += "<div><b>" + esc(hn) + "</b>: " + esc(hp.last || "ok") +
+          (hp.fails ? ' <span class="small">(' + esc(hp.fails) + ")</span>" : "") +
+          (hp.okAt ? ' <span class="small">' + esc(fmtWhen(new Date(hp.okAt).toISOString())) + "</span>" : "") + "</div>";
+      }
+      $("diag-health").innerHTML = hh || tr("noneyet");
+      var lastErr = null;
+      for (li = (d.log || []).length - 1; li >= 0; li--) {
+        if (d.log[li] && d.log[li].kind === "error") { lastErr = d.log[li]; break; }
+      }
+      $("last-error").textContent = lastErr
+        ? (new Date(lastErr.at).toLocaleTimeString() + " \u00B7 " + (lastErr.mod || "") + " \u00B7 " + (lastErr.text || ""))
+        : tr("noError");
+      $("api-help").textContent = lang === "pt"
+        ? "Estado publico (sem chaves):\n  curl http://<TV-IP>:8099/plugins/match-alerts/api/last\n\nRotas:\n  GET  /api/state    estado completo (painel)\n  GET  /api/last     vista publica\n  POST /api/test     {kind:goal|weather|news|civ}\n  POST /api/poll     {module:sport|weather|news|civ}\n  POST /api/clearlog esvazia o registo\n\nNota: o Vetro recusa pedidos com Origin de outro site; use um script na TV ou localhost."
+        : "Public state (no keys):\n  curl http://<TV-IP>:8099/plugins/match-alerts/api/last\n\nRoutes:\n  GET  /api/state    full state (panel only)\n  GET  /api/last     public read-only view\n  POST /api/test     {kind:goal|weather|news|civ}\n  POST /api/poll     {module:sport|weather|news|civ}\n  POST /api/clearlog empties the log\n\nNote: Vetro refuses requests with an Origin from another site; use a script on the TV or localhost.";
+      $("tabnav-label").textContent = tabs[currentTab()].textContent;
+      paintPreview();
+      updateSaveState();
+    });
+  }
+
+  // ---- side drawer ----------------------------------------------------------------------------------------------------------
+  function fillDrawer() {
+    var d = lastState || {}, s = d.status || {}, w = d.watches || {}, keys = Object.keys(w),
+      html = '<p>' + esc((s.sport && s.sport.line) || tr("noneyet")) + "</p>" +
+        '<p>' + esc((s.weather && s.weather.line) || tr("noneyet")) + "</p>" +
+        '<p>' + esc((s.news && s.news.line) || tr("noneyet")) + "</p>", i, v;
+    html += '<div class="table-wrap"><table class="api"><thead><tr><th>' + esc(tr("diagWatches")) + "</th><th>" + esc(tr("now")) + "</th></tr></thead><tbody>";
+    for (i = 0; i < keys.length; i++) {
+      v = w[keys[i]];
+      if (v) { html += "<tr><td>" + esc(keys[i]) + "</td><td>" + esc(v.line || "\u2014") + "</td></tr>"; }
+    }
+    if (!keys.length) { html += '<tr><td colspan="2">' + esc(tr("noClubs")) + "</td></tr>"; }
+    html += "</tbody></table></div>";
+    $("drawer-body").innerHTML = html;
+  }
+  function openDrawer() {
+    if (!$("drawer")) { return; }
+    fillDrawer(); $("drawer").hidden = false; $("drawer-close").focus();
+  }
+  function closeDrawer() {
+    if (!$("drawer")) { return; }
+    $("drawer").hidden = true;
+    if ($("drawer-open")) { $("drawer-open").focus(); }
+  }
+  $("drawer-open").addEventListener("click", openDrawer);
+  $("drawer-close").addEventListener("click", closeDrawer);
+  $("drawer").addEventListener("click", function (e) { if (e.target === this) { closeDrawer(); } });
+  document.addEventListener("keydown", function (e) {
+    if (! $("drawer").hidden && (e.key === "Escape" || e.keyCode === 27)) { closeDrawer(); }
+  });
+
+  // ---- wiring ---------------------------------------------------------------------------------------------------------------
+  var tabs = document.querySelectorAll(".tabs button");
+  var worktabs = document.querySelectorAll(".worktabs button");
+  var subtabs = document.querySelectorAll(".subsubtabs button");
+  function currentTab() {
+    for (var i = 0; i < tabs.length; i++) { if (tabs[i].className.indexOf("on") >= 0) { return i; } }
+    return 0;
+  }
+  function currentWorktab() {
+    for (var i = 0; i < worktabs.length; i++) { if (worktabs[i].className.indexOf("on") >= 0) { return i; } }
+    return 0;
+  }
+  // Work, Settings and System are always visible. The module switches only hide Work sub-tabs;
+  // hiding a module never clears its configuration.
+  function worktabEnabled(name) {
+    if (name === "sport") { return !!$("m-sport").checked; }
+    if (name === "weather") { return !!$("m-weather").checked; }
+    if (name === "news") { return !!$("m-news").checked; }
+    return true;
+  }
+  function updatePaneState() {
+    var i, name, active = tabs[currentTab()].getAttribute("data-tab"), pane;
+    for (i = 0; i < tabs.length; i++) {
+      name = tabs[i].getAttribute("data-tab");
+      tabs[i].setAttribute("aria-selected", name === active ? "true" : "false");
+      pane = $(tabs[i].getAttribute("aria-controls"));
+      if (pane) { pane.hidden = name !== active; }
+    }
+    var wa = worktabs[currentWorktab()].getAttribute("data-subtab");
+    for (i = 0; i < worktabs.length; i++) {
+      name = worktabs[i].getAttribute("data-subtab");
+      worktabs[i].hidden = !worktabEnabled(name);
+      worktabs[i].setAttribute("aria-selected", name === wa ? "true" : "false");
+      pane = $(worktabs[i].getAttribute("aria-controls"));
+      if (pane) { pane.hidden = !worktabEnabled(name) || name !== wa; }
+    }
+    var civColumn = $("civ-column");
+    if (civColumn) { civColumn.hidden = !$("m-civ").checked; }
+  }
+  function applyTabVisibility() {
+    var vis = [], i;
+    for (i = 0; i < worktabs.length; i++) {
+      if (worktabEnabled(worktabs[i].getAttribute("data-subtab"))) { vis.push(i); }
+    }
+    if (vis.length && vis.indexOf(currentWorktab()) < 0) { switchWorktab(vis[0]); }
+    else { updatePaneState(); }
+  }
+  function stepTab(delta) { switchTab(currentTab() + delta); }
+  function switchTab(idx) {
+    if (idx < 0) { idx = tabs.length - 1; }
+    if (idx >= tabs.length) { idx = 0; }
+    var paneId = tabs[idx].getAttribute("aria-controls"), panes = document.querySelectorAll(".tab"), i;
+    for (i = 0; i < tabs.length; i++) { tabs[i].className = i === idx ? "on" : ""; }
+    for (i = 0; i < panes.length; i++) { panes[i].className = panes[i].id === paneId ? "tab on" : "tab"; }
+    updatePaneState();
+    $("tabnav-label").textContent = tabs[idx].textContent;
+    $("tab-prev").disabled = false; $("tab-next").disabled = false;
+    window.scrollTo(0, 0);
+  }
+  function switchWorktab(idx) {
+    if (idx < 0) { idx = worktabs.length - 1; }
+    if (idx >= worktabs.length) { idx = 0; }
+    var i, paneId = worktabs[idx].getAttribute("aria-controls"), panes = document.querySelectorAll(".subtab");
+    for (i = 0; i < worktabs.length; i++) { worktabs[i].className = i === idx ? "on" : ""; }
+    for (i = 0; i < panes.length; i++) { panes[i].className = "subtab" + (panes[i].id === paneId ? " on" : ""); }
+    updatePaneState();
+    window.scrollTo(0, 0);
+  }
+  function switchSubtab(idx) {
+    var i, name = subtabs[idx].getAttribute("data-subtab"), panes = document.querySelectorAll(".subsubtab");
+    for (i = 0; i < subtabs.length; i++) {
+      subtabs[i].className = i === idx ? "on" : "";
+      subtabs[i].setAttribute("aria-selected", i === idx ? "true" : "false");
+    }
+    for (i = 0; i < panes.length; i++) { panes[i].className = "subsubtab" + (panes[i].id === "subtab-" + name ? " on" : ""); }
+    window.scrollTo(0, 0);
+  }
+  function wireTabs(list, fn) {
+    var i;
+    for (i = 0; i < list.length; i++) {
+      list[i].addEventListener("click", function () {
+        for (var j = 0; j < list.length; j++) { if (list[j] === this) { fn(j); return; } }
+      });
+      list[i].addEventListener("keydown", function (e) {
+        var j, pos = -1;
+        for (j = 0; j < list.length; j++) { if (list[j] === this) { pos = j; } }
+        if (pos < 0) { return; }
+        if (e.key === "ArrowRight" || e.keyCode === 39) { fn((pos + 1) % list.length); }
+        else if (e.key === "ArrowLeft" || e.keyCode === 37) { fn((pos - 1 + list.length) % list.length); }
+      });
+    }
+  }
+  wireTabs(tabs, switchTab);
+  wireTabs(worktabs, switchWorktab);
+  wireTabs(subtabs, switchSubtab);
+  $("tab-prev").addEventListener("click", function () { stepTab(-1); });
+  $("tab-next").addEventListener("click", function () { stepTab(1); });
+  $("save-all").addEventListener("click", function () {
+    act(this, save().then(function () { say(tr("saved"), "ok"); }));
+  });
+  // One click runs every module's test in order; the Shard spaces banners 1 s apart.
+  $("test-all").addEventListener("click", function () {
+    var chain = Promise.resolve(), kinds = ["goal", "weather", "news", "civ"];
+    kinds.forEach(function (kind) {
+      chain = chain.then(function () { return api("test", { kind: kind }); })
+        .then(function () { return new Promise(function (r) { setTimeout(r, 1100); }); });
+    });
+    act(this, chain.then(function () { say(tr("sent"), "ok"); }));
+  });
+  // Vetro 0.19.0: amber confirmation in place, Cancel focused and Escape cancels.
+  $("clear-log").addEventListener("click", function () {
+    var btn = this;
+    confirmHere(btn, tr("diagLog"), function () {
+      act(btn, api("clearlog", {}).then(function () { $("diag-log").innerHTML = "\u2014"; say(tr("saved"), "ok"); }));
+    });
+  });
+  $("log-refresh").addEventListener("click", function () { act(this, state()); });
+  function configText() { return JSON.stringify(cfg || body(), null, 2); }
+  $("cfg-show").addEventListener("click", function () {
+    $("cfg-json").textContent = configText(); note("cfg-msg", tr("cfgShown"), "ok");
+  });
+  $("cfg-copy").addEventListener("click", function () {
+    var text = $("cfg-json").textContent || configText();
+    $("cfg-json").textContent = text;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { note("cfg-msg", tr("cfgCopied"), "ok"); })
+        .catch(function () { note("cfg-msg", tr("cfgInvalid"), "err"); });
+    } else { note("cfg-msg", tr("cfgCopied") + ": " + text.slice(0, 80), "ok"); }
+  });
+  $("cfg-load").addEventListener("click", function () {
+    var raw = String($("cfg-input").value || "").replace(/^\s+|\s+$/g, ""), obj;
+    try { obj = JSON.parse(raw); } catch (e) { note("cfg-msg", tr("cfgInvalid"), "err"); return; }
+    if (!obj || typeof obj !== "object" || Object.prototype.toString.call(obj) === "[object Array]") {
+      note("cfg-msg", tr("cfgInvalid"), "err"); return;
+    }
+    act(this, api("config", obj).then(function () { return state(); }).then(function () {
+      dirty = false; fill(); note("cfg-msg", tr("cfgLoaded"), "ok");
+    }));
+  });
+  $("reset-cfg").addEventListener("click", function () {
+    var btn = this;
+    confirmHere(btn, tr("settingsWord"), function () {
+      act(btn, state().then(function () { dirty = false; fill(); say(tr("saved"), "ok"); }));
+    });
+  });
+  // Switching the panel language must not throw away clubs or sources added but not saved yet.
+  function setLang(l) {
+    lang = l; document.documentElement.lang = l; applyText();
+    $("tabnav-label").textContent = tabs[currentTab()].textContent;
+    updateSaveState();
+    if (!dirty) { fill(); }
+    api("config", { lang: l }).catch(function () {});
+  }
+  $("l-en").addEventListener("click", function () { setLang("en"); });
+  $("l-pt").addEventListener("click", function () { setLang("pt"); });
+
+  // Any edit marks the form dirty so the 20 s refresh does not overwrite it.
+  document.body.addEventListener("input", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT")) {
+      dirty = true; updateSaveState();
+      if (t.id && t.id.indexOf("v") < 0 && $(t.id + "v")) { $(t.id + "v").textContent = t.value; }
+    }
+  }, true);
+  document.body.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT") && t.id !== "test-club") { dirty = true; updateSaveState(); }
+    if (t && (t.id === "m-civ" || t.id === "civ-enabled")) {
+      $("m-civ").checked = t.checked; $("civ-enabled").checked = t.checked;
+      applyTabVisibility();
+    } else if (t && /^m-(sport|weather|news)$/.test(t.id)) {
+      applyTabVisibility();
+    }
+    if (t && t.id === "add-league") { loadTeams(t.value, $("add-team")); }
+    if (t && t.id === "add-sport") { loadTeams2(); }
+    if (t && t.id === "f-provider") { loadTeams($("add-league").value, $("add-team")); }
+    if (t && t.getAttribute("data-feed")) {
+      var id = t.getAttribute("data-feed"), i = feeds.indexOf(id);
+      if (t.checked && i < 0) { feeds.push(id); }
+      if (!t.checked && i >= 0) { feeds.splice(i, 1); }
+      
+      save().catch(function (err) { say(tr("err") + err.message, "err"); });
+    }
+    if (t && t.getAttribute("data-cn")) {
+      var cid = t.getAttribute("data-cn"), j;
+      for (j = 0; j < clubs.length; j++) { if (clubs[j].id === cid) { clubs[j].news = t.checked; } }
+      renderClubs();
+      save().catch(function (err) { say(tr("err") + err.message, "err"); });
+    }
+    if (t && t.getAttribute("data-comp")) {
+      var card = t.parentNode;
+      while (card && !card.getAttribute("data-id")) { card = card.parentNode; }
+      if (card) {
+        var cid2 = card.getAttribute("data-id"), comp = t.getAttribute("data-comp"), k;
+        for (k = 0; k < clubs.length; k++) {
+          if (clubs[k].id === cid2) {
+            var ix = clubs[k].comps.indexOf(comp);
+            if (t.checked && ix < 0) { clubs[k].comps.push(comp); }
+            if (!t.checked && ix >= 0) { clubs[k].comps.splice(ix, 1); }
+          }
+        }
+      }
+    }
+    if (t && t.getAttribute("data-act") === "news") {
+      var card2 = t.parentNode;
+      while (card2 && !card2.getAttribute("data-id")) { card2 = card2.parentNode; }
+      if (card2) {
+        var cid3 = card2.getAttribute("data-id"), m;
+        for (m = 0; m < clubs.length; m++) { if (clubs[m].id === cid3) { clubs[m].news = t.checked; } }
+        
+        save().catch(function (err) { say(tr("err") + err.message, "err"); });
+      }
+    }
+    if (t && t.getAttribute("data-cal")) {
+      var card3 = t.parentNode;
+      while (card3 && !card3.getAttribute("data-id")) { card3 = card3.parentNode; }
+      if (card3) {
+        var cid4 = card3.getAttribute("data-id"), key = t.getAttribute("data-key"), cl4;
+        for (var ci = 0; ci < clubs.length; ci++) {
+          if (clubs[ci].id === cid4) {
+            cl4 = clubs[ci];
+            if (!cl4.alerts) {
+              var eff = effAlerts(cl4), ea = {};
+              for (var ek in eff) { if (eff.hasOwnProperty(ek)) { ea[ek] = eff[ek]; } }
+              cl4.alerts = ea;
+            }
+            cl4.alerts[key] = t.checked;
+          }
+        }
+        renderClubs();
+        save().catch(function (err) { say(tr("err") + err.message, "err"); });
+      }
+    }
+  }, true);
+
+  // Remove buttons (clubs and picks): amber confirmation in place, then save right away.
+  document.body.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || t.getAttribute("data-act") !== "rm") { return; }
+    var box = t.parentNode, n;
+    while (box && !box.getAttribute("data-id") && !box.getAttribute("data-i")) { box = box.parentNode; }
+    if (!box) { return; }
+    var cid = box.getAttribute("data-id"), idx = box.getAttribute("data-i"), name = "";
+    if (cid) {
+      for (n = 0; n < clubs.length; n++) { if (clubs[n].id === cid) { name = clubs[n].name; break; } }
+    } else {
+      name = (picks[parseInt(idx, 10)] && picks[parseInt(idx, 10)].name) || tr("pickTarget");
+    }
+    confirmHere(t, name, function () {
+      if (cid) {
+        var i;
+        for (i = 0; i < clubs.length; i++) { if (clubs[i].id === cid) { clubs.splice(i, 1); } }
+        renderClubs();
+      } else {
+        picks.splice(parseInt(idx, 10), 1);
+        renderPicks();
+      }
+      save().catch(function (err) { say(tr("err") + err.message, "err"); });
+    });
+  });
+
+  $("add-club").addEventListener("click", function () {
+    var league = $("add-league").value, team = $("add-team").value, name = "", i;
+    if (!team) { say(tr("noTeams"), "err"); return; }
+    for (i = 0; i < $("add-team").options.length; i++) {
+      if ($("add-team").options[i].value === team) { name = $("add-team").options[i].text; }
+    }
+    var max = cfg.maxClubs || 3;
+    if (clubs.length >= max) { say(tr("maxClubs") + max, "err"); return; }
+    for (i = 0; i < clubs.length; i++) { if (clubs[i].id === team) { say(tr("err") + "already added", "err"); return; } }
+    clubs.push({ id: team, name: name, league: league, comps: compsFor(league).map(function (c) { return c.id; }), news: false });
+    renderClubs(); 
+    act(this, save().then(function () { say(tr("saved") + " (" + name + ")", "ok"); }));
+  });
+  $("add-pick").addEventListener("click", function () {
+    var sp = $("add-sport").value, el = $("add-team2"), meta = null, i, name = "", team = "";
+    if (!sp) { sayPick(tr("noSport"), "err"); return; }
+    if (cfg.maxPicks && picks.length >= cfg.maxPicks) { sayPick(tr("pickLimit") + cfg.maxPicks, "err"); return; }
+    for (i = 0; i < cfg.otherSports.length; i++) { if (cfg.otherSports[i].id === sp) { meta = cfg.otherSports[i]; } }
+    if (!meta) { return; }
+    if (pickListError) { sayPick(tr(meta.teams ? "noTeams" : "noRaces"), "err"); return; }
+    if (!el.value) { sayPick(tr(meta.teams ? "noTeams" : "noRaces"), "err"); return; }
+    team = el.value;
+    for (i = 0; i < el.options.length; i++) { if (el.options[i].value === team) { name = el.options[i].text; } }
+    if (!name) { name = team; }
+    // Team picks are unique by team id, race picks by ESPN event id (name only for old configs).
+    var key = team;
+    for (i = 0; i < picks.length; i++) {
+      if (picks[i].sport === sp && (picks[i].teamId || picks[i].name) === key) { sayPick(tr("err") + "already added", "err"); return; }
+    }
+    picks.push({ sport: sp, league: sp, teamId: team, name: name });
+    renderPicks();
+    act(this, save().then(function () { sayPick(tr("saved") + " (" + name + ")", "ok"); }));
+  });
+
+  // ---- custom places -------------------------------------------------------------------------------------------------------
+  $("place-find").addEventListener("click", function () {
+    var name = $("place-search").value.replace(/^\s+|\s+$/g, "");
+    if (name.length < 2) { wmsg(tr("typePlace"), "err"); return; }
+    act(this, api("geocode", { name: name }).then(function (d) {
+      geoResults = d.places || [];
+      if (!geoResults.length) {
+        $("place-results").innerHTML = "";
+        $("place-results").className = "hidden";
+        wmsg(tr("noPlaces"), "err");
+        return;
+      }
+      fillSel($("place-results"), geoResults.map(function (p, i) { return { id: String(i), name: p.name }; }), "0");
+      $("place-results").className = "";
+      wmsg(tr("found") + geoResults.length, "ok");
+    }).catch(function (e) { wmsg(tr("err") + e.message, "err"); }));
+  });
+  $("place-add").addEventListener("click", function () {
+    var p = geoResults[parseInt($("place-results").value, 10)];
+    if (!p) { wmsg(tr("findFirst"), "err"); return; }
+    var list = ((cfg && cfg.weather && cfg.weather.custom) || []).slice(0), i, exists = false;
+    for (i = 0; i < list.length; i++) { if (list[i].id === p.id) { exists = true; } }
+    if (!exists) { list.push(p); }
+    if (list.length > 10) { wmsg(tr("tooManyPlaces"), "err"); return; }
+    act(this, api("config", { weather: { custom: list, place: p.id } }).then(function () {
+      return state();
+    }).then(function () {
+      dirty = false; fill();
+      wmsg(tr("placeAdded") + ": " + p.name, "ok");
+    }));
+  });
+  document.body.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || t.getAttribute("data-act") !== "rmplace") { return; }
+    var id = t.getAttribute("data-id"), cur = (cfg && cfg.weather && cfg.weather.custom) || [], i, name = id;
+    for (i = 0; i < cur.length; i++) { if (cur[i].id === id) { name = cur[i].name; break; } }
+    confirmHere(t, name, function () {
+      var list = [], place = cfg.weather.place === id ? "lisbon" : cfg.weather.place;
+      for (i = 0; i < cur.length; i++) { if (cur[i].id !== id) { list.push(cur[i]); } }
+      act(t, api("config", { weather: { custom: list, place: place } }).then(function () {
+        return state();
+      }).then(function () { dirty = false; fill(); wmsg(tr("placeRemoved"), "ok"); }));
+    });
+  });
+
+  $("save-mod").addEventListener("click", function () { saveOnly(this); });
+  $("save-weather").addEventListener("click", function () { saveOnly(this); });
+  $("save-news").addEventListener("click", function () { saveOnly(this); });
+  $("save-civ").addEventListener("click", function () { saveOnly(this); });
+
+  // ---- goal simulation -----------------------------------------------------------------------------------------------
+  function saveSim() {
+    return api("config", { sim: { clubs: simClubs } }).then(function () {
+      return state();
+    }).then(function () { renderSim(); dirty = false; });
+  }
+  // The crest and the name are children of the button: a click on them must count as one click.
+  function closestData(el, attr) {
+    while (el && el !== document.body) {
+      if (el.getAttribute && el.getAttribute(attr)) { return el; }
+      el = el.parentNode;
+    }
+    return null;
+  }
+  document.body.addEventListener("click", function (e) {
+    var b = closestData(e.target, "data-sim"), id, oldBg, oldBorder;
+    if (b) {
+      id = b.getAttribute("data-sim");
+      // Do not use act(): it replaces textContent and would destroy the crest inside the button.
+      b.disabled = true;
+      simsay(tr("loading"), "");
+      api("test-club", { id: id }).then(function (d) {
+        simsay(tr("sent") + ": " + d.title + " - " + d.message, "ok");
+        // Green for 3 seconds so the click is unmistakable on the TV.
+        oldBg = b.style.background; oldBorder = b.style.borderColor;
+        b.style.background = "#1c4b2f"; b.style.borderColor = "#3fb950";
+        setTimeout(function () { b.style.background = oldBg; b.style.borderColor = oldBorder; }, 3000);
+      }).catch(function (err) { simsay(tr("err") + err.message, "err"); })
+        .then(function () { b.disabled = false; });
+      return;
+    }
+    b = closestData(e.target, "data-simrm");
+    if (b) {
+      id = b.getAttribute("data-simrm");
+      var nm = id, i;
+      for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { nm = simClubs[i].name; break; } }
+      confirmHere(b, nm, function () {
+        for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { simClubs.splice(i, 1); break; } }
+        saveSim().catch(function (err) { simsay(tr("err") + err.message, "err"); });
+      });
+      return;
+    }
+    b = closestData(e.target, "data-clubreset");
+    if (b) {
+      id = b.getAttribute("data-clubreset");
+      var cn = id, ci;
+      for (ci = 0; ci < clubs.length; ci++) { if (clubs[ci].id === id) { cn = clubs[ci].name; break; } }
+      confirmHere(b, cn, function () {
+        for (ci = 0; ci < clubs.length; ci++) { if (clubs[ci].id === id) { delete clubs[ci].alerts; break; } }
+        renderClubs();
+        save().catch(function (err) { say(tr("err") + err.message, "err"); });
+      });
+    }
+  });
+  document.body.addEventListener("change", function (e) {
+    var t = e.target, id = t && t.getAttribute("data-simlevel"), i;
+    if (!id) { return; }
+    for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { simClubs[i].level = t.value; } }
+    saveSim().catch(function (err) { simsay(tr("err") + err.message, "err"); });
+  });
+  $("sim-add").addEventListener("click", function () {
+    var name = $("sim-name").value.replace(/^\s+|\s+$/g, ""), id = $("sim-id").value.replace(/^\s+|\s+$/g, "");
+    if (!name || !/^\d{1,8}$/.test(id)) { simsay(tr("err") + " id", "err"); return; }
+    if (simClubs.length >= 10) { simsay(tr("maxClubs") + "10", "err"); return; }
+    var i;
+    for (i = 0; i < simClubs.length; i++) { if (simClubs[i].id === id) { simsay(tr("err") + "already added", "err"); return; } }
+    simClubs.push({ id: id, name: name, msg: $("sim-text").value, level: $("sim-level").value,
+      logo: "https://a.espncdn.com/i/teamlogos/soccer/500/" + id + ".png" });
+    $("sim-name").value = ""; $("sim-id").value = ""; $("sim-text").value = "";
+    saveSim().then(function () { simsay(tr("saved") + ": " + name, "ok"); })
+      .catch(function (err) { simsay(tr("err") + err.message, "err"); });
+  });
+  $("t-civ").addEventListener("click", function () { act(this, test("civ")); });
+  $("save-football").addEventListener("click", function () { saveOnly(this); });
+  $("save-others").addEventListener("click", function () { saveOnly(this); });
+  $("check").addEventListener("click", function () {
+    act(this, api("poll", {}).then(function () { return new Promise(function (r) { setTimeout(r, 1500); }); }).then(state));
+  });
+  $("t-weather").addEventListener("click", function () { act(this, test("weather")); });
+  $("t-news").addEventListener("click", function () { act(this, test("news")); });
+  $("t-goal").addEventListener("click", function () { act(this, test("goal")); });
+  $("t-against").addEventListener("click", function () { act(this, test("against")); });
+  $("t-card").addEventListener("click", function () { act(this, test("card")); });
+  $("t-start").addEventListener("click", function () { act(this, test("start")); });
+  $("t-end").addEventListener("click", function () { act(this, test("end")); });
+  $("t-next").addEventListener("click", function () { act(this, test("next")); });
+  $("t-score").addEventListener("click", function () { act(this, test("score")); });
+  $("savekey").addEventListener("click", function () {
+    act(this, api("config", { apiKey: $("apikey").value }).then(function () {
+      $("apikey").value = ""; note("keymsg", tr("keyset"), "ok"); return state();
+    }));
+  });
+  $("checkkey").addEventListener("click", function () {
+    act(this, api("keycheck", {}).then(function (d) {
+      $("keymsg").textContent = tr("keyok") + d.remaining + " (" + (d.plan || "-") + ")";
+    }).catch(function (e) { $("keymsg").textContent = tr("err") + e.message; }));
+  });
+
+  sectionIcons();
+  markGroups();
+  applyText();
+  $("tabnav-label").textContent = tabs[currentTab()].textContent;
+  updateSaveState();
+  state().catch(function (e) {
+    linkOK = false; linkFailed = true; updateHeader(); say(tr("err") + e.message, "err");
+  });
+  readNc();
+  setInterval(function () {
+    state().catch(function () { linkOK = false; linkFailed = true; updateHeader(); });
+    readNc();
+  }, 20000);
+})();
+</script>
+</body>
+</html>

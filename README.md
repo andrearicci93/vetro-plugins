@@ -12,6 +12,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | [`bedtime`](plugins/bedtime) | Turn the TV off at set times or after a sleep timer, or open an app on a schedule | `exec` | piecifra |
 | [`eightbitdo-guide`](plugins/eightbitdo-guide) | Open Vetro with Guide on the Bluetooth 8BitDo Ultimate 2 Wireless; forward other buttons and axes | `exec` | augusto1024 |
 | [`home-assistant`](plugins/home-assistant) | A **Control center card** (Vetro 0.7.0): switch Home Assistant lights, switches, scenes and scripts from the TV's remote. The example Shard for the card API | none | andrearicci93 |
+| [`match-alerts`](plugins/match-alerts) | **NEWS** — sport (ESPN), weather (Open-Meteo), news (RSS/Google News) and civil-protection (IPMA/ANEPC) alerts through Notification Center, with a **Control center card** | none | mclaudiopt |
 | [`keyboard`](plugins/keyboard) | Text typing for system inputs, live 1080p screen preview, and full TV remote with navigation, volume, channel, playback and color keys | `exec` | abdoghanem2011 |
 | [`prometheus`](plugins/prometheus) | Prometheus metrics for the TV (CPU, memory, network, Wi-Fi signal, SoC temperature), `node_exporter` names | none | piecifra |
 | [`shell`](plugins/shell) | A root shell on the TV, laid out like a terminal; one command at a time, `cd` remembered | `exec` | piecifra |
