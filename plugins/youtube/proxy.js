@@ -371,7 +371,7 @@ function createProxy(opts) {
             }
         }
         tunnels++;
-        var established = false;
+        var established = false, failed = false;
         var connectOpts = { host: host, port: port };
         if (HAS_AUTO_FAMILY) connectOpts.autoSelectFamily = true;
         var up = net.connect(connectOpts);
@@ -384,6 +384,8 @@ function createProxy(opts) {
         }
         function failConnect() {
             if (established) { cleanup(); return; }
+            if (failed) return;
+            failed = true;
             established = true;
             drop(up);
             replyErrorAndClose(c, 'HTTP/1.1 502 Bad Gateway');
@@ -404,7 +406,7 @@ function createProxy(opts) {
         up.on('error', failConnect);
         c.on('error', cleanup);
         c.on('close', function () { established = true; cleanup(); });
-        up.on('close', function () { if (established) cleanup(); else failConnect(); });
+        up.on('close', function () { if (failed) return; if (established) cleanup(); else failConnect(); });
     }
 
     return {

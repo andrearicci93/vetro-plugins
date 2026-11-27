@@ -19,7 +19,7 @@ var address = require('./address.js');
 var watchLib = require('./watch.js');
 
 var PROXY_HOST = '127.0.0.2', DEFAULT_PORT = 8101;
-var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000, OPEN_COOLDOWN_MS = 3500;
+var TICK_MS = 60 * 1000, SETUP_EVERY_MS = 24 * 3600 * 1000, SCRIPT_RETRY_MS = 5 * 60 * 1000;
 
 var PAGE = '<!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -72,7 +72,7 @@ module.exports = function (ctx) {
     function proxyHost() { return MODE === 'lan' ? (address.lanAddress(os.networkInterfaces()) || PROXY_HOST) : PROXY_HOST; }
     var logLines = [], preparing = null, settingUp = null, opening = null, alive = false, timer = null, watchTimer = null;
     var tileOn = cfg.tile === true;
-    var lastSetup = 0, nextScriptTry = 0, lastOpenAt = 0, lastOpenWarning = null;
+    var lastSetup = 0, nextScriptTry = 0, lastPageUnix = 0;
     var leafCache = null, leafStamp = null;
     var st = { setup: 'idle', error: null, script: 'idle', scriptError: null, proxyError: null, pages: 0, lastPage: null, tileState: 'off', tileNote: '' };
 
@@ -116,7 +116,7 @@ module.exports = function (ctx) {
         allow: MODE === 'lan' ? function (remote) { return address.isLocal(remote, os.networkInterfaces()); } : null,
         leaf: readLeaf,
         script: function () { return script.load(); },
-        onPage: function () { st.pages++; st.lastPage = new Date().toISOString().slice(11, 19); }
+        onPage: function () { st.pages++; lastPageUnix = Math.floor(Date.now() / 1000); st.lastPage = new Date().toISOString().slice(11, 19); }
     });
 
     function listen() {
@@ -251,7 +251,7 @@ module.exports = function (ctx) {
     function relaunch(how) {
         relaunches.push(Date.now());
         log('YouTube was started without the patches (' + how + '): starting it again through the proxy');
-        return exec(setup.launchScript(proxyHost(), PORT), 25000);
+        return exec(setup.launchScript(proxyHost(), PORT, { forceRestart: true }), 25000);
     }
     function watch() {
         if (!alive || !tileOn || watchBusy) return;
@@ -293,15 +293,10 @@ module.exports = function (ctx) {
     // Resolves with { warning } and rejects when YouTube did not start. Used by the Open button and by the launcher tile.
     function openYoutube() {
         if (opening) return opening;
-        if (lastOpenAt && Date.now() - lastOpenAt < OPEN_COOLDOWN_MS && proxy.listening() && readLeaf() && contentThere() && (script.load() || lastOpenWarning)) {
-            return Promise.resolve({ warning: lastOpenWarning });
-        }
         var warning = null;
-        var p = prepare().then(function (r) { warning = r.warning; return exec(setup.launchScript(proxyHost(), PORT), 25000); }).then(function (r) {
+        var p = prepare().then(function (r) { warning = r.warning; return exec(setup.launchScript(proxyHost(), PORT, { lastPageUnix: lastPageUnix }), 25000); }).then(function (r) {
             var out = String((r && r.stdout) || '');
             if (!/successfully launched/.test(out)) throw new Error('YouTube did not start: ' + out.replace(/\s+/g, ' ').slice(0, 120));
-            lastOpenAt = Date.now();
-            lastOpenWarning = warning;
             log('YouTube started');
             return { warning: warning };
         }).then(function (res) {
@@ -353,8 +348,7 @@ module.exports = function (ctx) {
         stop: function () {
             alive = false;
             opening = null;
-            lastOpenAt = 0;
-            lastOpenWarning = null;
+            lastPageUnix = 0;
             if (timer) { clearInterval(timer); timer = null; }
             if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
             if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
@@ -365,6 +359,7 @@ module.exports = function (ctx) {
                     if (done) return;
                     done = true;
                     if (late) clearTimeout(late);
+                    lastPageUnix = 0;
                     if (!alive) proxy.close();
                     resolve();
                 };
@@ -401,7 +396,7 @@ module.exports = function (ctx) {
                 return true;
             }
             if (sub === 'close') {
-                lastOpenAt = 0; lastOpenWarning = null;
+                lastPageUnix = 0;
                 ctx.execute(setup.closeScript(), 15000).then(function () { json(res, 200, { ok: true }); }, function (e) { json(res, 200, { ok: false, error: e.message }); });
                 return true;
             }
@@ -418,7 +413,7 @@ module.exports = function (ctx) {
             }
             if (sub === 'cleanup') {
                 // The row first, in line with every other change to it: it points at files that are about to go.
-                lastOpenAt = 0; lastOpenWarning = null;
+                lastPageUnix = 0;
                 tileOn = false; saveConfig({ tile: false });
                 serial(function () {
                     return tile.restore(exec).then(function (state) {
@@ -426,7 +421,7 @@ module.exports = function (ctx) {
                         proxy.close(true); script.forget(); leafCache = null; leafStamp = null;
                         return ctx.execute(setup.cleanupScript(), 30000);
                     });
-                }).then(function () { st.setup = 'idle'; st.script = 'idle'; st.tileState = 'off'; st.tileNote = ''; lastSetup = 0; lastOpenAt = 0; lastOpenWarning = null; json(res, 200, { ok: true }); },
+                }).then(function () { st.setup = 'idle'; st.script = 'idle'; st.tileState = 'off'; st.tileNote = ''; lastSetup = 0; lastPageUnix = 0; json(res, 200, { ok: true }); },
                     function (e) { json(res, 200, { ok: false, error: e.message }); });
                 return true;
             }

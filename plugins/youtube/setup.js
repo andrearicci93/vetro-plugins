@@ -73,12 +73,22 @@ var SAMSUNG_ARGS = '--base_url=https://www.youtube.com/tv --dial_name=YouTube --
 // No http:// in front of the proxy address (it is the default) and a short content path: see CONTENT.
 function proxyArgs(proxyHost, proxyPort) { return '--proxy=' + proxyHost + ':' + proxyPort + ',direct:// --content=' + CONTENT; }
 
-function launchScript(proxyHost, proxyPort) {
+function launchScript(proxyHost, proxyPort, opts) {
+    opts = opts || {};
+    var lastPageUnix = typeof opts.lastPageUnix === 'number' && opts.lastPageUnix > 0 ? Math.floor(opts.lastPageUnix) : 0;
+    var forceRestart = !!opts.forceRestart || lastPageUnix <= 0;
     var args = ' ' + SAMSUNG_ARGS + ' ' + proxyArgs(proxyHost, proxyPort);
     var targetProxy = proxyHost + ':' + proxyPort;
     var appPattern = '(^|[ =])[' + APP.charAt(0) + ']' + APP.slice(1).replace(/\./g, '\\.') + '($| )';
     return [
         "P='" + targetProxy + "'",
+        'LP=' + lastPageUnix,
+        'FR=' + (forceRestart ? 1 : 0),
+        'has_fresh_page() {',
+        '  PT=$(stat -c %Y "$1" 2>/dev/null || echo 0)',
+        '  case "$PT" in \'\'|*[!0-9]*) PT=0;; esac',
+        '  [ "$LP" -gt 0 ] && [ "$PT" -gt 0 ] && [ "$PT" -le "$LP" ]',
+        '}',
         'yt_unpatched() {',
         '  for f in $(grep -al "[c]obalt" /proc/[0-9]*/cmdline 2>/dev/null); do',
         '    p=${f%/cmdline}',
@@ -99,14 +109,17 @@ function launchScript(proxyHost, proxyPort) {
         '      case " $D " in *"dial_name=YouTube "*) ISYT=1;; esac',
         '      case " $ID " in *" ' + APP + ' "*) ISYT=1;; esac',
         '      if [ "$ISYT" = "1" ]; then',
-        '        case "$D" in *"$P"*) case "$D" in *share/vyt*) ;; *) return 0;; esac;; *) return 0;; esac',
+        '        if [ "$FR" = "1" ]; then return 0; fi',
+        '        case "$D" in *"$P"*) case "$D" in *share/vyt*) has_fresh_page "$p" || return 0;; *) return 0;; esac;; *) return 0;; esac',
         "      elif printf '%s\\n' \"$ARGS\" | grep -Eq '" + appPattern + "'; then",
-        '        case "$ARGS" in *"$P"*) case "$ARGS" in *share/vyt*) ;; *) return 0;; esac;; *) return 0;; esac',
+        '        if [ "$FR" = "1" ]; then return 0; fi',
+        '        case "$ARGS" in *"$P"*) case "$ARGS" in *share/vyt*) has_fresh_page "$p" || return 0;; *) return 0;; esac;; *) return 0;; esac',
         '      fi',
         '      ;;',
         '    *)',
         "      if printf '%s\\n' \"$ARGS\" | grep -Eq '" + appPattern + "'; then",
-        '        case "$ARGS" in *"$P"*) case "$ARGS" in *share/vyt*) ;; *) return 0;; esac;; *) return 0;; esac',
+        '        if [ "$FR" = "1" ]; then return 0; fi',
+        '        case "$ARGS" in *"$P"*) case "$ARGS" in *share/vyt*) has_fresh_page "$p" || return 0;; *) return 0;; esac;; *) return 0;; esac',
         '      fi',
         '      ;;',
         '    esac',

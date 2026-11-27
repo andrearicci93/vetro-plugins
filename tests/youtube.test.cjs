@@ -521,7 +521,7 @@ test('Tizen 9 cobalt_launcher: watch.classify, launchScript yt_up(), and checkSc
  assert.equal(watchLib.classify(kidsCmd),null,'YouTube Kids must not match');
  assert.equal(watchLib.classify(tvCmd),null,'YouTube TV must not match');
 
- // 2. launchScript yt_unpatched(): shell subshell exclusion, Tizen 9 base64 detection, skips -t/-k when already patched with same proxy+content, kills on unpatched or stale proxy.
+ // 2. launchScript yt_unpatched(): shell subshell exclusion, Tizen 9 base64 detection, always restarts when forceRestart/lastPageUnix=0, skips -t/-k only when patched flags AND proc started <= lastPageUnix.
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'yt-tizen9-'));
  t.after(()=>fs.rmSync(tmp,{recursive:true,force:true}));
  const posix=s=>s.split(path.sep).join('/');
@@ -530,22 +530,30 @@ test('Tizen 9 cobalt_launcher: watch.classify, launchScript yt_up(), and checkSc
  const env=shEnv();
  const runEnv=Object.assign({},env,{PATH:binDir+path.delimiter+env.PATH});
 
- const launch=setup.launchScript('192.168.1.10',8101);
- assert.match(launch,/while \[ \$i -lt 15 \] && yt_unpatched/);
- assert.match(launch,/while \[ \$i -lt 5 \] && yt_unpatched/);
- const fnBody=launch.slice(0,launch.indexOf('\nyt_wait()'));
+ const futurePageUnix=Math.floor(Date.now()/1000)+60;
+ const pastPageUnix=Math.floor(Date.now()/1000)-3600;
+ const launchDefault=setup.launchScript('192.168.1.10',8101);
+ const launchWithPage=setup.launchScript('192.168.1.10',8101,{lastPageUnix:futurePageUnix});
+ const launchStalePage=setup.launchScript('192.168.1.10',8101,{lastPageUnix:pastPageUnix});
+ assert.match(launchWithPage,/while \[ \$i -lt 15 \] && yt_unpatched/);
+ assert.match(launchWithPage,/while \[ \$i -lt 5 \] && yt_unpatched/);
+ const fnWithPage=launchWithPage.slice(0,launchWithPage.indexOf('\nyt_wait()'));
+ const fnDefault=launchDefault.slice(0,launchDefault.indexOf('\nyt_wait()'));
+ const fnStalePage=launchStalePage.slice(0,launchStalePage.indexOf('\nyt_wait()'));
  const ytCases=[
-  ['sh-wrap',['/bin/sh','-c','app_launcher -t com.samsung.tv.cobalt-yt -u 5001'],'sh','no'],
-  ['bb-wrap',['busybox','sh','-c','com.samsung.tv.cobalt-yt'],'busybox','no'],
-  ['shifted-unpatched',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube')],'cobalt_launcher','yes'],
-  ['shifted-patched',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct:// --content=/opt/usr/home/owner/share/vyt')],'cobalt_launcher','no'],
-  ['shifted-stale-proxy',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.99:8101,direct:// --content=/opt/usr/home/owner/share/vyt')],'cobalt_launcher','yes'],
-  ['shifted-no-vyt',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct://')],'cobalt_launcher','yes'],
-  ['bare',[watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-yt')],'cobalt_launcher','yes'],
-  ['raw-unpatched',['/usr/apps/com.samsung.tv.cobalt/content/app/cobalt/cobalt','--app=com.samsung.tv.cobalt-yt'],'cobalt','yes'],
-  ['raw-patched',['/usr/apps/com.samsung.tv.cobalt/content/app/cobalt/cobalt','--app=com.samsung.tv.cobalt-yt','--proxy=192.168.1.10:8101,direct://','--content=/opt/usr/home/owner/share/vyt'],'cobalt','no'],
-  ['ytkids',[watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-ytkids'),'USERDATA',b64(' --dial_name=YouTubeKids')],'cobalt_launcher','no'],
-  ['yttv',[watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-yttv')],'cobalt_launcher','no']
+  ['sh-wrap',['/bin/sh','-c','app_launcher -t com.samsung.tv.cobalt-yt -u 5001'],'sh','no',fnWithPage],
+  ['bb-wrap',['busybox','sh','-c','com.samsung.tv.cobalt-yt'],'busybox','no',fnWithPage],
+  ['shifted-unpatched',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube')],'cobalt_launcher','yes',fnWithPage],
+  ['shifted-patched',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct:// --content=/opt/usr/home/owner/share/vyt')],'cobalt_launcher','no',fnWithPage],
+  ['shifted-patched-no-page',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct:// --content=/opt/usr/home/owner/share/vyt')],'cobalt_launcher','yes',fnDefault],
+  ['shifted-patched-newer-proc',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct:// --content=/opt/usr/home/owner/share/vyt')],'cobalt_launcher','yes',fnStalePage],
+  ['shifted-stale-proxy',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.99:8101,direct:// --content=/opt/usr/home/owner/share/vyt')],'cobalt_launcher','yes',fnWithPage],
+  ['shifted-no-vyt',[watchLib.COBALT_BIN,'__APP_SVC_OP_TYPE__','x','__AUL_APPID__',b64('com.samsung.tv.cobalt-yt'),'USERDATA',b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct://')],'cobalt_launcher','yes',fnWithPage],
+  ['bare',[watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-yt')],'cobalt_launcher','yes',fnWithPage],
+  ['raw-unpatched',['/usr/apps/com.samsung.tv.cobalt/content/app/cobalt/cobalt','--app=com.samsung.tv.cobalt-yt'],'cobalt','yes',fnWithPage],
+  ['raw-patched',['/usr/apps/com.samsung.tv.cobalt/content/app/cobalt/cobalt','--app=com.samsung.tv.cobalt-yt','--proxy=192.168.1.10:8101,direct://','--content=/opt/usr/home/owner/share/vyt'],'cobalt','no',fnWithPage],
+  ['ytkids',[watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-ytkids'),'USERDATA',b64(' --dial_name=YouTubeKids')],'cobalt_launcher','no',fnDefault],
+  ['yttv',[watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-yttv')],'cobalt_launcher','no',fnDefault]
  ];
  const batchLines=[];
  ytCases.forEach((c,idx)=>{
@@ -553,42 +561,48 @@ test('Tizen 9 cobalt_launcher: watch.classify, launchScript yt_up(), and checkSc
   fs.mkdirSync(dir,{recursive:true});
   fs.writeFileSync(path.join(dir,'cmdline'),Buffer.from(c[1].join('\0')+'\0'));
   if(c[2])fs.writeFileSync(path.join(dir,'comm'),c[2]+'\n');
-  const fn=fnBody.replace('yt_unpatched()','yt_unpatched_'+idx+'()').split('/proc/[0-9]*/cmdline').join(posix(path.join(procBase,'c'+idx))+'/[0-9]*/cmdline');
+  const fn=c[4].replace('yt_unpatched()','yt_unpatched_'+idx+'()').split('/proc/[0-9]*/cmdline').join(posix(path.join(procBase,'c'+idx))+'/[0-9]*/cmdline');
   batchLines.push(fn,'if yt_unpatched_'+idx+'; then echo "'+c[0]+':yes"; else echo "'+c[0]+':no"; fi');
  });
  const batchOut=cp.spawnSync('sh',[],{input:batchLines.join('\n')+'\n',env:runEnv,encoding:'utf8'});
  assert.equal(batchOut.status,0,batchOut.stderr);
  assert.deepEqual(batchOut.stdout.trim().split(/\r?\n/),ytCases.map(c=>c[0]+':'+c[3]));
 
- // Cold-start and already-patched skips -t/-k; stuck unpatched process escalates -t -> -k -> -s.
+ // Cold-start and patched-after-/tv skips -t/-k; unpatched OR patched-without-/tv-page escalates -t -> -k -> -s.
  const procDir=path.join(tmp,'proc');
  fs.mkdirSync(path.join(procDir,'15319'),{recursive:true});
  fs.writeFileSync(path.join(procDir,'15319','cmdline'),Buffer.from([watchLib.COBALT_BIN,'__AUL_APPID__',b64('com.samsung.tv.cobalt-yt')].join('\0')+'\0'));
  fs.writeFileSync(path.join(procDir,'15319','comm'),'cobalt_launcher\n');
  const callsFile=posix(path.join(tmp,'app_calls'));
- fs.writeFileSync(path.join(binDir,'app_launcher'),'#!/bin/sh\necho "$*" >> "'+callsFile+'"\nif [ "$1" = "-k" ]; then rm -rf "'+posix(path.join(procDir,'15319'))+'"; fi\nif [ "$1" = "-s" ]; then echo "... successfully launched"; fi\n');
+ fs.writeFileSync(path.join(binDir,'app_launcher'),'#!/bin/sh\necho "$*" >> "'+callsFile+'"\nif [ "$1" = "-k" ]; then rm -rf "'+posix(path.join(procDir,'15319'))+'"; rm -rf "'+posix(path.join(procDir,'15320'))+'"; fi\nif [ "$1" = "-s" ]; then echo "... successfully launched"; fi\n');
  fs.chmodSync(path.join(binDir,'app_launcher'),0o755);
- const rewrittenLaunch=launch.split('/proc/[0-9]*/cmdline').join(posix(procDir)+'/[0-9]*/cmdline')
+ const patchLaunch=src=>src.split('/proc/[0-9]*/cmdline').join(posix(procDir)+'/[0-9]*/cmdline')
   .replace(/yt_wait\(\) \{[^\n]+\}/,'yt_wait() { :; }')
   .replace('[ $i -lt 15 ]','[ $i -lt 2 ]').replace('[ $i -lt 5 ]','[ $i -lt 1 ]');
+ const rewrittenWithPage=patchLaunch(launchWithPage);
+ const rewrittenDefault=patchLaunch(launchDefault);
 
  const patchedProcSetup=[
   'mkdir -p "'+posix(path.join(procDir,'15320'))+'"',
   'printf "%s\\0%s\\0%s\\0%s\\0%s\\0" "'+watchLib.COBALT_BIN+'" "__AUL_APPID__" "'+b64('com.samsung.tv.cobalt-yt')+'" "USERDATA" "'+b64(' --dial_name=YouTube --proxy=192.168.1.10:8101,direct:// --content=/opt/usr/home/owner/share/vyt')+'" > "'+posix(path.join(procDir,'15320','cmdline'))+'"',
   'echo cobalt_launcher > "'+posix(path.join(procDir,'15320','comm'))+'"'
  ].join('\n');
- const warmColdOut=cp.spawnSync('sh',[],{input:rewrittenLaunch+'\necho "---SPLIT---" >> "'+callsFile+'"\n'+rewrittenLaunch+'\necho "---SPLIT---" >> "'+callsFile+'"\n'+patchedProcSetup+'\n'+rewrittenLaunch+'\n',env:runEnv,encoding:'utf8'});
+ const warmColdOut=cp.spawnSync('sh',[],{input:rewrittenWithPage+'\necho "---SPLIT---" >> "'+callsFile+'"\n'+rewrittenWithPage+'\necho "---SPLIT---" >> "'+callsFile+'"\n'+patchedProcSetup+'\n'+rewrittenWithPage+'\necho "---SPLIT---" >> "'+callsFile+'"\n'+rewrittenDefault+'\n',env:runEnv,encoding:'utf8'});
  assert.equal(warmColdOut.status,0,warmColdOut.stderr);
- const [warmPart,coldPart,patchedPart]=fs.readFileSync(path.join(tmp,'app_calls'),'utf8').trim().split(/\r?\n---SPLIT---\r?\n/);
- const warmCalls=warmPart.trim().split(/\r?\n/),coldCalls=coldPart.trim().split(/\r?\n/),patchedCalls=patchedPart.trim().split(/\r?\n/);
+ const [warmPart,coldPart,patchedPart,noPagePart]=fs.readFileSync(path.join(tmp,'app_calls'),'utf8').trim().split(/\r?\n---SPLIT---\r?\n/);
+ const warmCalls=warmPart.trim().split(/\r?\n/),coldCalls=coldPart.trim().split(/\r?\n/),patchedCalls=patchedPart.trim().split(/\r?\n/),noPageCalls=noPagePart.trim().split(/\r?\n/);
  assert.equal(warmCalls.length,3,JSON.stringify(warmCalls));
  assert.match(warmCalls[0],/^-t com\.samsung\.tv\.cobalt-yt/);
  assert.match(warmCalls[1],/^-k com\.samsung\.tv\.cobalt-yt/);
  assert.match(warmCalls[2],/^-s com\.samsung\.tv\.cobalt-yt/);
  assert.equal(coldCalls.length,1,JSON.stringify(coldCalls));
  assert.match(coldCalls[0],/^-s com\.samsung\.tv\.cobalt-yt/);
- assert.equal(patchedCalls.length,1,'already-patched Cobalt skips -t/-k: '+JSON.stringify(patchedCalls));
+ assert.equal(patchedCalls.length,1,'patched Cobalt after /tv skips -t/-k: '+JSON.stringify(patchedCalls));
  assert.match(patchedCalls[0],/^-s com\.samsung\.tv\.cobalt-yt/);
+ assert.equal(noPageCalls.length,3,'patched Cobalt with 0 /tv pages served must restart: '+JSON.stringify(noPageCalls));
+ assert.match(noPageCalls[0],/^-t com\.samsung\.tv\.cobalt-yt/);
+ assert.match(noPageCalls[1],/^-k com\.samsung\.tv\.cobalt-yt/);
+ assert.match(noPageCalls[2],/^-s com\.samsung\.tv\.cobalt-yt/);
 
  // 3. checkScript(): Tizen 9 amd backgroundAppStartup preload returns "bg" when TV/another app is foreground, "relaunch" when YouTube is foreground, "ok" when patched.
  const chkDir=path.join(tmp,'chk');
@@ -678,7 +692,7 @@ test('Shard entry: sandboxed UI avoids confirm(), launch() matches manifest, and
  }
 });
 
-test('openYoutube(): coalesces concurrent launches, applies 3500 ms cooldown, and resets on close/cleanup/stop',async t=>{
+test('openYoutube(): coalesces concurrent launches, restarts Cobalt when 0 /tv pages served, and resets lastPageUnix on close/cleanup/stop',async t=>{
  const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'yt-open-cd-'));
  t.after(()=>fs.rmSync(tmp,{recursive:true,force:true}));
  const origDir=setup.DIR,origContent=setup.CONTENT,origCache=setup.CACHE;
@@ -700,6 +714,7 @@ test('openYoutube(): coalesces concurrent launches, applies 3500 ms cooldown, an
 
  const port=await freePort();
  let launchExecs=0,releaseFirst=null,failNextLaunch=false;
+ const scripts=[];
  const firstGate=new Promise(r=>{releaseFirst=r;});
  const inst=ytFactory({
   config:{get:()=>({tile:false,port}),set:()=>{}},
@@ -707,6 +722,7 @@ test('openYoutube(): coalesces concurrent launches, applies 3500 ms cooldown, an
    const text=Buffer.from(cmd.split(' ')[1],'base64').toString('utf8');
    if(/app_launcher -s/.test(text)){
     launchExecs++;
+    scripts.push(text);
     if(failNextLaunch)return Promise.resolve({exit_code:0,stdout:'failed to launch',stderr:''});
     if(launchExecs===1)return firstGate.then(()=>({exit_code:0,stdout:'... successfully launched\n',stderr:''}));
     return Promise.resolve({exit_code:0,stdout:'... successfully launched\n',stderr:''});
@@ -723,52 +739,49 @@ test('openYoutube(): coalesces concurrent launches, applies 3500 ms cooldown, an
   if(body!==undefined)req.end(JSON.stringify(body));else req.end();
  });
 
- // 1. Concurrent openYoutube() calls coalesce behind one in-flight promise.
+ // 1. Concurrent openYoutube() calls coalesce behind one in-flight promise, with FR=1 before any /tv page is served.
  const p1=postRoute('open');
  const p2=inst.launch('com.samsung.tv.cobalt-yt');
  await new Promise(r=>setTimeout(r,25));
  assert.equal(launchExecs,1,'concurrent openYoutube calls share one launchScript execution');
+ assert.match(scripts[0],/\nFR=1\n/);
  releaseFirst();
  const [r1,r2]=await Promise.all([p1,p2]);
  assert.equal(r1.ok,true);
  assert.match(String(r1.warning),/could not be downloaded/);
  assert.equal(r2,true);
 
- // 2. Sequential openYoutube() within 3500 ms resolves with cached warning without spawning launchScript.
+ // 2. Sequential openYoutube() immediately launches again (no 3.5 s cooldown swallow if user closed YT from remote).
  const r3=await postRoute('open');
  assert.equal(r3.ok,true);
- assert.equal(r3.warning,r1.warning);
- assert.equal(launchExecs,1,'cooldown skips duplicate launchScript within 3500 ms');
+ assert.equal(launchExecs,2,'sequential open must not be skipped by cooldown');
+ assert.match(scripts[1],/\nFR=1\n/);
 
- // 3. close route resets lastOpenAt so next openYoutube() launches again.
- const rc=await postRoute('close');
- assert.equal(rc.ok,true);
- const r4=await postRoute('open');
- assert.equal(r4.ok,true);
- assert.equal(launchExecs,2);
-
- // 4. cleanup route resets lastOpenAt.
- const rclean=await postRoute('cleanup');
- assert.equal(rclean.ok,true);
- fs.mkdirSync(path.join(setup.CONTENT,'ssl','certs'),{recursive:true});
- const r5=await postRoute('open');
- assert.equal(r5.ok,true);
- assert.equal(launchExecs,3);
-
- // 5. stop() resets lastOpenAt; failed openYoutube() does not arm cooldown.
- await inst.stop();
- const r6=await postRoute('open');
- assert.equal(r6.ok,true,r6.error);
- assert.equal(launchExecs,4);
+ // 3. Failed openYoutube() rejects cleanly and recovers on retry.
  await postRoute('close');
  failNextLaunch=true;
  const rFail=await postRoute('open');
  assert.equal(rFail.ok,false);
- assert.equal(launchExecs,5);
+ assert.equal(launchExecs,3);
  failNextLaunch=false;
  const rRetry=await postRoute('open');
  assert.equal(rRetry.ok,true,rRetry.error);
- assert.equal(launchExecs,6);
+ assert.equal(launchExecs,4);
+
+ // 4. Unreachable CONNECT upstream delivers complete 502 Bad Gateway before closing client socket.
+ const deadPort=await freePort();
+ const portBad=await freePort();
+ const pBad=proxyLib.createProxy({host:'127.0.0.1',port:portBad,log:()=>{},leaf:()=>null,script:()=>null});
+ await new Promise((res,rej)=>pBad.listen(e=>e?rej(e):res()));
+ t.after(()=>pBad.close(true));
+ const badResp=await new Promise(resolve=>{
+  let out='';
+  const c=net.connect(portBad,'127.0.0.1',()=>c.write('CONNECT 127.0.0.1:'+deadPort+' HTTP/1.1\r\nHost: 127.0.0.1:'+deadPort+'\r\n\r\n'));
+  c.on('data',d=>{out+=d.toString();});
+  c.on('error',()=>resolve(out));
+  c.on('close',()=>resolve(out));
+ });
+ assert.match(badResp,/^HTTP\/1\.1 502 Bad Gateway\r\n/);
 });
 
 test('inject: preludeTag, <head> injection, fallback without <head>, and strict ES5 PRELUDE_BODY',()=>{
