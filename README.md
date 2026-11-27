@@ -18,6 +18,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | [`sonos-controller`](plugins/sonos-controller) | Remote volume and mute keys control a Sonos room through Vetro's MQTT rules; Sonos on your LAN, no cloud | none | genesai |
 | [`ssh-server`](plugins/ssh-server) | A real SSH-2 server in pure JS (no binary): `ssh` as a root line-shell, one-shot commands as root, `scp`/`sftp` as the owner. Needs Node 10+ | `exec` | bertrandom |
 | [`tv-reboot`](plugins/tv-reboot) | A button that restarts the TV; refuses while Samsung Home is disabled | `exec` | genesai |
+| [`tvstore-onboot`](plugins/tvstore-onboot) | Turns the start-at-boot flag of the [TV-Store](https://github.com/Apps2Samsung/TV-Store) service on again where the firmware registered it as off, so TV-Store can update apps while closed | `exec` | PatrickSt1991 |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
 | [`usb-ethernet`](plugins/usb-ethernet) | A USB Ethernet adapter (Realtek RTL8152/8153/8156 and branded ones) as the TV's wired connection after every restart; a page makes a report to widen support | `exec` | andrearicci93 |
 | [`vpn`](plugins/vpn) | WireGuard VPN on the TV: NordVPN or your own configs (any provider or server); kill switch, split tunnel | `exec` | piecifra |

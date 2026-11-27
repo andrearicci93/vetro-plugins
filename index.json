@@ -157,6 +157,19 @@
       "size": 2885
     },
     {
+      "id": "tvstore-onboot",
+      "name": "TV-Store start at boot",
+      "version": "1.0.0",
+      "author": "PatrickSt1991",
+      "description": "Sets the start-at-boot flag of the TV-Store service again on firmware that drops it at install, so TV-Store can update apps while closed. No network use.",
+      "permissions": [
+        "exec"
+      ],
+      "url": "dist/tvstore-onboot-1.0.0.vplugin",
+      "sha256": "a4da3dccb9fc1d310f880ae5876cb4071a6783f3a6c9cb0b41d2d9053cd4850d",
+      "size": 9030
+    },
+    {
       "id": "usb-ethernet",
       "name": "USB Ethernet",
       "version": "1.1.0",
