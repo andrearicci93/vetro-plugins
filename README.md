@@ -19,6 +19,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 | [`ssh-server`](plugins/ssh-server) | A real SSH-2 server in pure JS (no binary): `ssh` as a root line-shell, one-shot commands as root, `scp`/`sftp` as the owner. Needs Node 10+ | `exec` | bertrandom |
 | [`tv-reboot`](plugins/tv-reboot) | A button that restarts the TV; refuses while Samsung Home is disabled | `exec` | genesai |
 | [`tv-uptime`](plugins/tv-uptime) | How long the TV has been on | `exec` | andrearicci93 |
+| [`twitch`](plugins/twitch) | Ad filtering, animated 7TV emotes, improved remote navigation, channel point bonuses and account switching in Samsung Twitch | `exec` | tomcraft |
 | [`usb-ethernet`](plugins/usb-ethernet) | A USB Ethernet adapter (Realtek RTL8152/8153/8156 and branded ones) as the TV's wired connection after every restart; a page makes a report to widen support | `exec` | andrearicci93 |
 | [`vpn`](plugins/vpn) | WireGuard VPN on the TV: NordVPN or your own configs (any provider or server); kill switch, split tunnel | `exec` | piecifra |
 | [`youtube`](plugins/youtube) | **Ad-free YouTube**: Samsung's own YouTube with ads blocked, Shorts hidden and sponsors skipped (TizenTube + SponsorBlock), nothing installed on the TV | `exec` | andrearicci93 |
@@ -26,7 +27,7 @@ dashboard shows under **Vetro Shards → Load plugin catalog**, the source of ev
 A Shard can also add **one card to the launcher's Control center** (`controlCenter` in the manifest, used by `home-assistant`; needs Vetro 0.7.0): a short list of rows
 that the remote switches with OK. See [Adding a card to the Control center](docs/writing-a-plugin.md#adding-a-card-to-the-control-center).
 
-A Shard can also take over the launcher tile of an app (`intercepts` in the manifest, used by `youtube`; needs Vetro 0.7.0): the dashboard says so on its card
+A Shard can also take over the launcher tile of an app (`intercepts` in the manifest, used by `youtube` and `twitch`; needs Vetro 0.7.0): the dashboard says so on its card
 and Vetro starts the app itself if the Shard cannot. See [Writing a Shard](docs/writing-a-plugin.md#taking-over-an-apps-launcher-tile).
 
 > **A Shard is code that runs inside Vetro on the TV, with the same access as Vetro, including running commands as

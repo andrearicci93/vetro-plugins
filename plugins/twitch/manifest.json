@@ -1,0 +1,15 @@
+{
+  "id": "twitch",
+  "name": "Twitch enhancements",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "description": "Ad filtering, 7TV emotes, remote navigation, channel point bonuses and account switching in Samsung Twitch.",
+  "author": "tomcraft",
+  "permissions": [
+    "exec"
+  ],
+  "intercepts": [{ "appId": "Jz7aUrV2Q4.Twitch", "label": "Twitch" }],
+  "ui": {
+    "label": "Twitch"
+  }
+}
