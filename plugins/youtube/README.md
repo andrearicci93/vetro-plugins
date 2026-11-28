@@ -42,7 +42,7 @@ app_launcher -s com.samsung.tv.cobalt-yt -u 5001 USERDATA ' --base_url=https://w
 - **The first four flags** are the ones Samsung's own YouTube tile passes. The proxy list ends in `direct://`: if the proxy is
   down, the app connects directly (unpatched) instead of failing.
 - **The proxy** runs inside Vetro (where: see *Where the proxy listens*). Every host is a plain tunnel except `www.youtube.com`, whose start page
-  gets one `<script>` tag. If the certificate or the script is missing, the proxy only tunnels: YouTube then runs unpatched
+  gets `/vetro-youtube/prelude.js` (to sanitize `fetch`/`XHR`/`JSON.parse` ad payloads on Tizen 9) and `/vetro-youtube/userscript.js`. If the certificate or the script is missing, the proxy only tunnels: YouTube then runs unpatched
   instead of breaking.
 - **The app's own requests to the TV.** While it runs, the app sends plain requests to `http://localhost:8080` (the TV's web
   server), for example to tell the TV which cast session it is. Through the proxy these would fail, and the phone would then
@@ -125,12 +125,13 @@ takes it out again. The rules:
 
 ## Commands it runs, all as root
 
+- Every root command is passed via `base64 -d | sh`; `launch` and `check` also use `base64`, `grep`, `awk`, `tr`, and `stat` to inspect `/proc/<pid>/cmdline` tokens and process start times on Tizen 6 and 9, and `usleep` (200 ms poll) while waiting for an existing YouTube instance to exit.
 - Open: `openssl` (make or renew the authority and the youtube.com certificate), `cp -R` of the YouTube app's content folder
-  (about 3 MB), `app_launcher -t` and `app_launcher -s` for `com.samsung.tv.cobalt-yt`.
+  (about 3 MB), `app_launcher -t` (and `-k` if it does not exit) and `app_launcher -s` for `com.samsung.tv.cobalt-yt`.
 - Close: `app_launcher -t com.samsung.tv.cobalt-yt`.
 - The Home tile switch: `sqlite3` on that database (read the one row, compare-and-swap update), then `chown` of the database back to its owner.
 - Remove certificate and files: puts the row back, closes YouTube and runs `rm -rf <DIR>`.
-- With **Samsung's YouTube button opens this** on, also without a button: the watch's `pgrep` check (see *After a boot*) and,
+- With **Samsung's YouTube button opens this** on, also without a button: the watch's `pgrep` and `vconftool` check (see *After a boot*) and,
   once a minute, a read of the row.
 
 Switching the plugin off stops the proxy but does not close a YouTube that is already open: connections already made keep

@@ -14,14 +14,29 @@ var COBALT_BIN = '/usr/apps/com.samsung.tv.cobalt/bin/cobalt_launcher';
 
 function fromBase64(text) { return Buffer.from && Buffer.from !== Uint8Array.from ? Buffer.from(text, 'base64') : new Buffer(text, 'base64'); }
 
+function decodeAul(b64) {
+    if (!b64) return '';
+    try { return fromBase64(b64).toString('binary').replace(/[^\x20-\x7e]/g, ' '); } catch (e) { return ''; }
+}
+
 // The same decision as setup.checkScript(), from one process's /proc/<pid>/cmdline: 'ok' (YouTube with our flags), 'relaunch'
-// (YouTube without them), or null (not Samsung's YouTube). The flags travel as one base64 text, the fourth field.
+// (YouTube without them), or null (not Samsung's YouTube). Scans all NUL-separated AUL tokens for USERDATA (falling back to
+// args[3] on older Tizen) and __AUL_APPID__ (for bare launches without USERDATA).
 function classify(cmdline) {
     var args = String(cmdline || '').split('\0');
-    if (args[0].indexOf(COBALT_BIN) !== 0 || !args[3]) return null;
-    var text;
-    try { text = fromBase64(args[3]).toString('binary').replace(/[^\x20-\x7e]/g, ' '); } catch (e) { return null; }
-    if (text.indexOf('dial_name=YouTube') < 0) return null;
+    if (args[0].indexOf(COBALT_BIN) !== 0) return null;
+    var ud = null, appId = null;
+    for (var i = 1; i < args.length - 1; i++) {
+        if (args[i] === 'USERDATA' && ud === null) ud = args[i + 1];
+        else if (args[i] === '__AUL_APPID__' && appId === null) appId = args[i + 1];
+    }
+    var text = decodeAul(ud || args[3]);
+    var isYt = (' ' + text + ' ').indexOf('dial_name=YouTube ') >= 0;
+    if (!isYt && appId) {
+        var idText = decodeAul(appId);
+        if (/(?:^| )com\.samsung\.tv\.cobalt-yt(?: |$)/.test(idText)) isYt = true;
+    }
+    if (!isYt) return null;
     return text.indexOf('share/vyt') >= 0 ? 'ok' : 'relaunch';
 }
 
